@@ -13,32 +13,32 @@ export default class FragmentData {
   /**
    * Vertex buffer for the non-cut mesh faces
    */
-  public vertices: MeshVertex[];
+  vertices: MeshVertex[];
 
   /**
    * Vertex buffer for the cut mesh faces
    */
-  public cutVertices: MeshVertex[];
+  cutVertices: MeshVertex[];
 
   /**
    * Index buffer for each submesh
    */
-  public triangles: number[][];
+  triangles: number[][];
 
   /**
    * List of edges constraints for the cut-face triangulation
    */
-  public constraints: EdgeConstraint[];
+  constraints: EdgeConstraint[];
 
   /**
    * Map between vertex indices in the source mesh and new indices for the sliced mesh
    */
-  public indexMap: number[];
+  indexMap: number[];
 
   /**
    * The bounds of the vertex data (must manually call UpdateBounds() to update)
    */
-  public bounds: Box3;
+  bounds: Box3;
 
   constructor() {
     this.vertices = [];
@@ -46,12 +46,13 @@ export default class FragmentData {
     this.triangles = [[], []];
     this.constraints = [];
     this.indexMap = [];
+    this.bounds = new Box3();
   }
 
   static fromGeometry(geometry: BufferGeometry): FragmentData {
     var positions = geometry.attributes.position.array as Float32Array;
     var normals = geometry.attributes.normal.array as Float32Array;
-    var uv = geometry.attributes.uv.array as Float32Array;
+    var uvs = geometry.attributes.uv.array as Float32Array;
 
     const data = new FragmentData();
     data.vertices = [];
@@ -59,27 +60,25 @@ export default class FragmentData {
     data.constraints = [];
     data.indexMap = [];
 
-    // Add mesh vertices
+    let posIdx = 0;
+    let normIdx = 0;
+    let uvIdx = 0;
     for (let i = 0; i < positions.length; i++) {
-      data.vertices.push(
-        new MeshVertex(
-          new Vector3(positions[i], positions[i + 1], positions[i + 2]),
-          new Vector3(normals[i], normals[i + 1], normals[i + 2]),
-          new Vector2(uv[i], uv[i + 1])
-        )
-      );
+      const position = new Vector3(positions[posIdx++], positions[posIdx++], positions[posIdx++]);
+      const normal = new Vector3(normals[normIdx++], normals[normIdx++], normals[normIdx++]);
+      const uv = new Vector2(uvs[uvIdx++], uvs[uvIdx++]);
+      data.vertices.push(new MeshVertex(position, normal, uv));
     }
 
-    // Only meshes with one group are currently supported
-    data.triangles = [[], []];
-
-    data.triangles[0] = geometry.attributes.index.array.
-
-    if (mesh.subMeshCount >= 2) {
-      data.triangles[1] = new List<int>(mesh.GetTriangles(1));
-    }
+    data.triangles = [];
+    geometry.groups.forEach((group) => {
+      const groupTriangles = geometry.index?.array.slice(group.start, group.start + group.count) as Uint32Array;
+      data.triangles.push(Array.from(groupTriangles));
+    })
 
     data.calculateBounds();
+
+    return data;
   }
 
   /**

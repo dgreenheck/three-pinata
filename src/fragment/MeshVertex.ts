@@ -8,7 +8,7 @@ export default class MeshVertex {
   normal: Vector3;
   uv: Vector2;
 
-  constructor(position: Vector3, normal: Vector3 = new Vector3(), uv: Vector2 = new Vector2()) {
+  constructor(position: Vector3 = new Vector3(), normal: Vector3 = new Vector3(), uv: Vector2 = new Vector2()) {
     this.position = position;
     this.normal = normal;
     this.uv = uv;
