@@ -89,7 +89,7 @@ export default class FragmentData {
   }
 
   /**
-   * Gets the total number of vertices in the mesh
+   * Gets the total number of vertices in the geometry
    */
   get vertexCount(): number {
     return this.vertices.length + this.cutVertices.length;
