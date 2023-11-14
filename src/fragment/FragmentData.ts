@@ -3,13 +3,13 @@ import MeshVertex from './MeshVertex';
 import EdgeConstraint from './EdgeConstraint';
 
 // The enum can be directly translated
-enum SlicedMeshSubmesh {
+export enum SlicedMeshSubmesh {
   Default = 0,
   CutFace = 1,
 }
 
 // The class definition is translated into TypeScript
-export default class FragmentData {
+export class FragmentData {
   /**
    * Vertex buffer for the non-cut mesh faces
    */
@@ -100,14 +100,11 @@ export default class FragmentData {
    * @param position The vertex position
    * @param normal The vertex normal
    * @param uv The vertex UV coordinates
-   * @returns Returns the index of the vertex in the cutVertices array
    */
-  addCutFaceVertex(position: Vector3, normal: Vector3, uv: Vector2): number {
+  addCutFaceVertex(position: Vector3, normal: Vector3, uv: Vector2): void {
     const vertex = new MeshVertex(position, normal, uv);
     this.vertices.push(vertex);
     this.cutVertices.push(vertex);
-    // The return type is void in the original C# but asks for index, adjust accordingly if needed.
-    return this.cutVertices.length - 1;
   }
 
   /**

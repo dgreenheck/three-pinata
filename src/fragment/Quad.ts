@@ -1,4 +1,3 @@
-/// 
 /**
  * Data structure that holds triangulation adjacency data for a quad
  */

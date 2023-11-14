@@ -110,3 +110,14 @@ export function isPointOnRightSideOfLine(p: Vector2, i: Vector2, j: Vector2): bo
 function pointsEqual(p1: Vector2 | Vector3, p2: Vector2 | Vector3): boolean {
   return p1.x === p2.x && p1.y === p2.y && ('z' in p1 && 'z' in p2 ? p1.z === p2.z : true);
 }
+
+/**
+ * Returns true if the point is either on or above the plane. "Above" is the side of the place in the direction of the normal.
+ * @param p The test point
+ * @param n The plane normal
+ * @param o The plane origin
+ * @returns 
+ */
+export function isPointAbovePlane(p: Vector3, n: Vector3, o: Vector3): boolean {
+    return (n.x * (p.x - o.x) + n.y * (p.y - o.y) + n.z * (p.z - o.z)) >= 0;
+}
