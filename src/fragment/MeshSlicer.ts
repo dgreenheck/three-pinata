@@ -3,6 +3,7 @@ import { FragmentData, SlicedMeshSubmesh } from './FragmentData';
 import { isPointAbovePlane, linePlaneIntersection } from '../utils/MathUtils';
 import MeshVertex from './MeshVertex';
 import EdgeConstraint from './EdgeConstraint';
+import ConstrainedTriangulator from '../ triangulators/ConstrainedTriangulator';
 
 /**
  * Slices the mesh by the plane specified by `sliceNormal` and `sliceOrigin`
@@ -84,18 +85,17 @@ function fillCutFaces(
 
   // Triangulate the cut face
   var triangulator = new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
-  const triangles: number[] = triangulator.Triangulate();
+  const triangles: number[] = triangulator.triangulate();
 
   // Update normal and UV for the cut face vertices
-  for (int i = 0; i < topSlice.cutVertices.length; i++)
-  {
+  for (let i = 0; i < topSlice.cutVertices.length; i++) {
     var vertex = topSlice.cutVertices[i];
     var point = triangulator.points[i];
 
-            // UV coordinates are based off of the 2D coordinates used for triangulation
-            // During triangulation, coordinates are normalized to [0,1], so need to multiply
-            // by normalization scale factor to get back to the appropritate scale
-            Vector2 uv = new Vector2(
+    // UV coordinates are based off of the 2D coordinates used for triangulation
+    // During triangulation, coordinates are normalized to [0,1], so need to multiply
+    // by normalization scale factor to get back to the appropritate scale
+    const uv = new Vector2(
       (triangulator.normalizationScaleFactor * point.coords.x) * textureScale.x + textureOffset.x,
       (triangulator.normalizationScaleFactor * point.coords.y) * textureScale.y + textureOffset.y);
 
@@ -105,7 +105,7 @@ function fillCutFaces(
     topVertex.uv = uv;
 
     var bottomVertex = vertex;
-    bottomVertex.normal = -sliceNormal;
+    bottomVertex.normal = sliceNormal.negate();
     bottomVertex.uv = uv;
 
     topSlice.cutVertices[i] = topVertex;
@@ -113,9 +113,9 @@ function fillCutFaces(
   }
 
         // push the new triangles to the top/bottom slices
-        int offsetTop = topSlice.vertices.length;
-        int offsetBottom = bottomSlice.vertices.length;
-  for (int i = 0; i < triangles.Length; i += 3)
+  let offsetTop = topSlice.vertices.length;
+  let offsetBottom = bottomSlice.vertices.length;
+  for (let i = 0; i < triangles.length; i += 3)
   {
     topSlice.addTriangle(
       offsetTop + triangles[i],
