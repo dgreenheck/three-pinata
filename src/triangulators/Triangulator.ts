@@ -25,7 +25,7 @@ const OUT_OF_BOUNDS = -1;
 /**
  * Logic for triangulating a set of 3D points. Only supports convex polygons.
  */
-export default class Triangulator {
+export class Triangulator {
   /**
    * Number of points to be triangulated (excluding super triangle vertices)
    */

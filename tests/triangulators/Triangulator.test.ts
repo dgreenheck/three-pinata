@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import Triangulator from '../../src/ triangulators/Triangulator';
+import { Triangulator } from '../../src/triangulators/Triangulator';
 import MeshVertex from '../../src/fragment/MeshVertex';
 
 function getAdjacentVertex(i: number, n: number): number {

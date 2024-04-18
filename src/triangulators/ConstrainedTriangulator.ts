@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import EdgeConstraint from '../fragment/EdgeConstraint';
 import MeshVertex from '../fragment/MeshVertex';
-import Triangulator from './Triangulator';
+import { Triangulator } from './Triangulator';
 import { linesIntersect } from '../utils/MathUtils';
 import Quad from '../fragment/Quad';
 
@@ -22,7 +22,7 @@ const OUT_OF_BOUNDS = -1;
  * Triangulates a set of 3D points with edge constraints.
  * Supports convex and non-convex polygons as well as polygons with holes.
  */
-export default class ConstrainedTriangulator extends Triangulator {
+export class ConstrainedTriangulator extends Triangulator {
 
   /**
    * Given an edge E12, E23, E31, this returns the first vertex for that edge (V1, V2, V3, respectively)

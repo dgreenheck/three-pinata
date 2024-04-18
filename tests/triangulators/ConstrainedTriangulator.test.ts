@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import ConstrainedTriangulator from '../../src/ triangulators/ConstrainedTriangulator';
+import { ConstrainedTriangulator } from '../../src/triangulators/ConstrainedTriangulator';
 import MeshVertex from '../../src/fragment/MeshVertex';
 
 // Helper function for getting an adjacent vertex, translated to TypeScript

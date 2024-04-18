@@ -1,51 +1,51 @@
 import { Vector2, Vector3 } from 'three';
-import { FragmentData, SlicedMeshSubmesh } from './FragmentData';
+import { Fragment, SlicedMeshSubmesh } from './Fragment';
 import { isPointAbovePlane, linePlaneIntersection } from '../utils/MathUtils';
 import MeshVertex from './MeshVertex';
 import EdgeConstraint from './EdgeConstraint';
-import ConstrainedTriangulator from '../ triangulators/ConstrainedTriangulator';
+import { ConstrainedTriangulator } from '../triangulators/ConstrainedTriangulator';
 
 /**
  * Slices the mesh by the plane specified by `sliceNormal` and `sliceOrigin`
     /// The sliced mesh data is return via out parameters.
- * @param meshData 
+ * @param fragment 
  * @param sliceNormal he normal of the slice plane (points towards the top slice)
  * @param sliceOrigin The origin of the slice plane
  * @param textureScale Scale factor to apply to UV coordinates
  * @param textureOffset Offset to apply to UV coordinates
  * @returns An object containing the fragments above and below the slice plane
  */
-export default function slice(
-  meshData: FragmentData,
+export function slice(
+  fragment: Fragment,
   sliceNormal: Vector3,
   sliceOrigin: Vector3,
   textureScale: Vector2,
   textureOffset: Vector2,
-): { topSlice: FragmentData, bottomSlice: FragmentData } {
-  const topSlice = new FragmentData();
-  const bottomSlice = new FragmentData();
+): { topSlice: Fragment, bottomSlice: Fragment } {
+  const topSlice = new Fragment();
+  const bottomSlice = new Fragment();
 
   // Keep track of what side of the cutting plane each vertex is on
-  const side: Array<boolean> = new Array<boolean>(meshData.vertexCount).fill(false);
+  const side: Array<boolean> = new Array<boolean>(fragment.vertexCount).fill(false);
 
   // Go through and identify which vertices are above/below the split plane
-  for (let i = 0; i < meshData.vertices.length; i++) {
-    var vertex = meshData.vertices[i];
+  for (let i = 0; i < fragment.vertices.length; i++) {
+    var vertex = fragment.vertices[i];
     side[i] = isPointAbovePlane(vertex.position, sliceNormal, sliceOrigin);
     var slice = side[i] ? topSlice : bottomSlice;
     slice.addMappedVertex(vertex, i);
   }
 
-  const offset = meshData.vertices.length;
-  for (let i = 0; i < meshData.cutVertices.length; i++) {
-    var vertex = meshData.cutVertices[i];
+  const offset = fragment.vertices.length;
+  for (let i = 0; i < fragment.cutVertices.length; i++) {
+    var vertex = fragment.cutVertices[i];
     side[i + offset] = isPointAbovePlane(vertex.position, sliceNormal, sliceOrigin);
     var slice = side[i + offset] ? topSlice : bottomSlice;
     slice.addMappedVertex(vertex, i + offset);
   }
 
-  splitTriangles(meshData, topSlice, bottomSlice, sliceNormal, sliceOrigin, side, SlicedMeshSubmesh.Default);
-  splitTriangles(meshData, topSlice, bottomSlice, sliceNormal, sliceOrigin, side, SlicedMeshSubmesh.CutFace);
+  splitTriangles(fragment, topSlice, bottomSlice, sliceNormal, sliceOrigin, side, SlicedMeshSubmesh.Default);
+  splitTriangles(fragment, topSlice, bottomSlice, sliceNormal, sliceOrigin, side, SlicedMeshSubmesh.CutFace);
 
   // Fill in the cut plane for each mesh.
   // The slice normal points to the "above" mesh, so the face normal for the cut face
@@ -58,7 +58,7 @@ export default function slice(
 
 /**
  * Fills the cut faces for each sliced mesh. The `sliceNormal` is the normal for the plane and points
- * in the direction of `topMeshData`
+ * in the direction of `topfragment`
  * @param topSlice Fragment mesh data for slice above the slice plane
  * @param bottomSlice Fragment mesh data for slice above the slice plane
  * @param sliceNormal Normal of the slice plane (points towards the top slice)
@@ -67,8 +67,8 @@ export default function slice(
  * @returns 
  */
 function fillCutFaces(
-  topSlice: FragmentData,
-  bottomSlice: FragmentData,
+  topSlice: Fragment,
+  bottomSlice: Fragment,
   sliceNormal: Vector3,
   textureScale: Vector2,
   textureOffset: Vector2
@@ -133,7 +133,7 @@ function fillCutFaces(
 
 /**
  * Identifies triangles that are intersected by the slice plane and splits them in two
- * @param meshData 
+ * @param fragment 
  * @param topSlice Fragment mesh data for slice above the slice plane
  * @param bottomSlice Fragment mesh data for slice above the slice plane
  * @param sliceNormal The normal of the slice plane (points towards the top slice)
@@ -142,15 +142,15 @@ function fillCutFaces(
  * @param subMesh Index of the sub mesh
  */
 function splitTriangles(
-  meshData: FragmentData,
-  topSlice: FragmentData,
-  bottomSlice: FragmentData,
+  fragment: Fragment,
+  topSlice: Fragment,
+  bottomSlice: Fragment,
   sliceNormal: Vector3,
   sliceOrigin: Vector3,
   side: boolean[],
   subMesh: SlicedMeshSubmesh
 ): void {
-  const triangles: number[] = meshData.getTriangles(subMesh.valueOf());
+  const triangles: number[] = fragment.getTriangles(subMesh.valueOf());
 
   // Keep track of vertices that lie on the intersection plane
   let a: number;
@@ -174,23 +174,23 @@ function splitTriangles(
     else {
       // In these cases, two vertices of the triangle are above the cut plane and one vertex is below
       if (side[b] && side[c] && !side[a]) {
-        splitTriangle(b, c, a, sliceNormal, sliceOrigin, meshData, topSlice, bottomSlice, subMesh, true);
+        splitTriangle(b, c, a, sliceNormal, sliceOrigin, fragment, topSlice, bottomSlice, subMesh, true);
       }
       else if (side[c] && side[a] && !side[b]) {
-        splitTriangle(c, a, b, sliceNormal, sliceOrigin, meshData, topSlice, bottomSlice, subMesh, true);
+        splitTriangle(c, a, b, sliceNormal, sliceOrigin, fragment, topSlice, bottomSlice, subMesh, true);
       }
       else if (side[a] && side[b] && !side[c]) {
-        splitTriangle(a, b, c, sliceNormal, sliceOrigin, meshData, topSlice, bottomSlice, subMesh, true);
+        splitTriangle(a, b, c, sliceNormal, sliceOrigin, fragment, topSlice, bottomSlice, subMesh, true);
       }
       // In these cases, two vertices of the triangle are below the cut plane and one vertex is above
       else if (!side[b] && !side[c] && side[a]) {
-        splitTriangle(b, c, a, sliceNormal, sliceOrigin, meshData, topSlice, bottomSlice, subMesh, false);
+        splitTriangle(b, c, a, sliceNormal, sliceOrigin, fragment, topSlice, bottomSlice, subMesh, false);
       }
       else if (!side[c] && !side[a] && side[b]) {
-        splitTriangle(c, a, b, sliceNormal, sliceOrigin, meshData, topSlice, bottomSlice, subMesh, false);
+        splitTriangle(c, a, b, sliceNormal, sliceOrigin, fragment, topSlice, bottomSlice, subMesh, false);
       }
       else if (!side[a] && !side[b] && side[c]) {
-        splitTriangle(a, b, c, sliceNormal, sliceOrigin, meshData, topSlice, bottomSlice, subMesh, false);
+        splitTriangle(a, b, c, sliceNormal, sliceOrigin, fragment, topSlice, bottomSlice, subMesh, false);
       }
     }
   }
@@ -203,7 +203,7 @@ function splitTriangles(
  * @param v3_idx Index of third vertex in triangle
  * @param sliceNormal The normal of the slice plane (points towards the top slice)
  * @param sliceOrigin The origin of the slice plane
- * @param meshData Original mesh data
+ * @param fragment Original mesh data
  * @param topSlice Mesh data for top slice
  * @param bottomSlice Mesh data for bottom slice
  * @param subMesh Index of the submesh that the triangle belongs to
@@ -215,9 +215,9 @@ function splitTriangle(
   v3_idx: number,
   sliceNormal: Vector3,
   sliceOrigin: Vector3,
-  meshData: FragmentData,
-  topSlice: FragmentData,
-  bottomSlice: FragmentData,
+  fragment: Fragment,
+  topSlice: Fragment,
+  bottomSlice: Fragment,
   subMesh: SlicedMeshSubmesh,
   v3BelowCutPlane: boolean
 ): void {
@@ -250,9 +250,9 @@ function splitTriangle(
   //      v2 *___________* v1    triangle normal out of screen
   //                 
 
-  let v1: MeshVertex = v1_idx < meshData.vertices.length ? meshData.vertices[v1_idx] : meshData.cutVertices[v1_idx - meshData.vertices.length];
-  let v2: MeshVertex = v2_idx < meshData.vertices.length ? meshData.vertices[v2_idx] : meshData.cutVertices[v2_idx - meshData.vertices.length];
-  let v3: MeshVertex = v3_idx < meshData.vertices.length ? meshData.vertices[v3_idx] : meshData.cutVertices[v3_idx - meshData.vertices.length];
+  let v1: MeshVertex = v1_idx < fragment.vertices.length ? fragment.vertices[v1_idx] : fragment.cutVertices[v1_idx - fragment.vertices.length];
+  let v2: MeshVertex = v2_idx < fragment.vertices.length ? fragment.vertices[v2_idx] : fragment.cutVertices[v2_idx - fragment.vertices.length];
+  let v3: MeshVertex = v3_idx < fragment.vertices.length ? fragment.vertices[v3_idx] : fragment.cutVertices[v3_idx - fragment.vertices.length];
 
   const v13 = linePlaneIntersection(v1.position, v3.position, sliceNormal, sliceOrigin);
   const v23 = linePlaneIntersection(v2.position, v3.position, sliceNormal, sliceOrigin);

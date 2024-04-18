@@ -1,4 +1,4 @@
-import { Box3, Vector2, Vector3, BufferGeometry } from 'three';
+import { Box3, Vector2, Vector3, BufferGeometry, BufferAttribute } from 'three';
 import MeshVertex from './MeshVertex';
 import EdgeConstraint from './EdgeConstraint';
 
@@ -9,7 +9,7 @@ export enum SlicedMeshSubmesh {
 }
 
 // The class definition is translated into TypeScript
-export class FragmentData {
+export class Fragment {
   /**
    * Vertex buffer for the non-cut mesh faces
    */
@@ -49,12 +49,12 @@ export class FragmentData {
     this.bounds = new Box3();
   }
 
-  static fromGeometry(geometry: BufferGeometry): FragmentData {
+  static fromGeometry(geometry: BufferGeometry): Fragment {
     var positions = geometry.attributes.position.array as Float32Array;
     var normals = geometry.attributes.normal.array as Float32Array;
     var uvs = geometry.attributes.uv.array as Float32Array;
 
-    const data = new FragmentData();
+    const data = new Fragment();
     data.vertices = [];
     data.cutVertices = [];
     data.constraints = [];
@@ -223,9 +223,32 @@ export class FragmentData {
     this.bounds = new Box3(min, max);
   }
 
-  toMesh(): BufferGeometry {
+  /**
+   * Converts this to a BufferGeometry object
+   */
+  toGeometry(): BufferGeometry {
     const geometry = new BufferGeometry();
 
+    const positions = new Float32Array(this.vertices.flatMap(vertex => [vertex.position.x, vertex.position.y, vertex.position.z]));
+    const normals = new Float32Array(this.vertices.flatMap(vertex => [vertex.normal.x, vertex.normal.y, vertex.normal.z]));
+    const uvs = new Float32Array(this.vertices.flatMap(vertex => [vertex.uv.x, vertex.uv.y]));
+
+    geometry.setAttribute('position', new BufferAttribute(positions, 3));
+    geometry.setAttribute('normal', new BufferAttribute(normals, 3));
+    geometry.setAttribute('uv', new BufferAttribute(uvs, 2));
+    geometry.setIndex(new BufferAttribute(new Int16Array(this.triangles.flat()), 1));
+
     return geometry;
+  }
+
+  clone(): Fragment {
+    const clone = new Fragment();
+    clone.bounds = this.bounds.clone();
+    clone.constraints = [...clone.constraints];
+    clone.cutVertices = [...clone.cutVertices];
+    clone.indexMap = [...clone.indexMap];
+    clone.triangles = [...clone.triangles];
+    clone.vertices = [...clone.vertices];
+    return clone;
   }
 }
