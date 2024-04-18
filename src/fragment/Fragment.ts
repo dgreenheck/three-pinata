@@ -70,12 +70,7 @@ export class Fragment {
       data.vertices.push(new MeshVertex(position, normal, uv));
     }
 
-    data.triangles = [];
-    geometry.groups.forEach((group) => {
-      const groupTriangles = geometry.index?.array.slice(group.start, group.start + group.count) as Uint32Array;
-      data.triangles.push(Array.from(groupTriangles));
-    })
-
+    data.triangles = [Array.from(geometry.index?.array as Uint32Array), []];
     data.calculateBounds();
 
     return data;
@@ -188,10 +183,6 @@ export class Fragment {
     this.cutVertices = [...weldedVerts];
   }
 
-  getTriangles(subMeshIndex: number): number[] {
-    return this.triangles[subMeshIndex];
-  }
-
   /**
    * Calculates the bounds of the mesh data
    */
@@ -202,12 +193,7 @@ export class Fragment {
       this.vertices[0].position.y,
       this.vertices[0].position.z
     );
-
-    let max = new Vector3(
-      this.vertices[0].position.x,
-      this.vertices[0].position.y,
-      this.vertices[0].position.z
-    );
+    let max = min.clone();
 
     // Iterate over the vertices to find the min and max x, y, and z
     this.vertices.forEach(vertex => {
@@ -236,7 +222,7 @@ export class Fragment {
     geometry.setAttribute('position', new BufferAttribute(positions, 3));
     geometry.setAttribute('normal', new BufferAttribute(normals, 3));
     geometry.setAttribute('uv', new BufferAttribute(uvs, 2));
-    geometry.setIndex(new BufferAttribute(new Int16Array(this.triangles.flat()), 1));
+    geometry.setIndex(new BufferAttribute(new Uint32Array(this.triangles.flat()), 1));
 
     return geometry;
   }

@@ -74,7 +74,7 @@ export class Triangulator {
 
     if (this.N >= 3) {
       this.triangleCount = 2 * this.N + 1;
-      this.triangulation = Array.from({ length: this.triangleCount }, () => Array(6).fill(0));
+      this.triangulation = Array.from({ length: this.triangleCount }, () => new Array(6).fill(0));
       this.skipTriangle = new Array<boolean>(this.triangleCount).fill(false);
       this.points = new Array<TriangulationPoint>(this.N + 3); // Extra 3 points used to store super triangle
       this.normal = normal;

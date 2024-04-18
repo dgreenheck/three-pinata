@@ -8,14 +8,10 @@ import { slice } from './MeshSlicer';
  * @param mesh The source mesh to fracture
  * @param options Options for fracturing
  */
-export async function fracture(mesh: Mesh, options: FractureOptions) {
-  // Define our source mesh data for the fracturing
-  const sourceFragment = Fragment.fromGeometry(mesh.geometry)
-
+export function fracture(mesh: Mesh, options: FractureOptions): Mesh[] {
   // We begin by fragmenting the source mesh, then process each fragment in a FIFO queue
   // until we achieve the target fragment count.
-  var fragments: Fragment[] = [];
-  fragments.push(sourceFragment);
+  let fragments = [Fragment.fromGeometry(mesh.geometry)];
 
   // Subdivide the mesh into multiple fragments until we reach the fragment limit
   while (fragments.length < options.fragmentCount) {
@@ -41,9 +37,15 @@ export async function fracture(mesh: Mesh, options: FractureOptions) {
     fragments.push(bottomSlice);
   }
 
+  const meshes = [];
   for (let i = 0; i < fragments.length; i++) {
-    createMesh(fragments[i], mesh, i);
+    const fragmentMesh = createMesh(fragments[i], mesh, i);
+    if (fragmentMesh) {
+      meshes.push(fragmentMesh);
+    }
   }
+
+  return meshes;
 }
 
 /**
@@ -82,5 +84,5 @@ function createMesh(fragment: Fragment, parent: Mesh, i: number) {
   rigidBody.mass = (size.x * size.y * size.z) / density;
   */
 
-  parent.add(mesh);
+  return mesh;
 }

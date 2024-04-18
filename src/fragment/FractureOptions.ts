@@ -27,11 +27,6 @@ export class FractureOptions {
   public detectFloatingFragments: boolean;
 
   /**
-   * Fracturing is performed asynchronously on the main thread.
-   */
-  public asynchronous: boolean;
-
-  /**
    * The material to use for the inside faces
    */
   public insideMaterial: Material | undefined;
@@ -52,7 +47,6 @@ export class FractureOptions {
       this.yAxis = true;
       this.zAxis = true;
       this.detectFloatingFragments = false;
-      this.asynchronous = false;
       this.insideMaterial = undefined;
       this.textureScale = new Vector2(1, 1);
       this.textureOffset = new Vector2();

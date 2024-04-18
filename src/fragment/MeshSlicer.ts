@@ -4,6 +4,7 @@ import { isPointAbovePlane, linePlaneIntersection } from '../utils/MathUtils';
 import MeshVertex from './MeshVertex';
 import EdgeConstraint from './EdgeConstraint';
 import { ConstrainedTriangulator } from '../triangulators/ConstrainedTriangulator';
+import { Triangulator } from '../triangulators/Triangulator';
 
 /**
  * Slices the mesh by the plane specified by `sliceNormal` and `sliceOrigin`
@@ -84,7 +85,7 @@ function fillCutFaces(
   if (topSlice.cutVertices.length < 3) return;
 
   // Triangulate the cut face
-  var triangulator = new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
+  var triangulator = new Triangulator(topSlice.cutVertices, sliceNormal);
   const triangles: number[] = triangulator.triangulate();
 
   // Update normal and UV for the cut face vertices
@@ -150,7 +151,11 @@ function splitTriangles(
   side: boolean[],
   subMesh: SlicedMeshSubmesh
 ): void {
-  const triangles: number[] = fragment.getTriangles(subMesh.valueOf());
+  const triangles: number[] = fragment.triangles[subMesh];
+
+  if (!triangles) {
+    console.log('hey');
+  }
 
   // Keep track of vertices that lie on the intersection plane
   let a: number;
