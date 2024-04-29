@@ -187,10 +187,8 @@ export class Fragment {
       edge.v2 = indexMap[edge.v2];
     }
 
-    console.log(`Before Weld: ${this.cutVertices.length}`);
     // Update the cut vertices
     this.cutVertices = [...weldedVerts];
-    console.log(`After Weld: ${this.cutVertices.length}`);
   }
 
   /**
@@ -198,11 +196,7 @@ export class Fragment {
    */
   calculateBounds() {
     // Initialize min and max vectors with the first vertex in the array
-    let min = new Vector3(
-      this.vertices[0].position.x,
-      this.vertices[0].position.y,
-      this.vertices[0].position.z
-    );
+    let min = this.vertices[0].position.clone();
     let max = min.clone();
 
     // Iterate over the vertices to find the min and max x, y, and z

@@ -1,5 +1,7 @@
 import { Vector2, Vector3 } from 'three';
 
+const ZERO_VECTOR = new Vector3();
+
 /**
  * Returns true if the quad specified by the two diagonals a1->a2 and b1->b2 is convex
  * Quad is convex if a1->a2 and b1->b2 intersect each other
@@ -38,14 +40,24 @@ function linesIntersectInternal(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vecto
   let a12 = { x: a2.x - a1.x, y: a2.y - a1.y };
   let b12 = { x: b2.x - b1.x, y: b2.y - b1.y };
 
-  if (pointsEqual(a1, b1) || pointsEqual(a1, b2) || pointsEqual(a2, b1) || pointsEqual(a2, b2)) {
+  // If any of the vertices are shared between the two diagonals,
+  // the quad collapses into a triangle and is convex by default.    
+  if (pointsEqual(a1, b1) || 
+      pointsEqual(a1, b2) || 
+      pointsEqual(a2, b1) || 
+      pointsEqual(a2, b2)) {
     return includeSharedEndpoints;
   } else {
+    // Compute cross product between each point and the opposite diagonal
+    // Look at sign of the Z component to see which side of line point is on
     let a1xb = (a1.x - b1.x) * b12.y - (a1.y - b1.y) * b12.x;
     let a2xb = (a2.x - b1.x) * b12.y - (a2.y - b1.y) * b12.x;
     let b1xa = (b1.x - a1.x) * a12.y - (b1.y - a1.y) * a12.x;
     let b2xa = (b2.x - a1.x) * a12.y - (b2.y - a1.y) * a12.x;
 
+    // Check that the points for each diagonal lie on opposite sides of the other
+    // diagonal. Quad is also convex if a1/a2 lie on b1->b2 (and vice versa) since
+    // the shape collapses into a triangle (hence >= instead of >)
     return ((a1xb >= 0 && a2xb <= 0) || (a1xb <= 0 && a2xb >= 0)) &&
            ((b1xa >= 0 && b2xa <= 0) || (b1xa <= 0 && b2xa >= 0));
   }
@@ -71,7 +83,7 @@ export function linePlaneIntersection(
   let s = 0;
   let x = new Vector3();
 
-  if (pointsEqual(a, b) || pointsEqual(n, new Vector3())) {
+  if (pointsEqual(a, b) || pointsEqual(n, ZERO_VECTOR)) {
     return null;
   }
 
@@ -108,7 +120,14 @@ export function isPointOnRightSideOfLine(p: Vector2, i: Vector2, j: Vector2): bo
  * Compares if two points are equal.
  */
 function pointsEqual(p1: Vector2 | Vector3, p2: Vector2 | Vector3): boolean {
-  return p1.x === p2.x && p1.y === p2.y && ('z' in p1 && 'z' in p2 ? p1.z === p2.z : true);
+  if ('z' in p1 && 'z' in p2) {
+    return Math.abs(p1.x - p2.x) < 1E-9 && 
+           Math.abs(p1.y - p2.y) < 1E-9 &&
+           Math.abs(p1.z - p2.z) < 1E-9;
+  } else {
+    return Math.abs(p1.x - p2.x) < 1E-9 && 
+           Math.abs(p1.y - p2.y) < 1E-9;
+  }
 }
 
 /**
@@ -119,5 +138,5 @@ function pointsEqual(p1: Vector2 | Vector3, p2: Vector2 | Vector3): boolean {
  * @returns 
  */
 export function isPointAbovePlane(p: Vector3, n: Vector3, o: Vector3): boolean {
-    return n.dot(p.clone().sub(o)) >= 0;
+  return (n.x * (p.x - o.x) + n.y * (p.y - o.y) + n.z * (p.z - o.z)) >= 0;
 }

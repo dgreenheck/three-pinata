@@ -20,10 +20,13 @@ import('@dimforge/rapier3d').then(RAPIER => {
   // Orbit controls
   const controls = new OrbitControls(camera, renderer.domElement);
 
-  // Add a simple sphere
-  const geometry = new THREE.BoxGeometry();
-  const material = new THREE.MeshLambertMaterial({ color: 0xff0000 });
-  const box = new THREE.Mesh(geometry, material);
+  const box = new THREE.Mesh();
+  box.geometry = new THREE.CylinderGeometry();
+  box.material = [
+    new THREE.MeshLambertMaterial({ color: 0xff0000 }),
+    new THREE.MeshLambertMaterial({ color: 0x0000ff })
+  ]
+  box.geometry.addGroup(0, box.geometry.getAttribute('position').count * 3, 0);
   box.name = 'Box';
   box.position.set(0, 5, 0);
   box.rotation.set(Math.PI / 4, Math.PI / 4, 0);
@@ -100,7 +103,8 @@ import('@dimforge/rapier3d').then(RAPIER => {
             const verts = fragment.geometry.getAttribute('position').array as Float32Array;
 
             // Create colliders for each fragment
-            const fragmentColliderDesc = RAPIER.ColliderDesc.convexMesh(verts)!;
+            const fragmentColliderDesc = RAPIER.ColliderDesc.convexMesh(verts)!
+              .setRestitution(0);
             const fragmentBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
               .setTranslation(fragment.position.x, fragment.position.y, fragment.position.z)
               .setRotation(new THREE.Quaternion().setFromEuler(fragment.rotation)));

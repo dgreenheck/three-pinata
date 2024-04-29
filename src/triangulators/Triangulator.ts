@@ -81,8 +81,8 @@ export class Triangulator {
 
       // Choose two points in the plane as one basis vector
       let e1 = (inputPoints[0].position.clone().sub(inputPoints[1].position)).normalize();
-      let e2 = this.normal;
-      let e3 = e1.cross(e2).normalize();
+      let e2 = this.normal.clone();
+      let e3 = e1.clone().cross(e2).normalize();
       
       // To find the 2nd basis vector, find the largest component and swap with the smallest, negating the largest
 

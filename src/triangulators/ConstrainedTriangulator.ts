@@ -363,7 +363,7 @@ export class ConstrainedTriangulator extends Triangulator {
        const edge = newEdges[i];
 
         // If newly added edge is equal to constraint, we don't want to flip this edge so skip it
-        if (edge === constraint) {
+        if (edge.equals(constraint)) {
           continue;
         }
 

@@ -77,10 +77,6 @@ function createMesh(fragment: Fragment, parent: Mesh, i: number) {
   const mesh = parent.clone();
   mesh.geometry = fragment.toGeometry();
   mesh.name = `${parent.name}_${i}`;
-  mesh.material = [
-    new MeshLambertMaterial({ color: 0xff0000, wireframe: true }),
-    new MeshLambertMaterial({ color: 0x0000ff, wireframe: true })
-  ]
 
   /*
   var size = fragmentMesh.bounds.size;

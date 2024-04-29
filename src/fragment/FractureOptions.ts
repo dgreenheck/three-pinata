@@ -42,13 +42,13 @@ export class FractureOptions {
   public textureOffset: Vector2;
 
   constructor() {
-      this.fragmentCount = 2;
-      this.xAxis = true;
-      this.yAxis = true;
-      this.zAxis = true;
-      this.detectFloatingFragments = false;
-      this.insideMaterial = new MeshBasicMaterial({ color: 0x0000ff });
-      this.textureScale = new Vector2(1, 1);
-      this.textureOffset = new Vector2();
+    this.fragmentCount = 500;
+    this.xAxis = true;
+    this.yAxis = true;
+    this.zAxis = true;
+    this.detectFloatingFragments = false;
+    this.insideMaterial = new MeshBasicMaterial({ color: 0x0000ff });
+    this.textureScale = new Vector2(1, 1);
+    this.textureOffset = new Vector2();
   }
 }

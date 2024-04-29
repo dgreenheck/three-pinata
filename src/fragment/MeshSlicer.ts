@@ -52,7 +52,7 @@ export function slice(
   // The slice normal points to the "above" mesh, so the face normal for the cut face
   // on the above mesh is opposite of the slice normal. Conversely, normal for the
   // cut face on the "below" mesh is in the direction of the slice normal
-  fillCutFaces(topSlice, bottomSlice, sliceNormal.negate(), textureScale, textureOffset);
+  fillCutFaces(topSlice, bottomSlice, sliceNormal.clone().negate(), textureScale, textureOffset);
 
   return { topSlice, bottomSlice }
 }
@@ -85,11 +85,9 @@ function fillCutFaces(
   if (topSlice.cutVertices.length < 3) return;
 
   // Triangulate the cut face
-  //var triangulator = new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
+  //const triangulator = new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
   const triangulator = new Triangulator(topSlice.cutVertices, sliceNormal);
   const triangles: number[] = triangulator.triangulate();
-
-  console.log(sliceNormal.length());
 
   // Update normal and UV for the cut face vertices
   for (let i = 0; i < topSlice.cutVertices.length; i++) {
@@ -104,13 +102,17 @@ function fillCutFaces(
       (triangulator.normalizationScaleFactor * point.coords.y) * textureScale.y + textureOffset.y);
 
     // Update normals and UV coordinates for the cut vertices
-    var topVertex = vertex;
-    topVertex.normal = sliceNormal;
-    topVertex.uv = uv;
+    const topVertex = new MeshVertex(
+      vertex.position.clone(),
+      sliceNormal.clone(),
+      uv.clone()
+    );
 
-    var bottomVertex = vertex;
-    bottomVertex.normal = sliceNormal.negate();
-    bottomVertex.uv = uv;
+    const bottomVertex = new MeshVertex(
+      vertex.position.clone(),
+      sliceNormal.clone().negate(),
+      uv.clone()
+    );
 
     topSlice.cutVertices[i] = topVertex;
     bottomSlice.cutVertices[i] = bottomVertex;
@@ -254,17 +256,25 @@ function splitTriangle(
   //      v2 *___________* v1    triangle normal out of screen
   //                 
 
-  let v1: MeshVertex = v1_idx < fragment.vertices.length ? fragment.vertices[v1_idx] : fragment.cutVertices[v1_idx - fragment.vertices.length];
-  let v2: MeshVertex = v2_idx < fragment.vertices.length ? fragment.vertices[v2_idx] : fragment.cutVertices[v2_idx - fragment.vertices.length];
-  let v3: MeshVertex = v3_idx < fragment.vertices.length ? fragment.vertices[v3_idx] : fragment.cutVertices[v3_idx - fragment.vertices.length];
+  let v1: MeshVertex = v1_idx < fragment.vertices.length ? 
+    fragment.vertices[v1_idx] : 
+    fragment.cutVertices[v1_idx - fragment.vertices.length];
+
+  let v2: MeshVertex = v2_idx < fragment.vertices.length ? 
+    fragment.vertices[v2_idx] : 
+    fragment.cutVertices[v2_idx - fragment.vertices.length];
+
+  let v3: MeshVertex = v3_idx < fragment.vertices.length ? 
+    fragment.vertices[v3_idx] : 
+    fragment.cutVertices[v3_idx - fragment.vertices.length];
 
   const v13 = linePlaneIntersection(v1.position, v3.position, sliceNormal, sliceOrigin);
   const v23 = linePlaneIntersection(v2.position, v3.position, sliceNormal, sliceOrigin);
 
   if (v13 && v23) {
     // Interpolate normals and UV coordinates
-    let norm13 = v1.normal.clone().addScaledVector(v3.normal.clone().sub(v1.normal), v13.s);
-    let norm23 = v2.normal.clone().addScaledVector(v3.normal.clone().sub(v2.normal), v23.s);
+    let norm13 = v1.normal.clone().addScaledVector(v3.normal.clone().sub(v1.normal), v13.s).normalize();
+    let norm23 = v2.normal.clone().addScaledVector(v3.normal.clone().sub(v2.normal), v23.s).normalize();
     var uv13 = v1.uv.clone().addScaledVector(v3.uv.clone().sub(v1.uv), v13.s);
     var uv23 = v2.uv.clone().addScaledVector(v3.uv.clone().sub(v2.uv), v23.s);
 
