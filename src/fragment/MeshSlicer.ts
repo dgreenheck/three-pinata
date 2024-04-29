@@ -85,8 +85,11 @@ function fillCutFaces(
   if (topSlice.cutVertices.length < 3) return;
 
   // Triangulate the cut face
-  var triangulator = new Triangulator(topSlice.cutVertices, sliceNormal);
+  //var triangulator = new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
+  const triangulator = new Triangulator(topSlice.cutVertices, sliceNormal);
   const triangles: number[] = triangulator.triangulate();
+
+  console.log(sliceNormal.length());
 
   // Update normal and UV for the cut face vertices
   for (let i = 0; i < topSlice.cutVertices.length; i++) {
@@ -152,10 +155,6 @@ function splitTriangles(
   subMesh: SlicedMeshSubmesh
 ): void {
   const triangles: number[] = fragment.triangles[subMesh];
-
-  if (!triangles) {
-    console.log('hey');
-  }
 
   // Keep track of vertices that lie on the intersection plane
   let a: number;

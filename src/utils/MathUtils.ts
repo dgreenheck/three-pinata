@@ -47,7 +47,7 @@ function linesIntersectInternal(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vecto
     let b2xa = (b2.x - a1.x) * a12.y - (b2.y - a1.y) * a12.x;
 
     return ((a1xb >= 0 && a2xb <= 0) || (a1xb <= 0 && a2xb >= 0)) &&
-            ((b1xa >= 0 && b2xa <= 0) || (b1xa <= 0 && b2xa >= 0));
+           ((b1xa >= 0 && b2xa <= 0) || (b1xa <= 0 && b2xa >= 0));
   }
 }
 
@@ -119,5 +119,5 @@ function pointsEqual(p1: Vector2 | Vector3, p2: Vector2 | Vector3): boolean {
  * @returns 
  */
 export function isPointAbovePlane(p: Vector3, n: Vector3, o: Vector3): boolean {
-    return (n.x * (p.x - o.x) + n.y * (p.y - o.y) + n.z * (p.z - o.z)) >= 0;
+    return n.dot(p.clone().sub(o)) >= 0;
 }

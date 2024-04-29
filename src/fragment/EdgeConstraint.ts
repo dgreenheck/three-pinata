@@ -43,7 +43,7 @@ export default class EdgeConstraint {
    */
   equals(other: EdgeConstraint): boolean {
     return (this.v1 === other.v1 && this.v2 === other.v2) ||
-      (this.v1 === other.v2 && this.v2 === other.v1);
+           (this.v1 === other.v2 && this.v2 === other.v1);
   }
 
   /**

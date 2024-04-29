@@ -1,4 +1,4 @@
-import { Vector2, Material } from 'three';
+import { Vector2, Material, MeshBasicMaterial } from 'three';
 
 export class FractureOptions {
   /**
@@ -42,12 +42,12 @@ export class FractureOptions {
   public textureOffset: Vector2;
 
   constructor() {
-      this.fragmentCount = 10;
+      this.fragmentCount = 2;
       this.xAxis = true;
       this.yAxis = true;
       this.zAxis = true;
       this.detectFloatingFragments = false;
-      this.insideMaterial = undefined;
+      this.insideMaterial = new MeshBasicMaterial({ color: 0x0000ff });
       this.textureScale = new Vector2(1, 1);
       this.textureOffset = new Vector2();
   }

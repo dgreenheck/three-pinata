@@ -130,7 +130,7 @@ export class ConstrainedTriangulator extends Triangulator {
 
     // Loop through each edge constraint
     for (let constraint of this.constraints) {
-      if (constraint.v1 == constraint.v2) continue;
+      if (constraint.v1 === constraint.v2) continue;
 
       // We find the edges of the triangulation that intersect the constraint edge and remove them
       // For each intersecting edge, we identify the triangles that share that edge (which form a quad)
@@ -181,7 +181,6 @@ export class ConstrainedTriangulator extends Triangulator {
 
         // Otherwise, the constraint must intersect one edge of this triangle. Ignore the edge that we entered from
       } else if ((this.triangulation[t][E12] !== lastTriangle) && linesIntersect(v_i, v_j, v1, v2)) {
-
         edgeIndex = E12;
         var edge = new EdgeConstraint(this.triangulation[t][V1], this.triangulation[t][V2], t, this.triangulation[t][E12], edgeIndex);
         intersectingEdges.push(edge);
@@ -364,7 +363,7 @@ export class ConstrainedTriangulator extends Triangulator {
        const edge = newEdges[i];
 
         // If newly added edge is equal to constraint, we don't want to flip this edge so skip it
-        if (edge == constraint) {
+        if (edge === constraint) {
           continue;
         }
 
@@ -452,7 +451,7 @@ export class ConstrainedTriangulator extends Triangulator {
         while (frontier.length > 0) {
           const k = frontier.shift();
 
-          if (!k || k == OUT_OF_BOUNDS || this.visited[k]) {
+          if (!k || k === OUT_OF_BOUNDS || this.visited[k]) {
             continue;
           }
 
@@ -485,8 +484,12 @@ export class ConstrainedTriangulator extends Triangulator {
   /// <param name="constraint">The edge constraint</param>
   /// <returns>True if the triangle contains one or both of the endpoints of the constraint</returns>
   triangleContainsConstraint(t: number, constraint: EdgeConstraint): boolean {
-    return (this.triangulation[t][V1] == constraint.v1 || this.triangulation[t][V2] == constraint.v1 || this.triangulation[t][V3] == constraint.v1) &&
-      (this.triangulation[t][V1] == constraint.v2 || this.triangulation[t][V2] == constraint.v2 || this.triangulation[t][V3] == constraint.v2);
+    return (this.triangulation[t][V1] === constraint.v1 || 
+            this.triangulation[t][V2] === constraint.v1 || 
+            this.triangulation[t][V3] == constraint.v1) &&
+           (this.triangulation[t][V1] == constraint.v2 || 
+            this.triangulation[t][V2] == constraint.v2 || 
+            this.triangulation[t][V3] == constraint.v2);
   }
 
   /**
@@ -543,12 +546,12 @@ export class ConstrainedTriangulator extends Triangulator {
     let t2SharedEdge = this.findSharedEdge(t2, t1);
     if (t2SharedEdge) {
       // Get the top 3 vertices of the quad from t2
-      if (t2SharedEdge == E12) {
+      if (t2SharedEdge === E12) {
         q2 = this.triangulation[t2][V1];
         q1 = this.triangulation[t2][V2];
         q3 = this.triangulation[t2][V3];
       }
-      else if (t2SharedEdge == E23) {
+      else if (t2SharedEdge === E23) {
         q2 = this.triangulation[t2][V2];
         q1 = this.triangulation[t2][V3];
         q3 = this.triangulation[t2][V1];

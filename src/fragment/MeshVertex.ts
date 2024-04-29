@@ -15,9 +15,9 @@ export default class MeshVertex {
   }
 
   equals(other: MeshVertex): boolean {
-    return this.position.x === other.position.x &&
-      this.position.y === other.position.y &&
-      this.position.z === other.position.z;
+    return Math.abs(this.position.x - other.position.x) < 1E-9 &&
+           Math.abs(this.position.y - other.position.y) < 1E-9 &&
+           Math.abs(this.position.z - other.position.z) < 1E-9;
   }
 
   getHashCode(): number {

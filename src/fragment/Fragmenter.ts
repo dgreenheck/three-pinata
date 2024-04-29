@@ -1,4 +1,4 @@
-import { Mesh, Vector3 } from 'three';
+import { Mesh, MeshLambertMaterial, Vector3 } from 'three';
 import { FractureOptions } from './FractureOptions';
 import { Fragment } from './Fragment';
 import { slice } from './MeshSlicer';
@@ -25,7 +25,7 @@ export function fracture(mesh: Mesh, options: FractureOptions): Mesh[] {
       options.xAxis ? (2.0 * Math.random() - 1) : 0,
       options.yAxis ? (2.0 * Math.random() - 1) : 0,
       options.zAxis ? (2.0 * Math.random() - 1) : 0
-    );
+    ).normalize();
 
     const center = new Vector3();
     fragment.bounds.getCenter(center);
@@ -74,9 +74,13 @@ function createMesh(fragment: Fragment, parent: Mesh, i: number) {
   }
   */
 
-  const mesh = new Mesh();
+  const mesh = parent.clone();
   mesh.geometry = fragment.toGeometry();
   mesh.name = `${parent.name}_${i}`;
+  mesh.material = [
+    new MeshLambertMaterial({ color: 0xff0000, wireframe: true }),
+    new MeshLambertMaterial({ color: 0x0000ff, wireframe: true })
+  ]
 
   /*
   var size = fragmentMesh.bounds.size;

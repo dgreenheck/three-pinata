@@ -77,24 +77,19 @@ export class Triangulator {
       this.triangulation = Array.from({ length: this.triangleCount }, () => new Array(6).fill(0));
       this.skipTriangle = new Array<boolean>(this.triangleCount).fill(false);
       this.points = new Array<TriangulationPoint>(this.N + 3); // Extra 3 points used to store super triangle
-      this.normal = normal;
+      this.normal = normal.clone().normalize();
 
       // Choose two points in the plane as one basis vector
-      let e1 = (inputPoints[0].position.clone().sub(inputPoints[1].position));
-      let e2 = normal.clone();
-      let e3 = e1.clone();
-      e3.cross(e2);
+      let e1 = (inputPoints[0].position.clone().sub(inputPoints[1].position)).normalize();
+      let e2 = this.normal;
+      let e3 = e1.cross(e2).normalize();
       
-      e1.normalize();
-      e2.normalize();
-      e3.normalize();
-
       // To find the 2nd basis vector, find the largest component and swap with the smallest, negating the largest
 
       // Project 3D vertex onto the 2D plane
       for (let i = 0; i < this.N; i++) {
         var position = inputPoints[i].position;
-        var coords = new Vector2(position.clone().dot(e1), position.clone().dot(e3));
+        var coords = new Vector2(position.dot(e1), position.dot(e3));
         this.points[i] = new TriangulationPoint(i, coords);
       }
     } else {
@@ -212,7 +207,7 @@ export class Triangulator {
       let counter = 0;
       let pointInserted = false;
       while (!pointInserted) {
-        if (counter++ > tLast || tSearch == OUT_OF_BOUNDS) {
+        if (counter++ > tLast || tSearch === OUT_OF_BOUNDS) {
           break;
         }
 
@@ -415,7 +410,7 @@ export class Triangulator {
     // The 4th vertex of the quad will be opposite this edge. We also need the two triangles
     // t3 and t3 that are adjacent to t2 along the other edges since the adjacency information
     // needs to be updated for those triangles.
-    if (this.triangulation[t2][E12] == t1) {
+    if (this.triangulation[t2][E12] === t1) {
       q1 = this.triangulation[t2][V2];
       q2 = this.triangulation[t2][V1];
       q3 = this.triangulation[t2][V3];
@@ -423,7 +418,7 @@ export class Triangulator {
       t3 = this.triangulation[t2][E23];
       t4 = this.triangulation[t2][E31];
     }
-    else if (this.triangulation[t2][E23] == t1) {
+    else if (this.triangulation[t2][E23] === t1) {
       q1 = this.triangulation[t2][V3];
       q2 = this.triangulation[t2][V2];
       q3 = this.triangulation[t2][V1];
@@ -550,7 +545,7 @@ export class Triangulator {
    */
   updateAdjacency(t: number, tOld: number, tNew: number) {
     // Boundary edge, no triangle exists
-    if (t == OUT_OF_BOUNDS) {
+    if (t === OUT_OF_BOUNDS) {
       return;
     }
 
@@ -571,7 +566,7 @@ export class Triangulator {
    * `tAdjacent` is not adjacent to `tOrigin`.
    */
   findSharedEdge(tOrigin: number, tAdjacent: number): number | null {
-    if (tOrigin == OUT_OF_BOUNDS) {
+    if (tOrigin === OUT_OF_BOUNDS) {
       return null;
     } else if (this.triangulation[tOrigin][E12] === tAdjacent) {
       return E12;

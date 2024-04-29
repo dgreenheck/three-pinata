@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-
 import { fracture } from './fragment/Fragmenter';
 import { FractureOptions } from './fragment/FractureOptions';
+import { RigidBody } from '@dimforge/rapier3d';
 
 import('@dimforge/rapier3d').then(RAPIER => {
   // Create a Rapier physics world
-  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+  const world = new RAPIER.World({ x: 0, y: -2, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
 
   // Set up Three.js scene
@@ -21,7 +21,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
   const controls = new OrbitControls(camera, renderer.domElement);
 
   // Add a simple sphere
-  const geometry = new THREE.BoxGeometry(2, 2, 2);
+  const geometry = new THREE.BoxGeometry();
   const material = new THREE.MeshLambertMaterial({ color: 0xff0000 });
   const box = new THREE.Mesh(geometry, material);
   box.name = 'Box';
@@ -32,12 +32,15 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   // Create a ground plane
   const planeGeometry = new THREE.PlaneGeometry(20, 20);
-  const planeMaterial = new THREE.MeshLambertMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+  const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0, side: THREE.DoubleSide });
   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
   plane.rotation.x = -Math.PI / 2;
   plane.receiveShadow = true;
   scene.add(plane);
-  
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.2);
+  scene.add(ambient);
+
   const sun = new THREE.DirectionalLight();
   sun.position.set(10, 10, 10);
   sun.castShadow = true;
@@ -45,26 +48,29 @@ import('@dimforge/rapier3d').then(RAPIER => {
   sun.shadow.camera.right = 10;
   sun.shadow.camera.top = 10;
   sun.shadow.camera.bottom = -10;
-  
+
   scene.add(sun);
 
   // Position the camera
-  camera.position.set(0, 10, 20);
+  camera.position.set(0, 5, 10);
+
+  const objects: { mesh: THREE.Mesh, rigidBody: RigidBody }[] = [];
 
   // Add sphere to Rapier world
-  const sphereColliderDesc = RAPIER.ColliderDesc.cuboid(1, 1, 1)
-    .setRestitution(0.9)
+  const boxColliderDesc = RAPIER.ColliderDesc.cuboid(1, 1, 1)
     .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 
   const boxBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(box.position.x, box.position.y, box.position.z)
     .setRotation(new THREE.Quaternion().setFromEuler(box.rotation)));
 
-  world.createCollider(sphereColliderDesc, boxBody);
+  objects.push({ mesh: box, rigidBody: boxBody });
+
+  world.createCollider(boxColliderDesc, boxBody);
 
   // Add ground plane to Rapier world
   const groundBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  world.createCollider(RAPIER.ColliderDesc.cuboid(10, 0.1, 10), groundBody);
+  world.createCollider(RAPIER.ColliderDesc.cuboid(10, 0.01, 10), groundBody);
 
   // Options fracturing
   const fractureOptions = new FractureOptions();
@@ -90,21 +96,33 @@ import('@dimforge/rapier3d').then(RAPIER => {
         if (started && !collision) {
           collision = true;
           const fragments = fracture(box, fractureOptions);
-          fragments.forEach((f) => {
-            scene.add(f);
-          })
-          console.log(scene);
+          fragments.forEach((fragment) => {
+            const verts = fragment.geometry.getAttribute('position').array as Float32Array;
+
+            // Create colliders for each fragment
+            const fragmentColliderDesc = RAPIER.ColliderDesc.convexMesh(verts)!;
+            const fragmentBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
+              .setTranslation(fragment.position.x, fragment.position.y, fragment.position.z)
+              .setRotation(new THREE.Quaternion().setFromEuler(fragment.rotation)));
+
+            world.createCollider(fragmentColliderDesc, fragmentBody);
+
+            objects.push({ mesh: fragment, rigidBody: fragmentBody });
+            scene.add(fragment);
+          });
           box.visible = false;
           boxBody.setEnabled(false);
         }
       }
     });
 
-    // Update the sphere's position based on the physics simulation
-    const boxPos = boxBody.translation();
-    const q = boxBody.rotation();
-    box.position.set(boxPos.x, boxPos.y, boxPos.z);
-    box.rotation.setFromQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w));
+    objects.forEach(({ mesh, rigidBody }) => {
+      // Update the sphere's position based on the physics simulation
+      const boxPos = rigidBody.translation();
+      const q = rigidBody.rotation();
+      mesh.position.set(boxPos.x, boxPos.y, boxPos.z);
+      mesh.rotation.setFromQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w));
+    });
 
     renderer.render(scene, camera);
 
