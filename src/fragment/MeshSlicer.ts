@@ -85,8 +85,8 @@ function fillCutFaces(
   if (topSlice.cutVertices.length < 3) return;
 
   // Triangulate the cut face
-  //const triangulator = new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
-  const triangulator = new Triangulator(topSlice.cutVertices, sliceNormal);
+  const triangulator = new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
+  //const triangulator = new Triangulator(topSlice.cutVertices, sliceNormal);
   const triangles: number[] = triangulator.triangulate();
 
   // Update normal and UV for the cut face vertices

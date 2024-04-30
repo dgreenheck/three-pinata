@@ -42,10 +42,10 @@ function linesIntersectInternal(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vecto
 
   // If any of the vertices are shared between the two diagonals,
   // the quad collapses into a triangle and is convex by default.    
-  if (pointsEqual(a1, b1) || 
-      pointsEqual(a1, b2) || 
-      pointsEqual(a2, b1) || 
-      pointsEqual(a2, b2)) {
+  if (compareVec2(a1, b1) || 
+      compareVec2(a1, b2) || 
+      compareVec2(a2, b1) || 
+      compareVec2(a2, b2)) {
     return includeSharedEndpoints;
   } else {
     // Compute cross product between each point and the opposite diagonal
@@ -83,7 +83,7 @@ export function linePlaneIntersection(
   let s = 0;
   let x = new Vector3();
 
-  if (pointsEqual(a, b) || pointsEqual(n, ZERO_VECTOR)) {
+  if (compareVec3(a, b) || compareVec3(n, ZERO_VECTOR)) {
     return null;
   }
 
@@ -117,17 +117,17 @@ export function isPointOnRightSideOfLine(p: Vector2, i: Vector2, j: Vector2): bo
 }
 
 /**
- * Compares if two points are equal.
+ * Returns true if p1 and p2 are effectively equal.
  */
-function pointsEqual(p1: Vector2 | Vector3, p2: Vector2 | Vector3): boolean {
-  if ('z' in p1 && 'z' in p2) {
-    return Math.abs(p1.x - p2.x) < 1E-9 && 
-           Math.abs(p1.y - p2.y) < 1E-9 &&
-           Math.abs(p1.z - p2.z) < 1E-9;
-  } else {
-    return Math.abs(p1.x - p2.x) < 1E-9 && 
-           Math.abs(p1.y - p2.y) < 1E-9;
-  }
+function compareVec2(p1: Vector2, p2: Vector2): boolean {
+  return Math.abs(p1.x - p2.x + p1.y - p2.y) < 1E-9;
+}
+
+/**
+ * Returns true if p1 and p2 are effectively equal.
+ */
+function compareVec3(p1: Vector3, p2: Vector3): boolean {
+  return Math.abs(p1.x - p2.x + p1.y - p2.y + p1.z - p2.z) < 1E-9;
 }
 
 /**

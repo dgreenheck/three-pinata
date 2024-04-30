@@ -394,9 +394,7 @@ export class ConstrainedTriangulator extends Triangulator {
    */
   discardTrianglesViolatingConstraints(): void {
     // Initialize to all triangles being skipped
-    for (let i = 0; i < this.triangleCount; i++) {
-      this.skipTriangle[i] = true;
-    }
+    this.skipTriangle.fill(true);
 
     // Identify the boundary edges
     let boundaries = new Set<string>();
@@ -406,22 +404,15 @@ export class ConstrainedTriangulator extends Triangulator {
     }
 
     // Reset visited states
-    for (let i = 0; i < this.visited.length; i++)
-    {
-      this.visited[i] = false;
-    }
+    this.visited.fill(false);
 
     // Search frontier
     let frontier: number[] = [];
 
     let v1: number, v2: number, v3: number;
     let boundaryE12: boolean, boundaryE23: boolean, boundaryE31: boolean;
-    for (let i = 0; i < this.triangleCount; i++)
-    {
-      // If we've already visited this triangle, skip it
-      if (this.visited[i]) {
-        continue;
-      }
+    for (let i = 0; i < this.triangleCount; i++) {
+      if (this.visited[i])  continue;
 
       v1 = this.triangulation[i][V1];
       v2 = this.triangulation[i][V2];
@@ -431,47 +422,46 @@ export class ConstrainedTriangulator extends Triangulator {
       boundaryE31 = boundaries.has(v3 + ',' + v1);
 
       // If this triangle has a boundary edge, start searching for adjacent triangles
-      if (boundaryE12 || boundaryE23 || boundaryE31) {
-        this.skipTriangle[i] = false;
+      if (!(boundaryE12 || boundaryE23 || boundaryE31)) continue;
+      this.skipTriangle[i] = false;
 
-        // Search along edges that are not boundary edges
-        frontier = [];
-        if (!boundaryE12) {
-          frontier.push(this.triangulation[i][E12]);
+      // Search along edges that are not boundary edges
+      frontier = [];
+      if (!boundaryE12) {
+        frontier.push(this.triangulation[i][E12]);
+      }
+      if (!boundaryE23) {
+        frontier.push(this.triangulation[i][E23]);
+      }
+      if (!boundaryE31) {
+        frontier.push(this.triangulation[i][E31]);
+      }
+
+      // Recursively search along all non-boundary edges, marking the
+      // adjacent triangles as "keep"
+      while (frontier.length > 0) {
+        const k = frontier.shift();
+
+        if (!k || k === OUT_OF_BOUNDS || this.visited[k]) {
+          continue;
         }
-        if (!boundaryE23) {
-          frontier.push(this.triangulation[i][E23]);
+
+        this.skipTriangle[k] = false;
+        this.visited[k] = true;
+
+        v1 = this.triangulation[k][V1];
+        v2 = this.triangulation[k][V2];
+        v3 = this.triangulation[k][V3];
+
+        // Continue searching along non-boundary edges
+        if (!boundaries.has(v1 + ',' + v2)) {
+          frontier.push(this.triangulation[k][E12]);
         }
-        if (!boundaryE31) {
-          frontier.push(this.triangulation[i][E31]);
+        if (!boundaries.has(v2 + ',' + v1)) {
+          frontier.push(this.triangulation[k][E23]);
         }
-
-        // Recursively search along all non-boundary edges, marking the
-        // adjacent triangles as "keep"
-        while (frontier.length > 0) {
-          const k = frontier.shift();
-
-          if (!k || k === OUT_OF_BOUNDS || this.visited[k]) {
-            continue;
-          }
-
-          this.skipTriangle[k] = false;
-          this.visited[k] = true;
-
-          v1 = this.triangulation[k][V1];
-          v2 = this.triangulation[k][V2];
-          v3 = this.triangulation[k][V3];
-
-          // Continue searching along non-boundary edges
-          if (!boundaries.has(v1 + ',' + v2)) {
-            frontier.push(this.triangulation[k][E12]);
-          }
-          if (!boundaries.has(v2 + ',' + v1)) {
-            frontier.push(this.triangulation[k][E23]);
-          }
-          if (!boundaries.has(v3 + ',' + v1)) {
-            frontier.push(this.triangulation[k][E31]);
-          }
+        if (!boundaries.has(v3 + ',' + v1)) {
+          frontier.push(this.triangulation[k][E31]);
         }
       }
     }

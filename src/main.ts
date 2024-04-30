@@ -6,12 +6,12 @@ import { RigidBody } from '@dimforge/rapier3d';
 
 import('@dimforge/rapier3d').then(RAPIER => {
   // Create a Rapier physics world
-  const world = new RAPIER.World({ x: 0, y: -2, z: 0 });
+  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
 
   // Set up Three.js scene
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
@@ -20,15 +20,17 @@ import('@dimforge/rapier3d').then(RAPIER => {
   // Orbit controls
   const controls = new OrbitControls(camera, renderer.domElement);
 
+  // Add a simple sphere
   const box = new THREE.Mesh();
-  box.geometry = new THREE.CylinderGeometry();
-  box.material = [
+  box.geometry = new THREE.SphereGeometry(1.5);
+  box.material =  [
     new THREE.MeshLambertMaterial({ color: 0xff0000 }),
     new THREE.MeshLambertMaterial({ color: 0x0000ff })
-  ]
-  box.geometry.addGroup(0, box.geometry.getAttribute('position').count * 3, 0);
+  ];
+  box.geometry.addGroup(0, box.geometry.index!.count, 0);
+
   box.name = 'Box';
-  box.position.set(0, 5, 0);
+  box.position.set(0, 8, 0);
   box.rotation.set(Math.PI / 4, Math.PI / 4, 0);
   box.castShadow = true;
   scene.add(box);
@@ -56,6 +58,8 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   // Position the camera
   camera.position.set(0, 5, 10);
+  controls.target.set(0, 1, 0);
+  controls.update();
 
   const objects: { mesh: THREE.Mesh, rigidBody: RigidBody }[] = [];
 
@@ -80,6 +84,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   let collision = false;
 
+  /*
   document.addEventListener('mousedown', () => {
     // Reset position, rotation and velocity
     boxBody.setTranslation(new THREE.Vector3(0, 10, 0), true);
@@ -87,6 +92,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
     boxBody.setAngvel(new THREE.Vector3(), true);
     boxBody.setLinvel(new THREE.Vector3(), true);
   });
+*/
 
   // Animation loop
   function animate() {

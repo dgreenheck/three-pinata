@@ -219,20 +219,48 @@ export class Fragment {
   toGeometry(): BufferGeometry {
     const geometry = new BufferGeometry();
 
-    const allVerts = [...this.vertices, ...this.cutVertices];
+    const vertexCount = (this.vertices.length + this.cutVertices.length);
+    const positions = new Array<number>(vertexCount * 3);
+    const normals = new Array<number>(vertexCount * 3);
+    const uvs = new Array<number>(vertexCount * 2);
+    
+    let posIdx = 0;
+    let normIdx = 0;
+    let uvIdx = 0;
+    
+    for (const vert of this.vertices) {
+      positions[posIdx++] = vert.position.x;
+      positions[posIdx++] = vert.position.y;
+      positions[posIdx++] = vert.position.z;
 
-    const positions = new Float32Array(allVerts.flatMap(v => [v.position.x, v.position.y, v.position.z]),);
-    const normals = new Float32Array(allVerts.flatMap(v => [v.normal.x, v.normal.y, v.normal.z]));
-    const uvs = new Float32Array(allVerts.flatMap(v => [v.uv.x, v.uv.y]));
-    const indices = new Uint32Array(this.triangles.flat());
+      normals[normIdx++] = vert.normal.x;
+      normals[normIdx++] = vert.normal.y;
+      normals[normIdx++] = vert.normal.z;
+
+      uvs[uvIdx++] = vert.uv.x;
+      uvs[uvIdx++] = vert.uv.y;
+    }
+
+    for (const vert of this.cutVertices) {
+      positions[posIdx++] = vert.position.x;
+      positions[posIdx++] = vert.position.y;
+      positions[posIdx++] = vert.position.z;
+
+      normals[normIdx++] = vert.normal.x;
+      normals[normIdx++] = vert.normal.y;
+      normals[normIdx++] = vert.normal.z;
+
+      uvs[uvIdx++] = vert.uv.x;
+      uvs[uvIdx++] = vert.uv.y;
+    }
 
     geometry.addGroup(0, this.triangles[0].length, 0);
     geometry.addGroup(this.triangles[0].length, this.triangles[1].length, 1);
 
-    geometry.setAttribute('position', new BufferAttribute(positions, 3));
-    geometry.setAttribute('normal', new BufferAttribute(normals, 3));
-    geometry.setAttribute('uv', new BufferAttribute(uvs, 2));
-    geometry.setIndex(new BufferAttribute(indices, 1));
+    geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
+    geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), 3));
+    geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
+    geometry.setIndex(new BufferAttribute(new Uint32Array(this.triangles.flat()), 1));
 
     return geometry;
   }
