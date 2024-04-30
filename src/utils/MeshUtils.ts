@@ -1,39 +1,32 @@
-/*
 import { Mesh } from 'three';
 import { Fragment } from '../fragment/Fragment';
 
+/**
  * Identifies all disconnected sets of geometry contained within the mesh.
  * Each set of geometry is split into a separate meshes. 
  * @param mesh The mesh to search
  * @returns Returns an array of all disconnected meshes found.
  */
-
-/*
 function findDisconnectedFragments(fragment: Fragment): Fragment[] {
   // Each disconnected set of geometry is referred to as an "island"
   const islands: Fragment[] = [];
 
+  // Extract mesh data
   const positions = fragment.vertices.map((vertex) => vertex.position);
   const triangles = fragment.triangles;
   const normals = fragment.vertices.map((vertex) => vertex.normal);
   const uvs = fragment.vertices.map((vertex) => vertex.uv);
 
-  const coincidentVertices = Array.from({ length: positions.length }, () => []);
-  for (let i = 0; i < positions.length; i++) {
-    const v_i = positions[i];
-    for (let k = i + 1; k < positions.length; k++) {
-      const v_k = positions[k];
-      if (v_i.equals(v_k)) {
-        coincidentVertices[k].push(i);
-        coincidentVertices[i].push(k);
-      }
-    }
-  }
+  // For each triangle, find the corresponding sub-mesh index. (Mesh.triangles contains  the triangles for all sub-meshes)
+  const triangleSubMesh = new Array<number>(fragment.triangleCount);
+  triangleSubMesh.fill(0, 0, fragment.triangles[0].length);
+  triangleSubMesh.fill(1, fragment.triangles[0].length, fragment.triangles[1].length);
 
   const vertexTriangles: number[][] = new Array(positions.length);
   for (let i = 0; i < positions.length; i++) {
     vertexTriangles[i] = [];
   }
+
   let v1, v2, v3;
   for (let i = 0; i < triangles.length; i += 3) {
     const t = i / 3;
@@ -122,4 +115,3 @@ function findDisconnectedFragments(fragment: Fragment): Fragment[] {
   }
   return islands;
 }
-*/

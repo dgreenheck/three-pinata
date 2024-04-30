@@ -120,14 +120,17 @@ export function isPointOnRightSideOfLine(p: Vector2, i: Vector2, j: Vector2): bo
  * Returns true if p1 and p2 are effectively equal.
  */
 function compareVec2(p1: Vector2, p2: Vector2): boolean {
-  return Math.abs(p1.x - p2.x + p1.y - p2.y) < 1E-9;
+  return Math.abs(p1.x - p2.x) < 1E-9 &&
+         Math.abs(p1.y - p2.y) < 1E-9;
 }
 
 /**
  * Returns true if p1 and p2 are effectively equal.
  */
 function compareVec3(p1: Vector3, p2: Vector3): boolean {
-  return Math.abs(p1.x - p2.x + p1.y - p2.y + p1.z - p2.z) < 1E-9;
+  return Math.abs(p1.x - p2.x) < 1E-9 &&
+         Math.abs(p1.y - p2.y) < 1E-9 &&
+         Math.abs(p1.z - p2.z) < 1E-9;
 }
 
 /**

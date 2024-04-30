@@ -22,7 +22,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   // Add a simple sphere
   const box = new THREE.Mesh();
-  box.geometry = new THREE.SphereGeometry(1.5);
+  box.geometry = new THREE.TorusKnotGeometry()
   box.material =  [
     new THREE.MeshLambertMaterial({ color: 0xff0000 }),
     new THREE.MeshLambertMaterial({ color: 0x0000ff })
@@ -65,6 +65,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   // Add sphere to Rapier world
   const boxColliderDesc = RAPIER.ColliderDesc.cuboid(1, 1, 1)
+    .setRestitution(0)
     .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 
   const boxBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
@@ -84,15 +85,27 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   let collision = false;
 
-  /*
-  document.addEventListener('mousedown', () => {
-    // Reset position, rotation and velocity
-    boxBody.setTranslation(new THREE.Vector3(0, 10, 0), true);
-    boxBody.setRotation({ x: Math.PI / 4, y: Math.PI / 4, z: 0, w: 1 }, true);
-    boxBody.setAngvel(new THREE.Vector3(), true);
-    boxBody.setLinvel(new THREE.Vector3(), true);
-  });
-*/
+  async function startFracture() {
+    const fragments = fracture(box, fractureOptions);
+    fragments.forEach((fragment) => {
+      const verts = fragment.geometry.getAttribute('position').array as Float32Array;
+
+      // Create colliders for each fragment
+      const fragmentColliderDesc = RAPIER.ColliderDesc.convexMesh(verts)!
+        .setRestitution(0);
+
+      const fragmentBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(fragment.position.x, fragment.position.y, fragment.position.z)
+        .setRotation(new THREE.Quaternion().setFromEuler(fragment.rotation)));
+      fragmentBody.setAngvel(boxBody.angvel(), true);
+      fragmentBody.setLinvel(boxBody.linvel(), true);
+        
+      world.createCollider(fragmentColliderDesc, fragmentBody);
+
+      objects.push({ mesh: fragment, rigidBody: fragmentBody });
+      scene.add(fragment);
+    });
+  }
 
   // Animation loop
   function animate() {
@@ -104,22 +117,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
       if (handle1 === boxBody.handle || handle2 === boxBody.handle) {
         if (started && !collision) {
           collision = true;
-          const fragments = fracture(box, fractureOptions);
-          fragments.forEach((fragment) => {
-            const verts = fragment.geometry.getAttribute('position').array as Float32Array;
-
-            // Create colliders for each fragment
-            const fragmentColliderDesc = RAPIER.ColliderDesc.convexMesh(verts)!
-              .setRestitution(0);
-            const fragmentBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
-              .setTranslation(fragment.position.x, fragment.position.y, fragment.position.z)
-              .setRotation(new THREE.Quaternion().setFromEuler(fragment.rotation)));
-
-            world.createCollider(fragmentColliderDesc, fragmentBody);
-
-            objects.push({ mesh: fragment, rigidBody: fragmentBody });
-            scene.add(fragment);
-          });
+          startFracture();
           box.visible = false;
           boxBody.setEnabled(false);
         }

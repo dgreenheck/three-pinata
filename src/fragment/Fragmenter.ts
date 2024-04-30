@@ -1,4 +1,4 @@
-import { Mesh, MeshLambertMaterial, Vector3 } from 'three';
+import { Mesh, Vector3 } from 'three';
 import { FractureOptions } from './FractureOptions';
 import { Fragment } from './Fragment';
 import { slice } from './MeshSlicer';
