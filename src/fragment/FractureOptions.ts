@@ -42,7 +42,7 @@ export class FractureOptions {
   public textureOffset: Vector2;
 
   constructor() {
-    this.fragmentCount = 10;
+    this.fragmentCount = 2;
     this.xAxis = true;
     this.yAxis = true;
     this.zAxis = true;

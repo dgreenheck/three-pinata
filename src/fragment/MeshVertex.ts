@@ -20,13 +20,6 @@ export default class MeshVertex {
            Math.abs(this.position.z - other.position.z) < 1E-9;
   }
 
-  getHashCode(): number {
-    // Simple hash code function based on position.
-    // This is a placeholder implementation.
-    const hash = (this.position.x * 397) ^ (this.position.y * 397) ^ (this.position.z * 397);
-    return hash;
-  }
-
   toString(): string {
     return `Position = ${this.position.x}, ${this.position.y}, ${this.position.z}, Normal = ${this.normal.x}, ${this.normal.y}, ${this.normal.z}, UV = ${this.uv.x}, ${this.uv.y}`;
   }

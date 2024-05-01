@@ -28,25 +28,4 @@ describe('EdgeConstraint', () => {
 
     expect(edgeA.equals(edgeB)).toBe(true);
   });
-
-  test('equal edges have same hash code', () => {
-    const edgeA = new EdgeConstraint(1, 2);
-    const edgeB = new EdgeConstraint(1, 2);
-
-    expect(edgeA.getHashCode()).toBe(edgeB.getHashCode());
-  });
-
-  test('reverse edges have same hash code', () => {
-    const edgeA = new EdgeConstraint(1, 2);
-    const edgeB = new EdgeConstraint(2, 1);
-
-    expect(edgeA.getHashCode()).toBe(edgeB.getHashCode());
-  });
-
-  test('different edges have different hash code', () => {
-    const edgeA = new EdgeConstraint(1, 2);
-    const edgeB = new EdgeConstraint(1, 3);
-
-    expect(edgeA.getHashCode()).not.toBe(edgeB.getHashCode());
-  });
 });

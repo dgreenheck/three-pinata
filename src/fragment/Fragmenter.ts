@@ -14,28 +14,31 @@ export function fracture(mesh: Mesh, options: FractureOptions): Mesh[] {
   let fragments = [Fragment.fromGeometry(mesh.geometry)];
 
   // Subdivide the mesh into multiple fragments until we reach the fragment limit
-  while (fragments.length < options.fragmentCount) {
-    const fragment = fragments.shift();
-    if (!fragment) continue;
+  //while (fragments.length < options.fragmentCount) {
+    const fragment = fragments.shift()!;
+    //if (!fragment) continue;
 
     fragment?.calculateBounds();
 
     // Select an arbitrary fracture plane normal
+    /*
     const normal = new Vector3(
       options.xAxis ? (2.0 * Math.random() - 1) : 0,
       options.yAxis ? (2.0 * Math.random() - 1) : 0,
       options.zAxis ? (2.0 * Math.random() - 1) : 0
     ).normalize();
-
+    */
+    const normal = new Vector3(0, 1, 0);
+    
     const center = new Vector3();
     fragment.bounds.getCenter(center);
 
     // Slice and dice!
     const { topSlice, bottomSlice } = slice(fragment, normal, center, options.textureScale, options.textureOffset);
 
-    fragments.push(topSlice);
+    //fragments.push(topSlice);
     fragments.push(bottomSlice);
-  }
+ // }
 
   const meshes = [];
   for (let i = 0; i < fragments.length; i++) {
