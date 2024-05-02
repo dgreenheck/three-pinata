@@ -4,9 +4,11 @@ import { fracture } from './fragment/Fragmenter';
 import { FractureOptions } from './fragment/FractureOptions';
 import { RigidBody } from '@dimforge/rapier3d';
 
+const tex = new THREE.TextureLoader().load('base.png');
+
 import('@dimforge/rapier3d').then(RAPIER => {
   // Create a Rapier physics world
-  const world = new RAPIER.World({ x: 0, y: -4, z: 0 });
+  const world = new RAPIER.World({ x: 0, y: -2, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
 
   // Set up Three.js scene
@@ -21,109 +23,33 @@ import('@dimforge/rapier3d').then(RAPIER => {
   const controls = new OrbitControls(camera, renderer.domElement);
 
   // Add a simple sphere
-  /*
   const box = new THREE.Mesh();
-  box.geometry = new THREE.TorusKnotGeometry()
+  box.geometry = new THREE.TorusGeometry()
   box.material =  [
-    new THREE.MeshLambertMaterial({ color: 0x000088 }),
-    new THREE.MeshLambertMaterial({ color: 0x00ff00 })
+    new THREE.MeshLambertMaterial({ map: tex }),
+    new THREE.MeshLambertMaterial({ color: 0xff0000 })
   ];
   box.geometry.addGroup(0, box.geometry.index!.count, 0);
 
   box.name = 'Box';
-  box.position.set(0, 8, 0);
-  box.rotation.set(Math.PI / 4, Math.PI / 4, 0);
+  box.position.set(0, 4, 0);
+  box.rotation.x = -Math.PI / 4 ;
   box.castShadow = true;
   scene.add(box);
-  */
-  const geometry = new THREE.BufferGeometry();
 
-  const vertices = new Float32Array([
-    0, 0, 0,
-    0.5, 0, 0,
-    0, 0, 1,
-
-    0, 1, 0,
-    0.5, 1, 0,
-    0, 1, 1,
-
-    0.5, 0, 1,
-    1, 0, 1,
-    1, 0, 0,
-
-    0.5, 1, 1,
-    1, 1, 1,
-    1, 1, 0,
-  ]);
-
-  const uv = new Float32Array([
-    0, 0,
-    0, 0,
-    0, 0,
-
-    0, 0,
-    0, 0,
-    0, 0,
-
-    0, 0,
-    0, 0,
-    0, 0,
-
-    0, 0,
-    0, 0,
-    0, 0
-  ]);
-
-  const indices = [
-    0, 1, 2,
-    0, 2, 3,
-    2, 5, 3,
-    2, 1, 5,
-    1, 4, 5,
-    0, 4, 1,
-    0, 3, 4,
-    3, 5, 4,
-
-    6, 8, 7,
-    6, 7, 9,
-    7, 10, 9,
-    7, 8, 10,
-    8, 11, 10,
-    6, 11, 8,
-    6, 9, 11,
-    9, 10, 11
-  ];
-
-  geometry.setIndex(indices);
-  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-  geometry.computeVertexNormals();
-  geometry.addGroup(0, indices.length, 0);
-
-  const mesh = new THREE.Mesh();
-  mesh.geometry = geometry;
-  mesh.material = [
-    new THREE.MeshBasicMaterial({ color: 0xff0000 }),
-    new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
-  ]
-  mesh.position.set(0, 1.2, 0);
-  scene.add(mesh);
-
-  scene.add(new THREE.AxesHelper());
-  /*
-  // Create a ground plane
+  // Ctate a ground plane
   const planeGeometry = new THREE.PlaneGeometry(20, 20);
   const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0, side: THREE.DoubleSide });
   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
   plane.rotation.x = -Math.PI / 2;
   plane.receiveShadow = true;
   scene.add(plane);
-*/
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.2);
   scene.add(ambient);
 
   const sun = new THREE.DirectionalLight();
+  sun.intensity = 3;
   sun.position.set(10, 10, 10);
   sun.castShadow = true;
   sun.shadow.camera.left = -10;
@@ -134,8 +60,8 @@ import('@dimforge/rapier3d').then(RAPIER => {
   scene.add(sun);
 
   // Position the camera
-  camera.position.set(2, 2, 2);
-  controls.target.set(0, 0, 0);
+  camera.position.set(5, 5, 5);
+  controls.target.set(0, 1, 0);
   controls.update();
 
   const objects: { mesh: THREE.Mesh, rigidBody: RigidBody }[] = [];
@@ -146,10 +72,10 @@ import('@dimforge/rapier3d').then(RAPIER => {
     .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 
   const rigid = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(mesh.position.x, mesh.position.y, mesh.position.z)
-    .setRotation(new THREE.Quaternion().setFromEuler(mesh.rotation)));
+    .setTranslation(box.position.x, box.position.y, box.position.z)
+    .setRotation(new THREE.Quaternion().setFromEuler(box.rotation)));
 
-  objects.push({ mesh, rigidBody: rigid });
+  objects.push({ mesh: box, rigidBody: rigid });
 
   world.createCollider(boxColliderDesc, rigid);
 
@@ -163,7 +89,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
   let collision = false;
 
   async function startFracture() {
-    const fragments = fracture(mesh, fractureOptions);
+    const fragments = fracture(box, fractureOptions);
     fragments.forEach((fragment) => {
       const verts = fragment.geometry.getAttribute('position').array as Float32Array;
 
@@ -181,16 +107,6 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
       objects.push({ mesh: fragment, rigidBody: fragmentBody });
       scene.add(fragment);
-
-      const indices = fragment.geometry.index!.array;
-      for (let k = 0; k < indices.length; k += 3) {
-        const v1 = 3 * indices[k];
-        const v2 = 3 * indices[k + 1];
-        const v3 = 3 * indices[k + 2];
-        console.log(`V${indices[k]}`, 'X', verts[v1], 'Y', verts[v1 + 1], 'Z', verts[v1 + 2], '|',
-          `V${indices[k + 1]}`, 'X', verts[v2], 'Y', verts[v2 + 1], 'Z', verts[v2 + 2], '|',
-          `V${indices[k + 2]}`, 'X', verts[v3], 'Y', verts[v3 + 1], 'Z', verts[v3 + 2]);
-      }
     });
   }
 
@@ -205,7 +121,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
         if (started && !collision) {
           collision = true;
           startFracture();
-          mesh.visible = false;
+          box.visible = false;
           rigid.setEnabled(false);
         }
       }

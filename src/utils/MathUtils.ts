@@ -38,7 +38,7 @@ export function linesIntersect(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector
  */
 function linesIntersectInternal(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2, includeSharedEndpoints: boolean): boolean {
   let a12 = new Vector2(a2.x - a1.x, a2.y - a1.y);
-  let b12 = new Vector2(b2.x - b1.y, b2.y - b1.y);
+  let b12 = new Vector2(b2.x - b1.x, b2.y - b1.y);
 
   // If any of the vertices are shared between the two diagonals,
   // the quad collapses into a triangle and is convex by default.    
@@ -122,9 +122,8 @@ export function isPointOnRightSideOfLine(p: Vector2, i: Vector2, j: Vector2): bo
  * Returns true if p1 and p2 are effectively equal.
  */
 function compareVec2(p1: Vector2, p2: Vector2): boolean {
-  const dx = Math.abs(p1.x - p2.x);
-  const dy = Math.abs(p1.y - p2.y);
-  return dx < 1E-6 && dy < 1E-9;
+  return Math.abs(p1.x - p2.x) < 1E-9 &&
+         Math.abs(p1.y - p2.y) < 1E-9;
 }
 
 /**

@@ -93,15 +93,13 @@ export class ConstrainedTriangulator extends Triangulator {
     this.addSuperTriangle();
     this.normalizeCoordinates();
     this.computeTriangulation();
-    
-    console.log(this.constraints);
 
     if (this.constraints.length > 0) {
       this.applyConstraints();
-      //this.discardTrianglesViolatingConstraints();
+      this.discardTrianglesViolatingConstraints();
     }
 
-    //this.discardTrianglesWithSuperTriangleVertices();
+    this.discardTrianglesWithSuperTriangleVertices();
     
     let triangles: number[] = [];
     for (let i = 0; i < this.triangleCount; i++) {
@@ -124,7 +122,7 @@ export class ConstrainedTriangulator extends Triangulator {
     this.visited.fill(false);
 
     // Map each vertex to a triangle that contains it
-    this.vertexTriangles = new Array<number>(this.N + 3);
+    this.vertexTriangles = new Array<number>(this.N + 3).fill(0);
     for (let i = 0; i < this.triangulation.length; i++) {
       this.vertexTriangles[this.triangulation[i][V1]] = i;
       this.vertexTriangles[this.triangulation[i][V2]] = i;
@@ -133,6 +131,7 @@ export class ConstrainedTriangulator extends Triangulator {
 
     // Loop through each edge constraint
     for (let constraint of this.constraints) {
+      // Ignore degenerate constraints
       if (constraint.v1 === constraint.v2) continue;
 
       // We find the edges of the triangulation that intersect the constraint edge and remove them
@@ -180,7 +179,6 @@ export class ConstrainedTriangulator extends Triangulator {
 
       // If triangle contains the endpoint of the constraint, the search is done
       if (this.triangleContainsVertex(t, constraint.v2)) {
-        console.log('yo');
         finalTriangleFound = true;
         // Otherwise, the constraint must intersect one edge of this triangle. Ignore the edge that we entered from
       } else if ((this.triangulation[t][E12] !== lastTriangle) && linesIntersect(v_i, v_j, v1, v2)) {
@@ -219,8 +217,10 @@ export class ConstrainedTriangulator extends Triangulator {
     // Initialize out parameter to default value
     let startingEdge = new EdgeConstraint(-1, -1);
 
+    let v_i = constraint.v1;
+
     // Start the search with an initial triangle that contains v1
-    let tSearch = vertexTriangles[constraint.v1];
+    let tSearch = vertexTriangles[v_i];
 
     // Reset visited states
     this.visited.fill(false);
@@ -229,7 +229,7 @@ export class ConstrainedTriangulator extends Triangulator {
     // This will be the starting triangle in the search for finding all triangles that intersect the constraint
     let noCandidatesFound = false;
     let intersectingEdgeIndex: (number | null) = null;
-
+    let tE12: number, tE23: number, tE31: number;
     while (!intersectingEdgeIndex && !noCandidatesFound) {
       this.visited[tSearch] = true;
 
@@ -245,18 +245,18 @@ export class ConstrainedTriangulator extends Triangulator {
         break;
       }
 
-      const tE12 = this.triangulation[tSearch][E12];
-      const tE23 = this.triangulation[tSearch][E23];
-      const tE31 = this.triangulation[tSearch][E31];
+      tE12 = this.triangulation[tSearch][E12];
+      tE23 = this.triangulation[tSearch][E23];
+      tE31 = this.triangulation[tSearch][E31];
 
       // If constraint does not intersect this triangle, check adjacent
       // triangles by crossing edges that have v1 as a vertex
       // Avoid triangles that we have previously visited in the search
-      if (tE12 !== OUT_OF_BOUNDS && !this.visited[tE12] && this.triangleContainsVertex(tE12, constraint.v1)) {
+      if (tE12 !== OUT_OF_BOUNDS && !this.visited[tE12] && this.triangleContainsVertex(tE12, v_i)) {
         tSearch = tE12;
-      } else if (tE23 !== OUT_OF_BOUNDS && !this.visited[tE23] && this.triangleContainsVertex(tE23, constraint.v1)) {
+      } else if (tE23 !== OUT_OF_BOUNDS && !this.visited[tE23] && this.triangleContainsVertex(tE23, v_i)) {
         tSearch = tE23;
-      } else if (tE31 !== OUT_OF_BOUNDS && !this.visited[tE31] && this.triangleContainsVertex(tE31, constraint.v1)) {
+      } else if (tE31 !== OUT_OF_BOUNDS && !this.visited[tE31] && this.triangleContainsVertex(tE31, v_i)) {
         tSearch = tE31;
       } else {
         noCandidatesFound = true;
@@ -295,13 +295,11 @@ export class ConstrainedTriangulator extends Triangulator {
     // Loop through all intersecting edges until they have been properly resolved
     // or they have all been visited with no diagonal swaps.
     while (intersectingEdges.length > 0 && counter <= intersectingEdges.length) {
-      edge = intersectingEdges.shift();
-
-      if (!edge) break;
+      edge = intersectingEdges.shift()!;
 
       let quad = this.findQuadFromSharedEdge(edge.t1, edge.t1Edge);
-
-      if (quad !== null) {
+      
+      if (quad) {
         // If the quad is convex, we swap the diagonal (a quad is convex if the diagonals intersect)
         // Otherwise push it back into the queue so we can swap the diagonal later on.
         if (linesIntersect(this.points[quad.q4].coords,
@@ -456,7 +454,7 @@ export class ConstrainedTriangulator extends Triangulator {
         if (!boundaries.has(v1 + ',' + v2)) {
           frontier.push(this.triangulation[k][E12]);
         }
-        if (!boundaries.has(v2 + ',' + v1)) {
+        if (!boundaries.has(v2 + ',' + v3)) {
           frontier.push(this.triangulation[k][E23]);
         }
         if (!boundaries.has(v3 + ',' + v1)) {
@@ -473,6 +471,12 @@ export class ConstrainedTriangulator extends Triangulator {
   /// <param name="constraint">The edge constraint</param>
   /// <returns>True if the triangle contains one or both of the endpoints of the constraint</returns>
   triangleContainsConstraint(t: number, constraint: EdgeConstraint): boolean {
+    if (t >= this.triangulation.length) return false;
+
+    if (!this.triangulation[t]) {
+      console.log(t);
+      console.log(this.triangulation);
+    }
     return (this.triangulation[t][V1] === constraint.v1 || 
             this.triangulation[t][V2] === constraint.v1 || 
             this.triangulation[t][V3] === constraint.v1) &&
