@@ -37,8 +37,8 @@ export function linesIntersect(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector
  * @returns True if the two lines are intersecting
  */
 function linesIntersectInternal(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2, includeSharedEndpoints: boolean): boolean {
-  let a12 = { x: a2.x - a1.x, y: a2.y - a1.y };
-  let b12 = { x: b2.x - b1.x, y: b2.y - b1.y };
+  let a12 = new Vector2(a2.x - a1.x, a2.y - a1.y);
+  let b12 = new Vector2(b2.x - b1.x, b2.y - b1.y);
 
   // If any of the vertices are shared between the two diagonals,
   // the quad collapses into a triangle and is convex by default.    
@@ -58,8 +58,10 @@ function linesIntersectInternal(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vecto
     // Check that the points for each diagonal lie on opposite sides of the other
     // diagonal. Quad is also convex if a1/a2 lie on b1->b2 (and vice versa) since
     // the shape collapses into a triangle (hence >= instead of >)
-    return ((a1xb >= 0 && a2xb <= 0) || (a1xb <= 0 && a2xb >= 0)) &&
+    const intersecting = ((a1xb >= 0 && a2xb <= 0) || (a1xb <= 0 && a2xb >= 0)) &&
            ((b1xa >= 0 && b2xa <= 0) || (b1xa <= 0 && b2xa >= 0));
+
+    return intersecting;
   }
 }
 

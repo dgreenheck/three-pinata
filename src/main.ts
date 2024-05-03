@@ -4,9 +4,11 @@ import { fracture } from './fragment/Fragmenter';
 import { FractureOptions } from './fragment/FractureOptions';
 import { RigidBody } from '@dimforge/rapier3d';
 
+const tex = new THREE.TextureLoader().load('base.png');
+
 import('@dimforge/rapier3d').then(RAPIER => {
   // Create a Rapier physics world
-  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+  const world = new RAPIER.World({ x: 0, y: -2, z: 0 });
   const eventQueue = new RAPIER.EventQueue(true);
 
   // Set up Three.js scene
@@ -22,20 +24,20 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   // Add a simple sphere
   const box = new THREE.Mesh();
-  box.geometry = new THREE.TorusKnotGeometry()
+  box.geometry = new THREE.TorusGeometry()
   box.material =  [
-    new THREE.MeshLambertMaterial({ color: 0xff0000 }),
-    new THREE.MeshLambertMaterial({ color: 0x0000ff })
+    new THREE.MeshLambertMaterial({ map: tex }),
+    new THREE.MeshLambertMaterial({ color: 0xff0000 })
   ];
   box.geometry.addGroup(0, box.geometry.index!.count, 0);
 
   box.name = 'Box';
-  box.position.set(0, 8, 0);
-  box.rotation.set(Math.PI / 4, Math.PI / 4, 0);
+  box.position.set(0, 4, 0);
+  box.rotation.x = -Math.PI / 4 ;
   box.castShadow = true;
   scene.add(box);
 
-  // Create a ground plane
+  // Ctate a ground plane
   const planeGeometry = new THREE.PlaneGeometry(20, 20);
   const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0, side: THREE.DoubleSide });
   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
@@ -47,6 +49,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
   scene.add(ambient);
 
   const sun = new THREE.DirectionalLight();
+  sun.intensity = 3;
   sun.position.set(10, 10, 10);
   sun.castShadow = true;
   sun.shadow.camera.left = -10;
@@ -57,7 +60,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
   scene.add(sun);
 
   // Position the camera
-  camera.position.set(0, 5, 10);
+  camera.position.set(5, 5, 5);
   controls.target.set(0, 1, 0);
   controls.update();
 
@@ -68,13 +71,13 @@ import('@dimforge/rapier3d').then(RAPIER => {
     .setRestitution(0)
     .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 
-  const boxBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
+  const rigid = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(box.position.x, box.position.y, box.position.z)
     .setRotation(new THREE.Quaternion().setFromEuler(box.rotation)));
 
-  objects.push({ mesh: box, rigidBody: boxBody });
+  objects.push({ mesh: box, rigidBody: rigid });
 
-  world.createCollider(boxColliderDesc, boxBody);
+  world.createCollider(boxColliderDesc, rigid);
 
   // Add ground plane to Rapier world
   const groundBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
@@ -97,9 +100,9 @@ import('@dimforge/rapier3d').then(RAPIER => {
       const fragmentBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(fragment.position.x, fragment.position.y, fragment.position.z)
         .setRotation(new THREE.Quaternion().setFromEuler(fragment.rotation)));
-      fragmentBody.setAngvel(boxBody.angvel(), true);
-      fragmentBody.setLinvel(boxBody.linvel(), true);
-        
+      fragmentBody.setAngvel(rigid.angvel(), true);
+      fragmentBody.setLinvel(rigid.linvel(), true);
+
       world.createCollider(fragmentColliderDesc, fragmentBody);
 
       objects.push({ mesh: fragment, rigidBody: fragmentBody });
@@ -114,12 +117,12 @@ import('@dimforge/rapier3d').then(RAPIER => {
     // Step the physics world
     world.step(eventQueue);
     eventQueue.drainCollisionEvents((handle1, handle2, started) => {
-      if (handle1 === boxBody.handle || handle2 === boxBody.handle) {
+      if (handle1 === rigid.handle || handle2 === rigid.handle) {
         if (started && !collision) {
           collision = true;
           startFracture();
           box.visible = false;
-          boxBody.setEnabled(false);
+          rigid.setEnabled(false);
         }
       }
     });

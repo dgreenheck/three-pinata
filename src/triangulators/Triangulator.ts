@@ -82,7 +82,8 @@ export class Triangulator {
       // Choose two points in the plane as one basis vector
       let e1 = (inputPoints[0].position.clone().sub(inputPoints[1].position)).normalize();
       let e2 = this.normal.clone();
-      let e3 = e1.clone().cross(e2).normalize();
+      let e3 = new Vector3();
+      e3.crossVectors(e1, e2).normalize();
       
       // To find the 2nd basis vector, find the largest component and swap with the smallest, negating the largest
 
@@ -142,12 +143,12 @@ export class Triangulator {
     let yMax = Number.MIN_VALUE;
 
     // Find min/max points in the set
-    this.points.forEach((point) => {
-      xMin = Math.min(xMin, point.coords.x);
-      xMax = Math.max(xMax, point.coords.x);
-      yMin = Math.min(yMin, point.coords.y);
-      yMax = Math.max(yMax, point.coords.y);
-    });
+    for (let i = 0; i < this.N; i++) {
+      xMin = Math.min(xMin, this.points[i].coords.x);
+      xMax = Math.max(xMax, this.points[i].coords.x);
+      yMin = Math.min(yMin, this.points[i].coords.y);
+      yMax = Math.max(yMax, this.points[i].coords.y);
+    };
 
     // Normalization coefficient. Using same coefficient for both x & y
     // ensures uniform scaling

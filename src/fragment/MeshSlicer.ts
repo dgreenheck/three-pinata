@@ -131,7 +131,7 @@ function fillCutFaces(
 
     bottomSlice.addTriangle(
       offsetBottom + triangles[i],
-      offsetBottom + triangles[i + 2], // Swap two vertices so triangles are wound CW
+      offsetBottom + triangles[i + 2],
       offsetBottom + triangles[i + 1],
       SlicedMeshSubmesh.CutFace);
   }
@@ -242,7 +242,7 @@ function splitTriangle(
   //        v13 \     /  v23       cutOrigin
   //             \   /
   //              \ /
-  //               *  v3         triangle normal out of screen                                                                                  
+  //               *  v3         triangle normal out of screen 
   //    
   // v3BelowCutPlane = false
   // =======================

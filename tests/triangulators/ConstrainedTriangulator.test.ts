@@ -1,6 +1,7 @@
-import { Vector3 } from 'three';
+import { Vector2, Vector3 } from 'three';
 import { ConstrainedTriangulator } from '../../src/triangulators/ConstrainedTriangulator';
 import MeshVertex from '../../src/fragment/MeshVertex';
+import EdgeConstraint from '../../src/fragment/EdgeConstraint';
 
 // Helper function for getting an adjacent vertex, translated to TypeScript
 function getAdjacentVertex(i: number, n: number): number {
@@ -62,5 +63,63 @@ describe('ConstrainedTriangulator', () => {
         }
       }
     }
+  });
+
+  /*
+  it('should correctly triangulate two separate triangles', () => {
+    const inputPoints = [
+      new MeshVertex(new Vector3(0, 0, 0), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(2, 0, 0), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(2, 0, 1), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(1, 0, 1), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(0, 0, 1), new Vector3(0, 1, 0), new Vector2()),
+    ];
+
+    const constraints = [
+      new EdgeConstraint(0, 1),
+      new EdgeConstraint(1, 5),
+      new EdgeConstraint(5, 0),
+      new EdgeConstraint(2, 3),
+      new EdgeConstraint(3, 4),
+      new EdgeConstraint(4, 2),
+    ];
+
+    const triangulator = new ConstrainedTriangulator(inputPoints, constraints, new Vector3(0, -1, 0));
+    const triangles = triangulator.triangulate();
+
+    // Verify the triangulation has the correct number of triangles
+    expect(triangles.toString()).toEqual('4,2,3,1,5,0');
+  });
+*/
+  it('should correctly triangulate two separate triangles', () => {
+    const inputPoints = [
+      new MeshVertex(new Vector3(0, 0, 0), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(0.5, 0, 0.5), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(0, 0, 1), new Vector3(0, 1, 0), new Vector2()),
+
+      new MeshVertex(new Vector3(2, 0, 0), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(2, 0, 1), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(1, 0, 1), new Vector3(0, 1, 0), new Vector2()),
+      new MeshVertex(new Vector3(1.5, 0, 0.5), new Vector3(0, 1, 0), new Vector2()),
+    ];
+
+    const constraints = [
+      new EdgeConstraint(0, 1),
+      new EdgeConstraint(1, 2),
+      new EdgeConstraint(2, 3),
+      new EdgeConstraint(3, 0),
+      new EdgeConstraint(4, 5),
+      new EdgeConstraint(5, 6),
+      new EdgeConstraint(6, 7),
+      new EdgeConstraint(7, 4)
+    ];
+
+    const triangulator = new ConstrainedTriangulator(inputPoints, constraints, new Vector3(0, -1, 0));
+    const triangles = triangulator.triangulate();
+
+    // Verify the triangulation has the correct number of triangles
+    expect(triangles.toString()).toEqual('7,4,5,7,5,6,2,0,1,3,0,2');
   });
 });

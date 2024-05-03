@@ -11,12 +11,12 @@ export enum SlicedMeshSubmesh {
 // The class definition is translated into TypeScript
 export class Fragment {
   /**
-   * Vertex buffer for the non-cut mesh faces
+   * Array of vertices for geometry on the non-cut faces
    */
   vertices: MeshVertex[];
 
   /**
-   * Vertex buffer for the cut mesh faces
+   * Array of vertices for geometry on the cut faces
    */
   cutVertices: MeshVertex[];
 
@@ -41,9 +41,10 @@ export class Fragment {
   bounds: Box3;
 
   /**
-   * Vertex adjacency map used for island detection
+   * Adjacency graph for describing which vertices are connected together. This is
+   * used for determining which groups of vertices are separate geometry.
    */
-  vertexAdjacency: Map<number, number>;
+  vertexAdjacency: Map<number, number[]>;
 
   constructor() {
     this.vertices = [];
@@ -52,7 +53,7 @@ export class Fragment {
     this.constraints = [];
     this.indexMap = [];
     this.bounds = new Box3();
-    this.vertexAdjacency = new Map<number,number>();
+    this.vertexAdjacency = new Map<number, number[]>();
   }
 
   static fromGeometry(geometry: BufferGeometry): Fragment {
@@ -114,9 +115,6 @@ export class Fragment {
     const vertex = new MeshVertex(position, normal, uv);
     this.vertices.push(vertex);
     this.cutVertices.push(vertex);
-    let i = this.vertices.length - 1;
-    let k = this.cutVertices.length - 1;
-    this.vertexAdjacency.set(i, k);
   }
 
   /**

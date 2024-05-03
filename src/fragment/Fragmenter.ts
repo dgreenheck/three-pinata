@@ -15,7 +15,7 @@ export function fracture(mesh: Mesh, options: FractureOptions): Mesh[] {
 
   // Subdivide the mesh into multiple fragments until we reach the fragment limit
   while (fragments.length < options.fragmentCount) {
-    const fragment = fragments.shift();
+    const fragment = fragments.shift()!;
     if (!fragment) continue;
 
     fragment?.calculateBounds();
@@ -26,7 +26,7 @@ export function fracture(mesh: Mesh, options: FractureOptions): Mesh[] {
       options.yAxis ? (2.0 * Math.random() - 1) : 0,
       options.zAxis ? (2.0 * Math.random() - 1) : 0
     ).normalize();
-
+    
     const center = new Vector3();
     fragment.bounds.getCenter(center);
 

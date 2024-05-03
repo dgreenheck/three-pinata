@@ -47,20 +47,6 @@ export default class EdgeConstraint {
   }
 
   /**
-   * Serves as the default hash function
-   */
-  getHashCode(): number {
-    let smaller = Math.min(this.v1, this.v2);
-    let larger = Math.max(this.v1, this.v2);
-
-    // Prime numbers for hash calculation
-    let hash = 17;
-    hash = hash * 31 + smaller; // Assuming v1, v2 are numbers, no need for .getHashCode()
-    hash = hash * 31 + larger;
-    return hash;
-  }
-
-  /**
    * Returns a string that represents the current object
    */
   toString(): string {
