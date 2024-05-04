@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { fracture } from './fragment/Fragmenter';
-import { FractureOptions } from './fragment/FractureOptions';
+import { fracture } from './fracture/fragment/Fragmenter';
+import { FractureOptions } from './fracture/fragment/FractureOptions';
 import { RigidBody } from '@dimforge/rapier3d';
 
 const tex = new THREE.TextureLoader().load('base.png');

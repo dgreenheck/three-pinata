@@ -1,4 +1,4 @@
-import MeshVertex from '../../src/fragment/MeshVertex'
+import MeshVertex from '../fragment/MeshVertex'
 import { Vector3 } from 'three';
 
 describe('MeshVertex', () => {

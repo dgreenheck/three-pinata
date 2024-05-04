@@ -1,0 +1,3 @@
+- [ ] Add lilgui
+- [ ] Refactor physics code out of main file
+- [ ] Create class to update both mesh and rigid body together

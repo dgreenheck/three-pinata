@@ -1,4 +1,4 @@
-import { BinSort, IBinSortable } from '../../src/utils/BinSort'
+import { BinSort, IBinSortable } from './BinSort'
 
 class BinnedObjectMock implements IBinSortable {
   bin: number;

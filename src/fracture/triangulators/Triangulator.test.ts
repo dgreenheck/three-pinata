@@ -1,6 +1,6 @@
 import { Vector3 } from 'three';
-import { Triangulator } from '../../src/triangulators/Triangulator';
-import MeshVertex from '../../src/fragment/MeshVertex';
+import { Triangulator } from './Triangulator';
+import MeshVertex from '../fragment/MeshVertex';
 
 function getAdjacentVertex(i: number, n: number): number {
   if ((i + 1) < n) {
