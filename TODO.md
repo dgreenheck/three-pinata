@@ -1,3 +1,9 @@
 - [ ] Add lilgui
+- [ ] Island detection
+  - [ ] Union find algorithm: https://www.geeksforgeeks.org/introduction-to-disjoint-set-data-structure-or-union-find-algorithm/#
 - [ ] Refactor physics code out of main file
 - [ ] Create class to update both mesh and rigid body together
+- [ ] Create sample programs
+  - [ ] Museum. Can slice or shoot balls. Both 2D and 3D elements.
+- [ ] Optimization
+- [ ] Add fracturing code to Drei library

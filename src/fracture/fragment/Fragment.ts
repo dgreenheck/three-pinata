@@ -41,10 +41,10 @@ export class Fragment {
   bounds: Box3;
 
   /**
-   * Adjacency graph for describing which vertices are connected together. This is
-   * used for determining which groups of vertices are separate geometry.
+   * Tracks which vertex a cut-face vertex maps. This is used for during the island
+   * detection algorithm to connect non-cut-face geometry to the cut-face geometry.
    */
-  vertexAdjacency: Map<number, number[]>;
+  vertexAdjacency: number[];
 
   constructor() {
     this.vertices = [];
@@ -53,7 +53,7 @@ export class Fragment {
     this.constraints = [];
     this.indexMap = [];
     this.bounds = new Box3();
-    this.vertexAdjacency = new Map<number, number[]>();
+    this.vertexAdjacency = [];
   }
 
   static fromGeometry(geometry: BufferGeometry): Fragment {
@@ -115,6 +115,9 @@ export class Fragment {
     const vertex = new MeshVertex(position, normal, uv);
     this.vertices.push(vertex);
     this.cutVertices.push(vertex);
+
+    // Track which non-cut-face vertex this cut-face vertex is mapped to
+    this.vertexAdjacency.push(this.vertices.length - 1);
   }
 
   /**
