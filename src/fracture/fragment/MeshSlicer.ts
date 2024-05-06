@@ -118,11 +118,10 @@ function fillCutFaces(
     bottomSlice.cutVertices[i] = bottomVertex;
   }
 
-        // push the new triangles to the top/bottom slices
+  // push the new triangles to the top/bottom slices
   let offsetTop = topSlice.vertices.length;
   let offsetBottom = bottomSlice.vertices.length;
-  for (let i = 0; i < triangles.length; i += 3)
-  {
+  for (let i = 0; i < triangles.length; i += 3) {
     topSlice.addTriangle(
       offsetTop + triangles[i],
       offsetTop + triangles[i + 1],
@@ -256,16 +255,16 @@ function splitTriangle(
   //      v2 *___________* v1    triangle normal out of screen
   //                 
 
-  let v1: MeshVertex = v1_idx < fragment.vertices.length ? 
-    fragment.vertices[v1_idx] : 
+  let v1: MeshVertex = v1_idx < fragment.vertices.length ?
+    fragment.vertices[v1_idx] :
     fragment.cutVertices[v1_idx - fragment.vertices.length];
 
-  let v2: MeshVertex = v2_idx < fragment.vertices.length ? 
-    fragment.vertices[v2_idx] : 
+  let v2: MeshVertex = v2_idx < fragment.vertices.length ?
+    fragment.vertices[v2_idx] :
     fragment.cutVertices[v2_idx - fragment.vertices.length];
 
-  let v3: MeshVertex = v3_idx < fragment.vertices.length ? 
-    fragment.vertices[v3_idx] : 
+  let v3: MeshVertex = v3_idx < fragment.vertices.length ?
+    fragment.vertices[v3_idx] :
     fragment.cutVertices[v3_idx - fragment.vertices.length];
 
   const v13 = linePlaneIntersection(v1.position, v3.position, sliceNormal, sliceOrigin);

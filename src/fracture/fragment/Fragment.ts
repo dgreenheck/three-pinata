@@ -62,11 +62,6 @@ export class Fragment {
     var uvs = geometry.attributes.uv.array as Float32Array;
 
     const data = new Fragment();
-    data.vertices = [];
-    data.cutVertices = [];
-    data.constraints = [];
-    data.indexMap = [];
-
     for (let i = 0; i < positions.length / 3; i++) {
       const position = new Vector3(
         positions[3 * i], 
@@ -162,6 +157,8 @@ export class Fragment {
     // Initialize capacity to current number of cut vertices to prevent
     // unnecessary reallocations
     const weldedVerts: MeshVertex[] = [];
+    // Need to update adjacency as well
+    const weldedVertsAdjacency: number[] = [];
 
     // We also keep track of the index mapping between the skipped vertices
     // and the index of the welded vertex so we can update the edges
@@ -185,6 +182,7 @@ export class Fragment {
 
       if (!duplicate) {
         weldedVerts.push(this.cutVertices[i]);
+        weldedVertsAdjacency.push(this.vertexAdjacency[i]);
         indexMap[i] = k;
         k++;
       }
@@ -198,7 +196,8 @@ export class Fragment {
     }
 
     // Update the cut vertices
-    this.cutVertices = [...weldedVerts];
+    this.cutVertices = weldedVerts;
+    this.vertexAdjacency = weldedVertsAdjacency;
   }
 
   /**

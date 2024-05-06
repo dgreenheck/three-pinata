@@ -56,18 +56,25 @@ export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   const N = fragment.vertices.length;
   const M = fragment.cutVertices.length;
   for (let i = 0; i < M; i++) {
-    const j = fragment.vertexAdjacency[i];
-    uf.union(j, i + N);
+    uf.union(fragment.vertexAdjacency[i], i + N);
+  }
+  
+  for (let i = 0; i < N; i++) {
+    for (let j = i; j < N; j++) {
+      if (fragment.vertices[i].equals(fragment.vertices[j])) {
+        uf.union(i, j);
+      }
+    }
   }
   
   // Group vertices by analyzing which vertices are connected via triangles
+  // Analyze the triangles of each submesh separately
   const indices = fragment.triangles;
-  for (let i = 0; i < fragment.triangles.length; i++) {
-    // Analyze the triangles of each submesh separately
-    for (let j = 0; j < indices[i].length; j += 3) {
-      const a = (i === 0) ? indices[i][j] : indices[i][j] + N;
-      const b = (i === 0) ? indices[i][j + 1] : indices[i][j + 1] + N;
-      const c = (i === 0) ? indices[i][j + 2] : indices[i][j + 2] + N;
+  for (let submeshIndex = 0; submeshIndex < indices.length; submeshIndex++) {
+    for (let i = 0; i < indices[submeshIndex].length; i += 3) {
+      const a = indices[submeshIndex][i];
+      const b = indices[submeshIndex][i + 1];
+      const c = indices[submeshIndex][i + 2];
       uf.union(a, b);
       uf.union(b, c);
 
@@ -77,7 +84,7 @@ export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
         rootTriangles[root] = [[], []]
       }
 
-      rootTriangles[root][i].push(a, b, c);
+      rootTriangles[root][submeshIndex].push(a, b, c);
     }
   }
 
@@ -85,35 +92,41 @@ export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   const rootFragments: Record<number, Fragment> = {};
   const vertexMap: number[] = Array(fragment.vertexCount);
 
-  for (let i = 0; i < fragment.vertexCount; i++) {
+  // Iterate over each vertex and add it to correct mesh
+  for (let i = 0; i < N; i++) {
     const root = uf.find(i);
+
+    // If there is no fragment for this root yet, create it
     if (!rootFragments[root]) {
       rootFragments[root] = new Fragment();
     }
-    
-    // [0...(N - 1)] - Non-cut-face vertices
-    // [N...(N + M)] - Cut-face vertices
-    if (i < N) {
-      rootFragments[root].vertices.push(fragment.vertices[i]);
-      vertexMap[i] = rootFragments[root].vertices.length - 1;
-    } else {
-      rootFragments[root].cutVertices.push(fragment.cutVertices[i - N]);
-      vertexMap[i] = rootFragments[root].cutVertices.length - 1;
-    }
+  
+    rootFragments[root].vertices.push(fragment.vertices[i]);
+    vertexMap[i] = rootFragments[root].vertices.length - 1;
   }
+
+  for (let i = 0; i < M; i++) {
+    const root = uf.find(i + N);
+    rootFragments[root].cutVertices.push(fragment.cutVertices[i]);
+    vertexMap[i + N] = rootFragments[root].vertices.length + rootFragments[root].cutVertices.length - 1;
+  }
+
+  console.log(rootFragments);
 
   // Do the same with the triangles. Each index needs to be mapped to its new array position
   for (const key of Object.keys(rootTriangles)) {
-    const root = Number(key);
-    if (rootFragments[root]) {
-      for (let submeshIndex = 0; submeshIndex < fragment.triangles.length; submeshIndex++) {
-        for (const vertexIndex of rootTriangles[root][submeshIndex]) {
-          const mappedIndex = vertexMap[vertexIndex];
-          rootFragments[root].triangles[submeshIndex].push(mappedIndex);
-        }
+    let i = Number(key);
+    let root = uf.find(i);
+    for (let submeshIndex = 0; submeshIndex < fragment.triangles.length; submeshIndex++) {
+      for (const vertexIndex of rootTriangles[i][submeshIndex]) {
+        const mappedIndex = vertexMap[vertexIndex];
+        console.log(`${vertexIndex}->${mappedIndex}`);
+        rootFragments[root].triangles[submeshIndex].push(mappedIndex);
       }
     }
   };
 
+  console.log(rootFragments);
+  
   return Object.values(rootFragments);
 }

@@ -24,7 +24,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   // Add a simple sphere
   const box = new THREE.Mesh();
-  box.geometry = new THREE.TorusGeometry()
+  box.geometry = new THREE.TorusKnotGeometry()
   box.material =  [
     new THREE.MeshLambertMaterial({ map: tex }),
     new THREE.MeshLambertMaterial({ color: 0xff0000 })
@@ -39,7 +39,7 @@ import('@dimforge/rapier3d').then(RAPIER => {
 
   // Ctate a ground plane
   const planeGeometry = new THREE.PlaneGeometry(20, 20);
-  const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0, side: THREE.DoubleSide });
+  const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0 });
   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
   plane.rotation.x = -Math.PI / 2;
   plane.receiveShadow = true;
