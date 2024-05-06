@@ -238,6 +238,7 @@ export class Fragment {
     let normIdx = 0;
     let uvIdx = 0;
     
+    // Add the positions, normals and uvs for the non-cut-face geometry
     for (const vert of this.vertices) {
       positions[posIdx++] = vert.position.x;
       positions[posIdx++] = vert.position.y;
@@ -251,6 +252,7 @@ export class Fragment {
       uvs[uvIdx++] = vert.uv.y;
     }
 
+    // Next, add the positions, normals and uvs for the cut-face geometry
     for (const vert of this.cutVertices) {
       positions[posIdx++] = vert.position.x;
       positions[posIdx++] = vert.position.y;

@@ -4,7 +4,7 @@ import { isPointAbovePlane, linePlaneIntersection } from '../utils/MathUtils';
 import MeshVertex from './MeshVertex';
 import EdgeConstraint from './EdgeConstraint';
 import { ConstrainedTriangulator } from '../triangulators/ConstrainedTriangulator';
-import { Triangulator } from '../triangulators/Triangulator';
+//import { Triangulator } from '../triangulators/Triangulator';
 
 /**
  * Slices the mesh by the plane specified by `sliceNormal` and `sliceOrigin`

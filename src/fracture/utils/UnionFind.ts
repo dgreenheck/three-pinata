@@ -31,7 +31,7 @@ class UnionFind {
     } else if (this.rank[rootP] < this.rank[rootQ]) {
       this.parent[rootP] = rootQ;
     } else {
-      // If they are the same rank, arbitrarily place P under Q
+      // If they are the same rank, make p the root of q
       this.parent[rootQ] = rootP;
       this.rank[rootP] += 1;
     }
@@ -46,49 +46,74 @@ class UnionFind {
  * @returns An array of fragments
  */
 export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
-  const vertices = fragment.vertices;
+  // Initialize the union-find data structure
+  const uf = new UnionFind(fragment.vertexCount);
+  // Triangles for each submesh are stored separately
+  const rootTriangles: Record<number, number[][]> = {};
+
+  // First, union each cut-face vertex with its coincident non-cut-face vertex
+  // The union is performed so no cut-face vertex can be a root.
+  const N = fragment.vertices.length;
+  const M = fragment.cutVertices.length;
+  for (let i = 0; i < M; i++) {
+    const j = fragment.vertexAdjacency[i];
+    uf.union(j, i + N);
+  }
+  
+  // Group vertices by analyzing which vertices are connected via triangles
   const indices = fragment.triangles;
-
-  const uf = new UnionFind(vertices.length);
-  const triangles: Record<number, number[][]> = {};
-
-  // Group vertices using triangles
   for (let i = 0; i < fragment.triangles.length; i++) {
+    // Analyze the triangles of each submesh separately
     for (let j = 0; j < indices[i].length; j += 3) {
-      const a = indices[i][j];
-      const b = indices[i][j + 1];
-      const c = indices[i][j + 2];
+      const a = (i === 0) ? indices[i][j] : indices[i][j] + N;
+      const b = (i === 0) ? indices[i][j + 1] : indices[i][j + 1] + N;
+      const c = (i === 0) ? indices[i][j + 2] : indices[i][j + 2] + N;
       uf.union(a, b);
       uf.union(b, c);
 
       // Store triangles by root representative
       const root = uf.find(a);
-      if (!triangles[root]) {
-        triangles[root] = Array.from({ length: fragment.triangles.length }, () => []);
+      if (!rootTriangles[root]) {
+        rootTriangles[root] = [[], []]
       }
-      triangles[root][i].push(a, b, c);
+
+      rootTriangles[root][i].push(a, b, c);
     }
   }
 
-  // Extract connected components and their triangles
-  const fragments: Record<number, Fragment> = {};
-  for (let i = 0; i < vertices.length; i++) {
+  // New fragments created from geometry, mapped by root index
+  const rootFragments: Record<number, Fragment> = {};
+  const vertexMap: number[] = Array(fragment.vertexCount);
+
+  for (let i = 0; i < fragment.vertexCount; i++) {
     const root = uf.find(i);
-    if (!fragments[root]) {
-      fragments[root] = new Fragment();
+    if (!rootFragments[root]) {
+      rootFragments[root] = new Fragment();
     }
-    fragments[root].vertices.push(vertices[i]);
+    
+    // [0...(N - 1)] - Non-cut-face vertices
+    // [N...(N + M)] - Cut-face vertices
+    if (i < N) {
+      rootFragments[root].vertices.push(fragment.vertices[i]);
+      vertexMap[i] = rootFragments[root].vertices.length - 1;
+    } else {
+      rootFragments[root].cutVertices.push(fragment.cutVertices[i - N]);
+      vertexMap[i] = rootFragments[root].cutVertices.length - 1;
+    }
   }
 
-  // Assign triangles to their respective components
-  for (const key of Object.keys(triangles)) {
+  // Do the same with the triangles. Each index needs to be mapped to its new array position
+  for (const key of Object.keys(rootTriangles)) {
     const root = Number(key);
-    if (fragments[root]) {
-      for (let j = 0; j < fragment.triangles.length; j++) {
-        fragments[root].triangles[j].push(...triangles[root][j]);
+    if (rootFragments[root]) {
+      for (let submeshIndex = 0; submeshIndex < fragment.triangles.length; submeshIndex++) {
+        for (const vertexIndex of rootTriangles[root][submeshIndex]) {
+          const mappedIndex = vertexMap[vertexIndex];
+          rootFragments[root].triangles[submeshIndex].push(mappedIndex);
+        }
       }
     }
   };
 
-  return Object.values(fragments);
+  return Object.values(rootFragments);
 }
