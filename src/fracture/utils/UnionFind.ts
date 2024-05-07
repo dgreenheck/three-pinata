@@ -51,14 +51,10 @@ export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   // Triangles for each submesh are stored separately
   const rootTriangles: Record<number, number[][]> = {};
 
-  // First, union each cut-face vertex with its coincident non-cut-face vertex
-  // The union is performed so no cut-face vertex can be a root.
   const N = fragment.vertices.length;
   const M = fragment.cutVertices.length;
-  for (let i = 0; i < M; i++) {
-    uf.union(fragment.vertexAdjacency[i], i + N);
-  }
-  
+
+  // TODO: THIS CODE IS VERY SLOW
   for (let i = 0; i < N; i++) {
     for (let j = i; j < N; j++) {
       if (fragment.vertices[i].equals(fragment.vertices[j])) {
@@ -66,7 +62,13 @@ export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
       }
     }
   }
-  
+
+  // First, union each cut-face vertex with its coincident non-cut-face vertex
+  // The union is performed so no cut-face vertex can be a root.
+  for (let i = 0; i < M; i++) {
+    uf.union(fragment.vertexAdjacency[i], i + N);
+  }
+
   // Group vertices by analyzing which vertices are connected via triangles
   // Analyze the triangles of each submesh separately
   const indices = fragment.triangles;
@@ -111,8 +113,6 @@ export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
     vertexMap[i + N] = rootFragments[root].vertices.length + rootFragments[root].cutVertices.length - 1;
   }
 
-  console.log(rootFragments);
-
   // Do the same with the triangles. Each index needs to be mapped to its new array position
   for (const key of Object.keys(rootTriangles)) {
     let i = Number(key);
@@ -120,13 +120,10 @@ export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
     for (let submeshIndex = 0; submeshIndex < fragment.triangles.length; submeshIndex++) {
       for (const vertexIndex of rootTriangles[i][submeshIndex]) {
         const mappedIndex = vertexMap[vertexIndex];
-        console.log(`${vertexIndex}->${mappedIndex}`);
         rootFragments[root].triangles[submeshIndex].push(mappedIndex);
       }
     }
   };
-
-  console.log(rootFragments);
   
   return Object.values(rootFragments);
 }

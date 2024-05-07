@@ -102,9 +102,6 @@ describe('BinSort', () => {
     for (let i = 0; i < output.length; i++) {
       expect(output[i].bin).toBe(i);
     }
-
-    console.log(output);
-    console.log(input);
   });
 
   test('last index out of range', () => {

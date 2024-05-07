@@ -473,10 +473,6 @@ export class ConstrainedTriangulator extends Triangulator {
   triangleContainsConstraint(t: number, constraint: EdgeConstraint): boolean {
     if (t >= this.triangulation.length) return false;
 
-    if (!this.triangulation[t]) {
-      console.log(t);
-      console.log(this.triangulation);
-    }
     return (this.triangulation[t][V1] === constraint.v1 || 
             this.triangulation[t][V2] === constraint.v1 || 
             this.triangulation[t][V3] === constraint.v1) &&
