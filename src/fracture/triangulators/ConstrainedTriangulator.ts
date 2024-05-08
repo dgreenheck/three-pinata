@@ -393,11 +393,15 @@ export class ConstrainedTriangulator extends Triangulator {
     // Initialize to all triangles being skipped
     this.skipTriangle.fill(true);
 
+    function hash(x: number, y: number) {
+      return ((x + y) * (x + y + 1) / 2) + y;
+    }
+
     // Identify the boundary edges
-    let boundaries = new Set<string>();
+    let boundaries = new Set<number>();
     for (let i = 0; i < this.constraints.length; i++) {
       const constraint = this.constraints[i];
-      boundaries.add(constraint.v1 + ',' + constraint.v2);
+      boundaries.add(hash(constraint.v1, constraint.v2));
     }
 
     // Reset visited states
@@ -414,9 +418,9 @@ export class ConstrainedTriangulator extends Triangulator {
       v1 = this.triangulation[i][V1];
       v2 = this.triangulation[i][V2];
       v3 = this.triangulation[i][V3];
-      boundaryE12 = boundaries.has(v1 + ',' + v2);
-      boundaryE23 = boundaries.has(v2 + ',' + v3);
-      boundaryE31 = boundaries.has(v3 + ',' + v1);
+      boundaryE12 = boundaries.has(hash(v1, v2));
+      boundaryE23 = boundaries.has(hash(v2, v3));
+      boundaryE31 = boundaries.has(hash(v3, v1));
 
       // If this triangle has a boundary edge, start searching for adjacent triangles
       if (!(boundaryE12 || boundaryE23 || boundaryE31)) continue;
@@ -451,13 +455,13 @@ export class ConstrainedTriangulator extends Triangulator {
         v3 = this.triangulation[k][V3];
 
         // Continue searching along non-boundary edges
-        if (!boundaries.has(v1 + ',' + v2)) {
+        if (!boundaries.has(hash(v1, v2))) {
           frontier.push(this.triangulation[k][E12]);
         }
-        if (!boundaries.has(v2 + ',' + v3)) {
+        if (!boundaries.has(hash(v2, v3))) {
           frontier.push(this.triangulation[k][E23]);
         }
-        if (!boundaries.has(v3 + ',' + v1)) {
+        if (!boundaries.has(hash(v3, v1))) {
           frontier.push(this.triangulation[k][E31]);
         }
       }

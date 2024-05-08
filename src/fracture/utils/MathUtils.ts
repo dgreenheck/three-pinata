@@ -37,15 +37,19 @@ export function linesIntersect(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector
  * @returns True if the two lines are intersecting
  */
 function linesIntersectInternal(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2, includeSharedEndpoints: boolean): boolean {
-  let a12 = new Vector2(a2.x - a1.x, a2.y - a1.y);
-  let b12 = new Vector2(b2.x - b1.x, b2.y - b1.y);
+  let a12 = { x: a2.x - a1.x, y: a2.y - a1.y };
+  let b12 = { x: b2.x - b1.x, y: b2.y - b1.y };
 
   // If any of the vertices are shared between the two diagonals,
   // the quad collapses into a triangle and is convex by default.    
-  if (compareVec2(a1, b1) || 
-      compareVec2(a1, b2) || 
-      compareVec2(a2, b1) || 
-      compareVec2(a2, b2)) {
+  const hashA1 = hash2(a1);
+  const hashA2 = hash2(a2);
+  const hashB1 = hash2(b1);
+  const hashB2 = hash2(b2);
+  if (hashA1 === hashB1 || 
+      hashA1 === hashB2 || 
+      hashA2 === hashB1 || 
+      hashA2 === hashB2) {
     return includeSharedEndpoints;
   } else {
     // Compute cross product between each point and the opposite diagonal
@@ -85,7 +89,7 @@ export function linePlaneIntersection(
   let s = 0;
   let x = new Vector3();
 
-  if (compareVec3(a, b) || compareVec3(n, ZERO_VECTOR)) {
+  if ((hash3(a) === hash3(b)) || (n.x === 0 && n.y === 0 && n.z === 0)) {
     return null;
   }
 
@@ -119,20 +123,23 @@ export function isPointOnRightSideOfLine(p: Vector2, i: Vector2, j: Vector2): bo
 }
 
 /**
- * Returns true if p1 and p2 are effectively equal.
+ * Calculates hash value of Vector2 using Cantor pairing
  */
-function compareVec2(p1: Vector2, p2: Vector2): boolean {
-  return Math.abs(p1.x - p2.x) < 1E-9 &&
-         Math.abs(p1.y - p2.y) < 1E-9;
+function hash2(v: Vector2, tolerance: number = 1E-6): number {
+  const x = Math.floor(v.x / tolerance);
+  const y = Math.floor(v.y / tolerance);
+  return ((x + y) * (x + y + 1) / 2) + y; // Pairing x and y
 }
 
 /**
  * Returns true if p1 and p2 are effectively equal.
  */
-function compareVec3(p1: Vector3, p2: Vector3): boolean {
-  return Math.abs(p1.x - p2.x) < 1E-9 &&
-         Math.abs(p1.y - p2.y) < 1E-9 &&
-         Math.abs(p1.z - p2.z) < 1E-9;
+function hash3(v: Vector3, tolerance: number = 1E-6): number {
+  const x = Math.floor(v.x / tolerance);
+  const y = Math.floor(v.y / tolerance);
+  const z = Math.floor(v.z / tolerance);
+  const xy = ((x + y) * (x + y + 1) / 2) + y;
+  return (((xy + z) * (xy + z + 1) / 2) + z);
 }
 
 /**

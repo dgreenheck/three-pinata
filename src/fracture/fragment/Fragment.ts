@@ -1,6 +1,7 @@
 import { Box3, Vector2, Vector3, BufferGeometry, BufferAttribute } from 'three';
 import MeshVertex from './MeshVertex';
 import EdgeConstraint from './EdgeConstraint';
+import { UnionFind } from '../utils/UnionFind';
 
 // The enum can be directly translated
 export enum SlicedMeshSubmesh {
@@ -64,17 +65,17 @@ export class Fragment {
     const data = new Fragment();
     for (let i = 0; i < positions.length / 3; i++) {
       const position = new Vector3(
-        positions[3 * i], 
-        positions[3 * i + 1], 
+        positions[3 * i],
+        positions[3 * i + 1],
         positions[3 * i + 2]);
-    
+
       const normal = new Vector3(
-        normals[3 * i], 
-        normals[3 * i + 1], 
+        normals[3 * i],
+        normals[3 * i + 1],
         normals[3 * i + 2]);
 
       const uv = new Vector2(
-        uvs[2 * i], 
+        uvs[2 * i],
         uvs[2 * i + 1]);
 
       data.vertices.push(new MeshVertex(position, normal, uv));
@@ -167,26 +168,20 @@ export class Fragment {
     // Number of welded vertices in the temp array
     let k = 0;
 
-    // Loop through each vertex, identifying duplicates. Must compare directly
-    // because floating point inconsistencies cause a hashtable to be unreliable
-    // for vertices that are very close together but not directly coincident
-    for (let i = 0; i < this.cutVertices.length; i++) {
-      let duplicate = false;
-      for (let j = 0; j < weldedVerts.length; j++) {
-        if (this.cutVertices[i].equals(weldedVerts[j])) {
-          indexMap[i] = j;
-          duplicate = true;
-          break;
-        }
-      }
-
-      if (!duplicate) {
+    // Perform spatial hashing of vertices
+    const adjacencyMap = new Map<number, number>();
+    this.cutVertices.forEach((vertex, i) => {
+      const key = vertex.hash();
+      if (!adjacencyMap.has(key)) {
+        indexMap[i] = k;
+        adjacencyMap.set(key, k);
         weldedVerts.push(this.cutVertices[i]);
         weldedVertsAdjacency.push(this.vertexAdjacency[i]);
-        indexMap[i] = k;
         k++;
+      } else {
+        indexMap[i] = adjacencyMap.get(key)!;
       }
-    }
+    });
 
     // Update the edge constraints to point to the new welded vertices
     for (let i = 0; i < this.constraints.length; i++) {
@@ -222,6 +217,101 @@ export class Fragment {
     this.bounds = new Box3(min, max);
   }
 
+
+  /**
+   * Uses the union-find algorithm to find isolated groups of geometry
+   * within a fragment that are not connected together. These groups
+   * are identified and split into separate fragments.
+   * @returns An array of fragments
+   */
+  findIsolatedGeometry(): Fragment[] {
+    // Initialize the union-find data structure
+    const uf = new UnionFind(this.vertexCount);
+    // Triangles for each submesh are stored separately
+    const rootTriangles: Record<number, number[][]> = {};
+
+    const N = this.vertices.length;
+    const M = this.cutVertices.length;
+
+    const adjacencyMap = new Map<number, number>();
+
+    // Hash each vertex based on its position. If a vertex already exists
+    // at that location, union this vertex with that vertex so they are
+    // included in the same geometry group.
+    this.vertices.forEach((vertex, index) => {
+      const key = vertex.hash();
+      if (!adjacencyMap.has(key)) {
+        adjacencyMap.set(key, index);
+      } else {
+        uf.union(adjacencyMap.get(key)!, index);
+      }
+    });
+
+    // First, union each cut-face vertex with its coincident non-cut-face vertex
+    // The union is performed so no cut-face vertex can be a root.
+    for (let i = 0; i < M; i++) {
+      uf.union(this.vertexAdjacency[i], i + N);
+    }
+
+    // Group vertices by analyzing which vertices are connected via triangles
+    // Analyze the triangles of each submesh separately
+    const indices = this.triangles;
+    for (let submeshIndex = 0; submeshIndex < indices.length; submeshIndex++) {
+      for (let i = 0; i < indices[submeshIndex].length; i += 3) {
+        const a = indices[submeshIndex][i];
+        const b = indices[submeshIndex][i + 1];
+        const c = indices[submeshIndex][i + 2];
+        uf.union(a, b);
+        uf.union(b, c);
+
+        // Store triangles by root representative
+        const root = uf.find(a);
+        if (!rootTriangles[root]) {
+          rootTriangles[root] = [[], []]
+        }
+
+        rootTriangles[root][submeshIndex].push(a, b, c);
+      }
+    }
+
+    // New fragments created from geometry, mapped by root index
+    const rootFragments: Record<number, Fragment> = {};
+    const vertexMap: number[] = Array(this.vertexCount);
+
+    // Iterate over each vertex and add it to correct mesh
+    for (let i = 0; i < N; i++) {
+      const root = uf.find(i);
+
+      // If there is no fragment for this root yet, create it
+      if (!rootFragments[root]) {
+        rootFragments[root] = new Fragment();
+      }
+
+      rootFragments[root].vertices.push(this.vertices[i]);
+      vertexMap[i] = rootFragments[root].vertices.length - 1;
+    }
+
+    for (let i = 0; i < M; i++) {
+      const root = uf.find(i + N);
+      rootFragments[root].cutVertices.push(this.cutVertices[i]);
+      vertexMap[i + N] = rootFragments[root].vertices.length + rootFragments[root].cutVertices.length - 1;
+    }
+
+    // Do the same with the triangles. Each index needs to be mapped to its new array position
+    for (const key of Object.keys(rootTriangles)) {
+      let i = Number(key);
+      let root = uf.find(i);
+      for (let submeshIndex = 0; submeshIndex < this.triangles.length; submeshIndex++) {
+        for (const vertexIndex of rootTriangles[i][submeshIndex]) {
+          const mappedIndex = vertexMap[vertexIndex];
+          rootFragments[root].triangles[submeshIndex].push(mappedIndex);
+        }
+      }
+    };
+
+    return Object.values(rootFragments);
+  }
+
   /**
    * Converts this to a BufferGeometry object
    */
@@ -232,11 +322,11 @@ export class Fragment {
     const positions = new Array<number>(vertexCount * 3);
     const normals = new Array<number>(vertexCount * 3);
     const uvs = new Array<number>(vertexCount * 2);
-    
+
     let posIdx = 0;
     let normIdx = 0;
     let uvIdx = 0;
-    
+
     // Add the positions, normals and uvs for the non-cut-face geometry
     for (const vert of this.vertices) {
       positions[posIdx++] = vert.position.x;

@@ -2,7 +2,6 @@ import { Mesh, Vector3 } from 'three';
 import { FractureOptions } from './FractureOptions';
 import { Fragment } from './Fragment';
 import { slice } from './MeshSlicer';
-import { findIsolatedGeometry } from '../utils/UnionFind';
 
 /**
  * Fractures the mesh into multiple fragments
@@ -41,8 +40,8 @@ export function fracture(mesh: Mesh, options: FractureOptions): Fragment[] {
         false
       );
         
-      const topfragments = findIsolatedGeometry(topSlice);
-      const bottomfragments = findIsolatedGeometry(bottomSlice);
+      const topfragments = topSlice.findIsolatedGeometry();
+      const bottomfragments = bottomSlice.findIsolatedGeometry();
 
       // Check both slices for isolated fragments
       fragments.push(...topfragments)
