@@ -1,144 +1,207 @@
 import * as THREE from 'three';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { fracture } from './fracture/fragment/Fragmenter';
 import { FractureOptions } from './fracture/fragment/FractureOptions';
 import { RigidBody } from '@dimforge/rapier3d';
 
-const tex = new THREE.TextureLoader().load('base.png');
+class PhysicsObject extends THREE.Mesh {
+  rigidBody?: RigidBody;
 
-import('@dimforge/rapier3d').then(RAPIER => {
-  // Create a Rapier physics world
-  const world = new RAPIER.World({ x: 0, y: -2, z: 0 });
-  const eventQueue = new RAPIER.EventQueue(true);
-
-  // Set up Three.js scene
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  document.body.appendChild(renderer.domElement);
-
-  // Orbit controls
-  const controls = new OrbitControls(camera, renderer.domElement);
-
-  // Add a simple sphere
-  const box = new THREE.Mesh();
-  box.geometry = new THREE.TorusGeometry()
-  box.material =  [
-    new THREE.MeshLambertMaterial({ map: tex }),
-    new THREE.MeshLambertMaterial({ color: 0xff0000 })
-  ];
-  box.geometry.addGroup(0, box.geometry.index!.count, 0);
-
-  box.name = 'Box';
-  box.position.set(0, 4, 0);
-  box.rotation.x = -Math.PI / 4 ;
-  box.castShadow = true;
-  scene.add(box);
-
-  // Ctate a ground plane
-  const planeGeometry = new THREE.PlaneGeometry(20, 20);
-  const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0, side: THREE.DoubleSide });
-  const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-  plane.rotation.x = -Math.PI / 2;
-  plane.receiveShadow = true;
-  scene.add(plane);
-
-  const ambient = new THREE.AmbientLight(0xffffff, 0.2);
-  scene.add(ambient);
-
-  const sun = new THREE.DirectionalLight();
-  sun.intensity = 3;
-  sun.position.set(10, 10, 10);
-  sun.castShadow = true;
-  sun.shadow.camera.left = -10;
-  sun.shadow.camera.right = 10;
-  sun.shadow.camera.top = 10;
-  sun.shadow.camera.bottom = -10;
-
-  scene.add(sun);
-
-  // Position the camera
-  camera.position.set(5, 5, 5);
-  controls.target.set(0, 1, 0);
-  controls.update();
-
-  const objects: { mesh: THREE.Mesh, rigidBody: RigidBody }[] = [];
-
-  // Add sphere to Rapier world
-  const boxColliderDesc = RAPIER.ColliderDesc.cuboid(1, 1, 1)
-    .setRestitution(0)
-    .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
-
-  const rigid = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(box.position.x, box.position.y, box.position.z)
-    .setRotation(new THREE.Quaternion().setFromEuler(box.rotation)));
-
-  objects.push({ mesh: box, rigidBody: rigid });
-
-  world.createCollider(boxColliderDesc, rigid);
-
-  // Add ground plane to Rapier world
-  const groundBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  world.createCollider(RAPIER.ColliderDesc.cuboid(10, 0.01, 10), groundBody);
-
-  // Options fracturing
-  const fractureOptions = new FractureOptions();
-
-  let collision = false;
-
-  async function startFracture() {
-    const fragments = fracture(box, fractureOptions);
-    fragments.forEach((fragment) => {
-      const verts = fragment.geometry.getAttribute('position').array as Float32Array;
-
-      // Create colliders for each fragment
-      const fragmentColliderDesc = RAPIER.ColliderDesc.convexMesh(verts)!
-        .setRestitution(0);
-
-      const fragmentBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(fragment.position.x, fragment.position.y, fragment.position.z)
-        .setRotation(new THREE.Quaternion().setFromEuler(fragment.rotation)));
-      fragmentBody.setAngvel(rigid.angvel(), true);
-      fragmentBody.setLinvel(rigid.linvel(), true);
-
-      world.createCollider(fragmentColliderDesc, fragmentBody);
-
-      objects.push({ mesh: fragment, rigidBody: fragmentBody });
-      scene.add(fragment);
-    });
+  constructor(rigidBody?: RigidBody) {
+    super();
+    this.rigidBody = rigidBody;
   }
 
-  // Animation loop
-  function animate() {
-    requestAnimationFrame(animate);
-
-    // Step the physics world
-    world.step(eventQueue);
-    eventQueue.drainCollisionEvents((handle1, handle2, started) => {
-      if (handle1 === rigid.handle || handle2 === rigid.handle) {
-        if (started && !collision) {
-          collision = true;
-          startFracture();
-          box.visible = false;
-          rigid.setEnabled(false);
-        }
-      }
-    });
-
-    objects.forEach(({ mesh, rigidBody }) => {
-      // Update the sphere's position based on the physics simulation
-      const boxPos = rigidBody.translation();
-      const q = rigidBody.rotation();
-      mesh.position.set(boxPos.x, boxPos.y, boxPos.z);
-      mesh.rotation.setFromQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w));
-    });
-
-    renderer.render(scene, camera);
-
-    controls.update();
+  update() {
+    if (this.rigidBody) {
+      const pos = this.rigidBody.translation();
+      const q = this.rigidBody.rotation();
+      this.position.set(pos.x, pos.y, pos.z);
+      this.rotation.setFromQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w));
+    }
   }
+}
 
-  animate();
+
+const gui = new GUI();
+const gltfLoader = new GLTFLoader();
+
+let RAPIER = await import('@dimforge/rapier3d');
+
+// Create a Rapier physics world
+const world = new RAPIER.World({ x: 0, y: -9.8, z: 0 });
+world.integrationParameters.lengthUnit = 0.1;
+
+//world.timestep = 0.002;
+const eventQueue = new RAPIER.EventQueue(true);
+
+// Array of physics objects
+const worldObjects: PhysicsObject[] = [];
+
+// Set up Three.js scene
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+// Orbit controls
+const controls = new OrbitControls(camera, renderer.domElement);
+
+// Load the model
+const lionModel = await gltfLoader.loadAsync('lion2.glb');
+lionModel.scene.traverse((obj) => {
+  if ('isMesh' in obj && obj.isMesh) {
+    const lion = new PhysicsObject();
+
+    const mesh = obj as THREE.Mesh;
+    lion.geometry = mesh.geometry;
+    lion.material = mesh.material;
+    lion.castShadow = true;
+
+    lion.geometry.computeBoundingBox();
+    const size = new THREE.Vector3();
+    lion.geometry.boundingBox?.getSize(size);
+
+    console.log(size);
+
+    const colliderDesc = RAPIER.ColliderDesc.cuboid(1, 1, 1)
+      .setRestitution(0)
+      .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
+
+    lion.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(0, size.y / 2 + 1, 0));
+    lion.update();
+
+    world.createCollider(colliderDesc, lion.rigidBody);
+
+    console.log('lion added');
+
+    scene.add(lion);
+    worldObjects.push(lion);
+  }
 })
+
+// Ctate a ground plane
+const planeGeometry = new THREE.PlaneGeometry(200, 200);
+const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0 });
+const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+plane.rotation.x = -Math.PI / 2;
+plane.receiveShadow = true;
+scene.add(plane);
+
+// Lighting
+const ambient = new THREE.AmbientLight(0xffffff, 0.2);
+scene.add(ambient);
+
+const sun = new THREE.DirectionalLight();
+sun.intensity = 3;
+sun.position.set(-10, 10, 10);
+sun.castShadow = true;
+sun.shadow.camera.left = -50;
+sun.shadow.camera.right = 50;
+sun.shadow.camera.top = 50;
+sun.shadow.camera.bottom = -50;
+
+scene.add(sun);
+
+// Position the camera
+camera.position.set(-50, 50, 50);
+controls.target.set(0, 1, 0);
+controls.update();
+
+// Add ground plane to Rapier world
+const groundBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+world.createCollider(RAPIER.ColliderDesc.cuboid(200, 0.01, 200), groundBody);
+
+// Options fracturing
+const fractureOptions = new FractureOptions();
+
+let collision = false;
+
+async function startFracture(object: PhysicsObject) {
+  console.log('fracturing');
+  const fragments = fracture(object, fractureOptions);
+
+  let i = 0;
+  fragments.forEach((fragment) => {
+    const fragmentObject = new PhysicsObject();
+
+    // Use the original object as a template, copying materials
+    fragmentObject.name = `${object.name}_${i++}`;
+    fragmentObject.geometry = fragment.toGeometry();
+    fragmentObject.material = object.material;
+    fragmentObject.position.copy(object.position);
+    fragmentObject.rotation.copy(object.rotation);
+    fragmentObject.scale.copy(object.scale);
+
+    // Create colliders for each fragment
+    const vertices = fragmentObject.geometry.getAttribute('position').array as Float32Array;
+    const fragmentColliderDesc = RAPIER.ColliderDesc.convexHull(vertices)!
+      .setRestitution(0.2);
+
+    fragmentObject.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(
+        fragmentObject.position.x,
+        fragmentObject.position.y,
+        fragmentObject.position.z)
+      .setRotation(new THREE.Quaternion().setFromEuler(fragmentObject.rotation)));
+
+    fragmentObject.rigidBody.setAngvel(object.rigidBody!.angvel(), true);
+    fragmentObject.rigidBody.setLinvel(object.rigidBody!.linvel(), true);
+
+    world.createCollider(fragmentColliderDesc, fragmentObject.rigidBody);
+
+    worldObjects.push(fragmentObject);
+    scene.add(fragmentObject);
+  });
+
+  console.log('done');
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  // Step the physics world
+  world.step(eventQueue);
+
+  // Handle collisions
+  eventQueue.drainCollisionEvents((handle1, handle2, started) => {
+    if (handle1 === worldObjects[0].rigidBody?.handle ||
+        handle2 === worldObjects[0].rigidBody?.handle) {
+      if (started && !collision) {
+        collision = true;
+        startFracture(worldObjects[0]);
+        worldObjects[0].visible = false;
+        worldObjects[0].rigidBody?.setEnabled(false);
+      }
+    }
+  });
+
+  // Update the position and rotation of each object
+  worldObjects.forEach((obj) => obj.update());
+
+  renderer.render(scene, camera);
+  controls.update();
+}
+
+animate();
+
+const physicsFolder = gui.addFolder('Physics');
+
+const gravityFolder = physicsFolder.addFolder('Gravity');
+gravityFolder.add(world.gravity, 'x', -100, 100, 0.1).name('X');
+gravityFolder.add(world.gravity, 'y', -100, 100, 0.1).name('Y');
+gravityFolder.add(world.gravity, 'z', -100, 100, 0.1).name('Z');
+
+const fractureFolder = gui.addFolder('Fracture Options');
+fractureFolder.add(fractureOptions, 'fractureMode', ['Convex', 'Non-Convex']).name('Fracture Mode');
+fractureFolder.add(fractureOptions, 'fragmentCount', 2, 1000, 1);
+
+const fracturePlanesFolder = fractureFolder.addFolder('Fracture Planes');
+fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'x').name('X');
+fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'y').name('Y');
+fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'z').name('Z');

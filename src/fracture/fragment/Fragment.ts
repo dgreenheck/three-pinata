@@ -41,10 +41,10 @@ export class Fragment {
   bounds: Box3;
 
   /**
-   * Adjacency graph for describing which vertices are connected together. This is
-   * used for determining which groups of vertices are separate geometry.
+   * Tracks which vertex a cut-face vertex maps. This is used for during the island
+   * detection algorithm to connect non-cut-face geometry to the cut-face geometry.
    */
-  vertexAdjacency: Map<number, number[]>;
+  vertexAdjacency: number[];
 
   constructor() {
     this.vertices = [];
@@ -53,7 +53,7 @@ export class Fragment {
     this.constraints = [];
     this.indexMap = [];
     this.bounds = new Box3();
-    this.vertexAdjacency = new Map<number, number[]>();
+    this.vertexAdjacency = [];
   }
 
   static fromGeometry(geometry: BufferGeometry): Fragment {
@@ -62,11 +62,6 @@ export class Fragment {
     var uvs = geometry.attributes.uv.array as Float32Array;
 
     const data = new Fragment();
-    data.vertices = [];
-    data.cutVertices = [];
-    data.constraints = [];
-    data.indexMap = [];
-
     for (let i = 0; i < positions.length / 3; i++) {
       const position = new Vector3(
         positions[3 * i], 
@@ -115,6 +110,9 @@ export class Fragment {
     const vertex = new MeshVertex(position, normal, uv);
     this.vertices.push(vertex);
     this.cutVertices.push(vertex);
+
+    // Track which non-cut-face vertex this cut-face vertex is mapped to
+    this.vertexAdjacency.push(this.vertices.length - 1);
   }
 
   /**
@@ -159,6 +157,8 @@ export class Fragment {
     // Initialize capacity to current number of cut vertices to prevent
     // unnecessary reallocations
     const weldedVerts: MeshVertex[] = [];
+    // Need to update adjacency as well
+    const weldedVertsAdjacency: number[] = [];
 
     // We also keep track of the index mapping between the skipped vertices
     // and the index of the welded vertex so we can update the edges
@@ -182,6 +182,7 @@ export class Fragment {
 
       if (!duplicate) {
         weldedVerts.push(this.cutVertices[i]);
+        weldedVertsAdjacency.push(this.vertexAdjacency[i]);
         indexMap[i] = k;
         k++;
       }
@@ -195,7 +196,8 @@ export class Fragment {
     }
 
     // Update the cut vertices
-    this.cutVertices = [...weldedVerts];
+    this.cutVertices = weldedVerts;
+    this.vertexAdjacency = weldedVertsAdjacency;
   }
 
   /**
@@ -235,6 +237,7 @@ export class Fragment {
     let normIdx = 0;
     let uvIdx = 0;
     
+    // Add the positions, normals and uvs for the non-cut-face geometry
     for (const vert of this.vertices) {
       positions[posIdx++] = vert.position.x;
       positions[posIdx++] = vert.position.y;
@@ -248,6 +251,7 @@ export class Fragment {
       uvs[uvIdx++] = vert.uv.y;
     }
 
+    // Next, add the positions, normals and uvs for the cut-face geometry
     for (const vert of this.cutVertices) {
       positions[posIdx++] = vert.position.x;
       positions[posIdx++] = vert.position.y;
