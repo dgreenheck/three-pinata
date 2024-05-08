@@ -3,8 +3,8 @@ import { Fragment, SlicedMeshSubmesh } from './Fragment';
 import { isPointAbovePlane, linePlaneIntersection } from '../utils/MathUtils';
 import MeshVertex from './MeshVertex';
 import EdgeConstraint from './EdgeConstraint';
+import { Triangulator } from '../triangulators/Triangulator';
 import { ConstrainedTriangulator } from '../triangulators/ConstrainedTriangulator';
-//import { Triangulator } from '../triangulators/Triangulator';
 
 /**
  * Slices the mesh by the plane specified by `sliceNormal` and `sliceOrigin`
@@ -14,6 +14,9 @@ import { ConstrainedTriangulator } from '../triangulators/ConstrainedTriangulato
  * @param sliceOrigin The origin of the slice plane
  * @param textureScale Scale factor to apply to UV coordinates
  * @param textureOffset Offset to apply to UV coordinates
+ * @param convex Set to true if `fragment` is convex geometry. Setting this to
+ * true will use a faster triangulation algorithm. Setting this to false will
+ * allow non-convex geometry triangulated correctly at the expense of performance.
  * @returns An object containing the fragments above and below the slice plane
  */
 export function slice(
@@ -22,6 +25,7 @@ export function slice(
   sliceOrigin: Vector3,
   textureScale: Vector2,
   textureOffset: Vector2,
+  convex: boolean
 ): { topSlice: Fragment, bottomSlice: Fragment } {
   const topSlice = new Fragment();
   const bottomSlice = new Fragment();
@@ -52,7 +56,7 @@ export function slice(
   // The slice normal points to the "above" mesh, so the face normal for the cut face
   // on the above mesh is opposite of the slice normal. Conversely, normal for the
   // cut face on the "below" mesh is in the direction of the slice normal
-  fillCutFaces(topSlice, bottomSlice, sliceNormal.clone().negate(), textureScale, textureOffset);
+  fillCutFaces(topSlice, bottomSlice, sliceNormal.clone().negate(), textureScale, textureOffset, convex);
 
   return { topSlice, bottomSlice }
 }
@@ -65,6 +69,7 @@ export function slice(
  * @param sliceNormal Normal of the slice plane (points towards the top slice)
  * @param textureScale Scale factor to apply to UV coordinates
  * @param textureOffset Offset to apply to UV coordinates
+ * @param convex Set to true if fragments are convex
  * @returns 
  */
 function fillCutFaces(
@@ -72,7 +77,8 @@ function fillCutFaces(
   bottomSlice: Fragment,
   sliceNormal: Vector3,
   textureScale: Vector2,
-  textureOffset: Vector2
+  textureOffset: Vector2,
+  convex: boolean
 ): void {
   // Since the topSlice and bottomSlice both share the same cut face, we only need to calculate it
   // once. Then the same vertex/triangle data for the face will be used for both slices, except
@@ -85,8 +91,10 @@ function fillCutFaces(
   if (topSlice.cutVertices.length < 3) return;
 
   // Triangulate the cut face
-  const triangulator = new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
-  //const triangulator = new Triangulator(topSlice.cutVertices, sliceNormal);
+  const triangulator = convex ?
+    new Triangulator(topSlice.cutVertices, sliceNormal) :
+    new ConstrainedTriangulator(topSlice.cutVertices, topSlice.constraints, sliceNormal);
+
   const triangles: number[] = triangulator.triangulate();
 
   // Update normal and UV for the cut face vertices

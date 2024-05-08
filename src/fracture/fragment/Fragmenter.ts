@@ -23,23 +23,43 @@ export function fracture(mesh: Mesh, options: FractureOptions): Fragment[] {
 
     // Select an arbitrary fracture plane normal
     const normal = new Vector3(
-      options.xAxis ? (2.0 * Math.random() - 1) : 0,
-      options.yAxis ? (2.0 * Math.random() - 1) : 0,
-      options.zAxis ? (2.0 * Math.random() - 1) : 0
+      options.fracturePlanes.x ? (2.0 * Math.random() - 1) : 0,
+      options.fracturePlanes.y ? (2.0 * Math.random() - 1) : 0,
+      options.fracturePlanes.z ? (2.0 * Math.random() - 1) : 0
     ).normalize();
     
     const center = new Vector3();
     fragment.bounds.getCenter(center);
 
-    // Slice and dice!
-    const { topSlice, bottomSlice } = slice(fragment, normal, center, options.textureScale, options.textureOffset);
+    if (options.fractureMode === 'Non-Convex') {
+      const { topSlice, bottomSlice } = slice(
+        fragment, 
+        normal, 
+        center, 
+        options.textureScale, 
+        options.textureOffset,
+        false
+      );
+        
+      const topfragments = findIsolatedGeometry(topSlice);
+      const bottomfragments = findIsolatedGeometry(bottomSlice);
 
-    const topfragments = findIsolatedGeometry(topSlice);
-    const bottomfragments = findIsolatedGeometry(bottomSlice);
+      // Check both slices for isolated fragments
+      fragments.push(...topfragments)
+      fragments.push(...bottomfragments);
+    } else {
+      const { topSlice, bottomSlice } = slice(
+        fragment, 
+        normal, 
+        center, 
+        options.textureScale, 
+        options.textureOffset,
+        true
+      );
 
-    // Check both slices for isolated fragments
-    fragments.push(...topfragments)
-    fragments.push(...bottomfragments);
+      fragments.push(topSlice);
+      fragments.push(bottomSlice);
+    }
   }
 
   return fragments;

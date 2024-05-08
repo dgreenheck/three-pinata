@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { fracture } from './fracture/fragment/Fragmenter';
@@ -23,13 +24,17 @@ class PhysicsObject extends THREE.Mesh {
   }
 }
 
+
+const gui = new GUI();
 const gltfLoader = new GLTFLoader();
 
 let RAPIER = await import('@dimforge/rapier3d');
 
 // Create a Rapier physics world
-const world = new RAPIER.World({ x: 0, y: -5, z: 0 });
-world.timestep = 0.002;
+const world = new RAPIER.World({ x: 0, y: -9.8, z: 0 });
+world.integrationParameters.lengthUnit = 0.1;
+
+//world.timestep = 0.002;
 const eventQueue = new RAPIER.EventQueue(true);
 
 // Array of physics objects
@@ -136,7 +141,7 @@ async function startFracture(object: PhysicsObject) {
     // Create colliders for each fragment
     const vertices = fragmentObject.geometry.getAttribute('position').array as Float32Array;
     const fragmentColliderDesc = RAPIER.ColliderDesc.convexHull(vertices)!
-      .setRestitution(0);
+      .setRestitution(0.2);
 
     fragmentObject.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(
@@ -184,3 +189,19 @@ function animate() {
 }
 
 animate();
+
+const physicsFolder = gui.addFolder('Physics');
+
+const gravityFolder = physicsFolder.addFolder('Gravity');
+gravityFolder.add(world.gravity, 'x', -100, 100, 0.1).name('X');
+gravityFolder.add(world.gravity, 'y', -100, 100, 0.1).name('Y');
+gravityFolder.add(world.gravity, 'z', -100, 100, 0.1).name('Z');
+
+const fractureFolder = gui.addFolder('Fracture Options');
+fractureFolder.add(fractureOptions, 'fractureMode', ['Convex', 'Non-Convex']).name('Fracture Mode');
+fractureFolder.add(fractureOptions, 'fragmentCount', 2, 1000, 1);
+
+const fracturePlanesFolder = fractureFolder.addFolder('Fracture Planes');
+fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'x').name('X');
+fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'y').name('Y');
+fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'z').name('Z');

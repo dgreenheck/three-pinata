@@ -7,24 +7,21 @@ export class FractureOptions {
   public fragmentCount: number;
 
   /**
-   * Enables fracturing in the local X plane
+   * Specify which planes to fracture in
    */
-  public xAxis: boolean;
+  public fracturePlanes: {
+    x: boolean,
+    y: boolean,
+    z: boolean
+  }
 
   /**
-   * Enables fracturing in the local Y plane
+   * Fracturing mode. If set to convex, a faster algorithm will be used under
+   * the assumption the the geometry being fractured is convex. If set to
+   * non-convex, an algorithm which can handle non-convex geometry will be used
+   * at the expensive of performance.
    */
-  public yAxis: boolean;
-
-  /**
-   * Enables fracturing in the local Z plane
-   */
-  public zAxis: boolean;
-
-  /**
-   * Enables detection of "floating" fragments when fracturing non-convex meshes. This setting has no effect for convex meshes and should be disabled.
-   */
-  public detectFloatingFragments: boolean;
+  public fractureMode: 'Convex' | 'Non-Convex';
 
   /**
    * The material to use for the inside faces
@@ -42,11 +39,9 @@ export class FractureOptions {
   public textureOffset: Vector2;
 
   constructor() {
-    this.fragmentCount = 20;
-    this.xAxis = true;
-    this.yAxis = true;
-    this.zAxis = true;
-    this.detectFloatingFragments = false;
+    this.fragmentCount = 100;
+    this.fracturePlanes = { x: true, y: true, z: true };
+    this.fractureMode = 'Non-Convex';
     this.insideMaterial = new MeshBasicMaterial({ color: 0x0000ff });
     this.textureScale = new Vector2(1, 1);
     this.textureOffset = new Vector2();
