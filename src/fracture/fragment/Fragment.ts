@@ -236,14 +236,15 @@ export class Fragment {
     const adjacencyMap = new Map<number, number>();
 
     // Hash each vertex based on its position. If a vertex already exists
-    // at that location, union this vertex with that vertex so they are
+    // at that location, union this vertex with the existing vertex so they are
     // included in the same geometry group.
     this.vertices.forEach((vertex, index) => {
       const key = vertex.hash();
-      if (!adjacencyMap.has(key)) {
+      const existingIndex = adjacencyMap.get(key);
+      if (!existingIndex) {
         adjacencyMap.set(key, index);
       } else {
-        uf.union(adjacencyMap.get(key)!, index);
+        uf.union(existingIndex, index);
       }
     });
 
@@ -291,13 +292,14 @@ export class Fragment {
       vertexMap[i] = rootFragments[root].vertices.length - 1;
     }
 
+    // Do the same for the cut-face vertices
     for (let i = 0; i < M; i++) {
       const root = uf.find(i + N);
       rootFragments[root].cutVertices.push(this.cutVertices[i]);
       vertexMap[i + N] = rootFragments[root].vertices.length + rootFragments[root].cutVertices.length - 1;
     }
 
-    // Do the same with the triangles. Each index needs to be mapped to its new array position
+    // Iterate over triangles and add to the correct mesh
     for (const key of Object.keys(rootTriangles)) {
       let i = Number(key);
       let root = uf.find(i);

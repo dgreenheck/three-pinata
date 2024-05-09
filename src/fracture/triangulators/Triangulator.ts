@@ -122,9 +122,11 @@ export class Triangulator {
     for (let i = 0; i < this.triangleCount; i++) {
       // Add all triangles that don't contain a super-triangle vertex
       if (!this.skipTriangle[i]) {
-        triangles.push(this.triangulation[i][V1]);
-        triangles.push(this.triangulation[i][V2]);
-        triangles.push(this.triangulation[i][V3]);
+        triangles.push(
+          this.triangulation[i][V1],
+          this.triangulation[i][V2],
+          this.triangulation[i][V3]
+        );
       }
     }
 
@@ -532,8 +534,8 @@ export class Triangulator {
    */
   triangleContainsVertex(t: number, v: number): boolean {
     return this.triangulation[t][V1] === v ||
-      this.triangulation[t][V2] === v ||
-      this.triangulation[t][V3] === v;
+           this.triangulation[t][V2] === v ||
+           this.triangulation[t][V3] === v;
   }
 
   /**

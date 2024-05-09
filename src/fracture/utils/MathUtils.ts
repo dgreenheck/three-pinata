@@ -1,7 +1,5 @@
 import { Vector2, Vector3 } from 'three';
 
-const ZERO_VECTOR = new Vector3();
-
 /**
  * Returns true if the quad specified by the two diagonals a1->a2 and b1->b2 is convex
  * Quad is convex if a1->a2 and b1->b2 intersect each other

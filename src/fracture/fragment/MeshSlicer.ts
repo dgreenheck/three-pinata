@@ -280,10 +280,27 @@ function splitTriangle(
 
   if (v13 && v23) {
     // Interpolate normals and UV coordinates
-    let norm13 = v1.normal.clone().addScaledVector(v3.normal.clone().sub(v1.normal), v13.s).normalize();
-    let norm23 = v2.normal.clone().addScaledVector(v3.normal.clone().sub(v2.normal), v23.s).normalize();
-    var uv13 = v1.uv.clone().addScaledVector(v3.uv.clone().sub(v1.uv), v13.s);
-    var uv23 = v2.uv.clone().addScaledVector(v3.uv.clone().sub(v2.uv), v23.s);
+    const norm13 = new Vector3(
+      v1.normal.x + v13.s * (v3.normal.x - v1.normal.x),
+      v1.normal.y + v13.s * (v3.normal.y - v1.normal.y),
+      v1.normal.z + v13.s * (v3.normal.z - v1.normal.z)
+    ).normalize();
+      
+    const norm23 = new Vector3(
+      v2.normal.x + v23.s * (v3.normal.x - v2.normal.x),
+      v2.normal.y + v23.s * (v3.normal.y - v2.normal.y),
+      v2.normal.z + v23.s * (v3.normal.z - v2.normal.z)
+    ).normalize();
+
+    const uv13 = new Vector2(
+      v1.uv.x + v13.s * (v3.uv.x - v1.uv.x),
+      v1.uv.y + v13.s * (v3.uv.y - v1.uv.y)
+    );
+
+    const uv23 = new Vector2(
+      v2.uv.x + v23.s * (v3.uv.x - v2.uv.x),
+      v2.uv.y + v23.s * (v3.uv.y - v2.uv.y)
+    );
 
     // push vertices/normals/uv for the intersection points to each mesh
     topSlice.addCutFaceVertex(v13.x, norm13, uv13);
