@@ -14,10 +14,31 @@ export default class MeshVertex {
     this.uv = uv;
   }
 
-  equals(other: MeshVertex): boolean {
+  /**
+   * Uses Cantor pairing to hash vertex position into a unique integer
+   * @param tolerance The tolerance used for spatial hashing
+   * @returns 
+   */
+  hash(tolerance: number = 1E-9): number {
+    const x = Math.floor(this.position.x / tolerance);
+    const y = Math.floor(this.position.y / tolerance);
+    const z = Math.floor(this.position.z / tolerance);
+    const xy = ((x + y) * (x + y + 1) / 2) + y; // Pairing x and y
+    return (((xy + z) * (xy + z + 1) / 2) + z);
+  }
+  
+  /**
+   * Returns true if this vertex and another vertex share the same position
+   * @param other 
+   * @returns 
+   */
+  equals(other: MeshVertex, tolerance: number = 1E-9): boolean {
+    return this.hash(tolerance) === other.hash(tolerance);
+    /*
     return Math.abs(this.position.x - other.position.x) < 1E-9 &&
            Math.abs(this.position.y - other.position.y) < 1E-9 &&
            Math.abs(this.position.z - other.position.z) < 1E-9;
+           */
   }
 
   toString(): string {

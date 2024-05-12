@@ -31,14 +31,12 @@ const gltfLoader = new GLTFLoader();
 let RAPIER = await import('@dimforge/rapier3d');
 
 // Create a Rapier physics world
-const world = new RAPIER.World({ x: 0, y: -9.8, z: 0 });
+let gravity = { x: 0, y: -5, z: 0 };
+let world = new RAPIER.World(gravity);
 world.integrationParameters.lengthUnit = 0.1;
+let worldObjects: PhysicsObject[] = [];
 
-//world.timestep = 0.002;
 const eventQueue = new RAPIER.EventQueue(true);
-
-// Array of physics objects
-const worldObjects: PhysicsObject[] = [];
 
 // Set up Three.js scene
 const scene = new THREE.Scene();
@@ -51,79 +49,82 @@ document.body.appendChild(renderer.domElement);
 // Orbit controls
 const controls = new OrbitControls(camera, renderer.domElement);
 
-// Load the model
-const lionModel = await gltfLoader.loadAsync('lion2.glb');
-lionModel.scene.traverse((obj) => {
-  if ('isMesh' in obj && obj.isMesh) {
-    const lion = new PhysicsObject();
+let lion: (PhysicsObject | null) = null;
 
-    const mesh = obj as THREE.Mesh;
-    lion.geometry = mesh.geometry;
-    lion.material = mesh.material;
-    lion.castShadow = true;
+async function resetScene() {
+  // Reset the physics world
+  world = new RAPIER.World(gravity);
+  world.integrationParameters.lengthUnit = 0.1;
+  worldObjects = [];
 
-    lion.geometry.computeBoundingBox();
-    const size = new THREE.Vector3();
-    lion.geometry.boundingBox?.getSize(size);
+  scene.clear();
 
-    console.log(size);
+  // Load the model
+  const lionModel = await gltfLoader.loadAsync('lion2.glb');
 
-    const colliderDesc = RAPIER.ColliderDesc.cuboid(1, 1, 1)
-      .setRestitution(0)
-      .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
+  lionModel.scene.traverse((obj) => {
+    if ('isMesh' in obj && obj.isMesh) {
+      lion = new PhysicsObject();
 
-    lion.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
-      .setTranslation(0, size.y / 2 + 1, 0));
-    lion.update();
+      const mesh = obj as THREE.Mesh;
+      lion.geometry = mesh.geometry;
+      lion.material = mesh.material;
+      lion.castShadow = true;
 
-    world.createCollider(colliderDesc, lion.rigidBody);
+      lion.geometry.computeBoundingBox();
+      const size = new THREE.Vector3();
+      lion.geometry.boundingBox?.getSize(size);
 
-    console.log('lion added');
+      const colliderDesc = RAPIER.ColliderDesc.cuboid(1, 1, 1)
+        .setRestitution(0)
+        .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 
-    scene.add(lion);
-    worldObjects.push(lion);
-  }
-})
+      lion.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(0, size.y / 2 + 1, 0));
+      lion.update();
 
-// Ctate a ground plane
-const planeGeometry = new THREE.PlaneGeometry(200, 200);
-const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0 });
-const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-plane.rotation.x = -Math.PI / 2;
-plane.receiveShadow = true;
-scene.add(plane);
+      world.createCollider(colliderDesc, lion.rigidBody);
 
-// Lighting
-const ambient = new THREE.AmbientLight(0xffffff, 0.2);
-scene.add(ambient);
+      scene.add(lion);
+      worldObjects.push(lion);
+    }
+  })
 
-const sun = new THREE.DirectionalLight();
-sun.intensity = 3;
-sun.position.set(-10, 10, 10);
-sun.castShadow = true;
-sun.shadow.camera.left = -50;
-sun.shadow.camera.right = 50;
-sun.shadow.camera.top = 50;
-sun.shadow.camera.bottom = -50;
+  // Create a ground plane
+  const planeGeometry = new THREE.PlaneGeometry(200, 200);
+  const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xa0a0a0 });
+  const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+  plane.rotation.x = -Math.PI / 2;
+  plane.receiveShadow = true;
+  scene.add(plane);
 
-scene.add(sun);
+  // Add ground plane to Rapier world
+  const groundBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+  world.createCollider(RAPIER.ColliderDesc.cuboid(200, 0.01, 200), groundBody);
 
-// Position the camera
-camera.position.set(-50, 50, 50);
-controls.target.set(0, 1, 0);
-controls.update();
+  // Lighting
+  const ambient = new THREE.AmbientLight(0xffffff, 0.2);
+  scene.add(ambient);
 
-// Add ground plane to Rapier world
-const groundBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-world.createCollider(RAPIER.ColliderDesc.cuboid(200, 0.01, 200), groundBody);
+  const sun = new THREE.DirectionalLight();
+  sun.intensity = 3;
+  sun.position.set(-10, 10, 10);
+  sun.castShadow = true;
+  sun.shadow.camera.left = -50;
+  sun.shadow.camera.right = 50;
+  sun.shadow.camera.top = 50;
+  sun.shadow.camera.bottom = -50;
+  scene.add(sun);
 
-// Options fracturing
+  // Position the camera
+  camera.position.set(-50, 40, 50);
+  controls.target.set(0, 10, 0);
+  controls.update();
+}
+
 const fractureOptions = new FractureOptions();
 
-let collision = false;
-
-async function startFracture(object: PhysicsObject) {
-  console.log('fracturing');
+function startFracture(object: PhysicsObject) {
   const fragments = fracture(object, fractureOptions);
 
   let i = 0;
@@ -137,6 +138,7 @@ async function startFracture(object: PhysicsObject) {
     fragmentObject.position.copy(object.position);
     fragmentObject.rotation.copy(object.rotation);
     fragmentObject.scale.copy(object.scale);
+    fragmentObject.castShadow = true;
 
     // Create colliders for each fragment
     const vertices = fragmentObject.geometry.getAttribute('position').array as Float32Array;
@@ -170,13 +172,13 @@ function animate() {
 
   // Handle collisions
   eventQueue.drainCollisionEvents((handle1, handle2, started) => {
-    if (handle1 === worldObjects[0].rigidBody?.handle ||
-        handle2 === worldObjects[0].rigidBody?.handle) {
-      if (started && !collision) {
-        collision = true;
-        startFracture(worldObjects[0]);
-        worldObjects[0].visible = false;
-        worldObjects[0].rigidBody?.setEnabled(false);
+    if (handle1 === lion?.rigidBody?.handle ||
+        handle2 === lion?.rigidBody?.handle) {
+      if (started) {
+        console.log('fracturing');
+        lion.visible = false;
+        lion.rigidBody?.setEnabled(false);
+        startFracture(lion);
       }
     }
   });
@@ -188,7 +190,17 @@ function animate() {
   controls.update();
 }
 
-animate();
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+const functions = {
+  resetScene
+}
+
+gui.add(functions, 'resetScene');
 
 const physicsFolder = gui.addFolder('Physics');
 
@@ -205,3 +217,5 @@ const fracturePlanesFolder = fractureFolder.addFolder('Fracture Planes');
 fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'x').name('X');
 fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'y').name('Y');
 fracturePlanesFolder.add(fractureOptions.fracturePlanes, 'z').name('Z');
+
+animate();
