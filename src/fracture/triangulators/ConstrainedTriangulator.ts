@@ -1,9 +1,9 @@
 import { Vector3 } from 'three';
-import EdgeConstraint from '../fragment/EdgeConstraint';
-import MeshVertex from '../fragment/MeshVertex';
+import EdgeConstraint from '../entities/EdgeConstraint';
+import MeshVertex from '../entities/MeshVertex';
 import { Triangulator } from './Triangulator';
 import { linesIntersect } from '../utils/MathUtils';
-import Quad from '../fragment/Quad';
+import Quad from '../entities/Quad';
 
 // Constants for triangulation array indices
 const V1 = 0; // Vertex 1

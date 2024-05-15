@@ -1,5 +1,5 @@
 import { Vector2, Vector3 } from 'three';
-import * as MathUtils from './MathUtils';
+import * as MathUtils from '../src/fracture/utils/MathUtils';
 
 describe('isPointAbovePlane', () => {
   test('point above plane returns true', () => {

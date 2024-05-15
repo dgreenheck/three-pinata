@@ -1,10 +1,10 @@
 import { Vector2, Vector3 } from 'three';
-import { Fragment, SlicedMeshSubmesh } from './Fragment';
-import { isPointAbovePlane, linePlaneIntersection } from '../utils/MathUtils';
-import MeshVertex from './MeshVertex';
-import EdgeConstraint from './EdgeConstraint';
-import { Triangulator } from '../triangulators/Triangulator';
-import { ConstrainedTriangulator } from '../triangulators/ConstrainedTriangulator';
+import { Fragment, SlicedMeshSubmesh } from './entities/Fragment';
+import { isPointAbovePlane, linePlaneIntersection } from './utils/MathUtils';
+import MeshVertex from './entities/MeshVertex';
+import EdgeConstraint from './entities/EdgeConstraint';
+import { Triangulator } from './triangulators/Triangulator';
+import { ConstrainedTriangulator } from './triangulators/ConstrainedTriangulator';
 
 /**
  * Slices the mesh by the plane specified by `sliceNormal` and `sliceOrigin`

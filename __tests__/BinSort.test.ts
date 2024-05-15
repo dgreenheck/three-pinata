@@ -1,4 +1,4 @@
-import { BinSort, IBinSortable } from './BinSort'
+import { BinSort, IBinSortable } from '../src/fracture/utils/BinSort'
 
 class BinnedObjectMock implements IBinSortable {
   bin: number;

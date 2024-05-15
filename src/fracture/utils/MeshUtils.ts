@@ -1,5 +1,5 @@
 import { Mesh } from 'three';
-import { Fragment } from '../fragment/Fragment';
+import { Fragment } from '../entities/Fragment';
 
 /**
  * Identifies all disconnected sets of geometry contained within the mesh.

@@ -1,4 +1,4 @@
-import EdgeConstraint from '../fragment/EdgeConstraint';
+import EdgeConstraint from '../src/fracture/entities/EdgeConstraint';
 
 describe('EdgeConstraint', () => {
   test('indentical edges are equal', () => {
