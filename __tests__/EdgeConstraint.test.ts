@@ -1,28 +1,28 @@
-import EdgeConstraint from '../fragment/EdgeConstraint';
+import EdgeConstraint from "../src/fracture/entities/EdgeConstraint";
 
-describe('EdgeConstraint', () => {
-  test('indentical edges are equal', () => {
+describe("EdgeConstraint", () => {
+  test("indentical edges are equal", () => {
     const edgeA = new EdgeConstraint(1, 2);
     const edgeB = new EdgeConstraint(1, 2);
 
     expect(edgeA.equals(edgeB)).toBe(true);
   });
 
-  test('different v1 edge are not equal', () => {
+  test("different v1 edge are not equal", () => {
     const edgeA = new EdgeConstraint(1, 2);
     const edgeB = new EdgeConstraint(3, 2);
 
     expect(edgeA.equals(edgeB)).toBe(false);
   });
 
-  test('different v2 edge are not equal', () => {
+  test("different v2 edge are not equal", () => {
     const edgeA = new EdgeConstraint(1, 2);
     const edgeB = new EdgeConstraint(1, 3);
 
     expect(edgeA.equals(edgeB)).toBe(false);
   });
 
-  test('edges in opposite directions are equal', () => {
+  test("edges in opposite directions are equal", () => {
     const edgeA = new EdgeConstraint(1, 2);
     const edgeB = new EdgeConstraint(2, 1);
 

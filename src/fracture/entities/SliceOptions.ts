@@ -1,4 +1,4 @@
-import { Material, Vector2 } from 'three';
+import { Material, Vector2 } from "three";
 
 export class SliceOptions {
   /**
@@ -37,12 +37,12 @@ export class SliceOptions {
   public invokeCallbacks: boolean;
 
   constructor() {
-      this.enableReslicing = false;
-      this.maxResliceCount = 1;
-      this.detectFloatingFragments = false;
-      this.insideMaterial = undefined;
-      this.textureScale = new Vector2(1, 1);
-      this.textureOffset = new Vector2();
-      this.invokeCallbacks = false;
+    this.enableReslicing = false;
+    this.maxResliceCount = 1;
+    this.detectFloatingFragments = false;
+    this.insideMaterial = undefined;
+    this.textureScale = new Vector2(1, 1);
+    this.textureOffset = new Vector2();
+    this.invokeCallbacks = false;
   }
 }

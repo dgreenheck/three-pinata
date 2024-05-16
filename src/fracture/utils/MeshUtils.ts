@@ -1,9 +1,9 @@
-import { Mesh } from 'three';
-import { Fragment } from '../fragment/Fragment';
+import { Mesh } from "three";
+import { Fragment } from "../entities/Fragment";
 
 /**
  * Identifies all disconnected sets of geometry contained within the mesh.
- * Each set of geometry is split into a separate meshes. 
+ * Each set of geometry is split into a separate meshes.
  * @param mesh The mesh to search
  * @returns Returns an array of all disconnected meshes found.
  */
@@ -20,7 +20,11 @@ function findDisconnectedFragments(fragment: Fragment): Fragment[] {
   // For each triangle, find the corresponding sub-mesh index. (Mesh.triangles contains  the triangles for all sub-meshes)
   const triangleSubMesh = new Array<number>(fragment.triangleCount);
   triangleSubMesh.fill(0, 0, fragment.triangles[0].length);
-  triangleSubMesh.fill(1, fragment.triangles[0].length, fragment.triangles[1].length);
+  triangleSubMesh.fill(
+    1,
+    fragment.triangles[0].length,
+    fragment.triangles[1].length,
+  );
 
   const vertexTriangles: number[][] = new Array(positions.length);
   for (let i = 0; i < positions.length; i++) {
@@ -43,7 +47,11 @@ function findDisconnectedFragments(fragment: Fragment): Fragment[] {
   const visitedTriangles: boolean[] = new Array(triangles.length).fill(false);
   const frontier: number[] = [];
 
-  const islandVertices = new NativeArray<MeshVertex>(positions.length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+  const islandVertices = new NativeArray<MeshVertex>(
+    positions.length,
+    Allocator.Temp,
+    NativeArrayOptions.UninitializedMemory,
+  );
 
   const islandTriangles: number[][] = [];
   for (let i = 0; i < mesh.subMeshCount; i++) {
@@ -73,14 +81,19 @@ function findDisconnectedFragments(fragment: Fragment): Fragment[] {
         visitedVertices[k] = true;
       }
       vertexMap[k] = vertexCount;
-      islandVertices[vertexCount++] = new MeshVertex(positions[k], normals[k], uvs[k]);
+      islandVertices[vertexCount++] = new MeshVertex(
+        positions[k],
+        normals[k],
+        uvs[k],
+      );
       for (const t of vertexTriangles[k]) {
         if (!visitedTriangles[t]) {
           visitedTriangles[t] = true;
           for (let m = t * 3; m < t * 3 + 3; m++) {
             const v = triangles[m];
             subMeshIndex = triangleSubMesh[t];
-            islandTriangles[subMeshIndex][subMeshIndexCounts[subMeshIndex]++] = v;
+            islandTriangles[subMeshIndex][subMeshIndexCounts[subMeshIndex]++] =
+              v;
             totalIndexCount++;
             frontier.push(v);
             for (const cv of coincidentVertices[v]) {
@@ -105,8 +118,16 @@ function findDisconnectedFragments(fragment: Fragment): Fragment[] {
           const originalIndex = subMeshIndexBuffer[k];
           subMeshIndexBuffer[k] = vertexMap[originalIndex];
         }
-        island.SetIndexBufferData(subMeshIndexBuffer, 0, indexStart, subMeshIndexCount);
-        island.SetSubMesh(subMeshIndex, new SubMeshDescriptor(indexStart, subMeshIndexCount));
+        island.SetIndexBufferData(
+          subMeshIndexBuffer,
+          0,
+          indexStart,
+          subMeshIndexCount,
+        );
+        island.SetSubMesh(
+          subMeshIndex,
+          new SubMeshDescriptor(indexStart, subMeshIndexCount),
+        );
         indexStart += subMeshIndexCount;
       }
       island.RecalculateBounds();

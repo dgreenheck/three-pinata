@@ -1,8 +1,8 @@
-import { Vector2, Vector3 } from 'three';
-import TriangulationPoint from '../fragment/TriangulationPoint';
-import MeshVertex from '../fragment/MeshVertex';
-import { BinSort } from '../utils/BinSort';
-import { isPointOnRightSideOfLine } from '../utils/MathUtils';
+import { Vector2, Vector3 } from "three";
+import TriangulationPoint from "../entities/TriangulationPoint";
+import MeshVertex from "../entities/MeshVertex";
+import { BinSort } from "../utils/BinSort";
+import { isPointOnRightSideOfLine } from "../utils/MathUtils";
 
 // Constants for triangulation array indices
 const V1 = 0; // Vertex 1
@@ -46,7 +46,7 @@ export class Triangulator {
   /**
    * Points on the plane to triangulate
    */
-  points: TriangulationPoint[]
+  points: TriangulationPoint[];
 
   /**
    * Array which tracks which triangles should be ignored in the final triangulation
@@ -65,7 +65,7 @@ export class Triangulator {
 
   /**
    * Initializes the triangulator with the vertex data to be triangulated
-   * 
+   *
    * @param inputPoints The points to triangulate
    * @param normal The normal of the triangulation plane
    */
@@ -74,17 +74,22 @@ export class Triangulator {
 
     if (this.N >= 3) {
       this.triangleCount = 2 * this.N + 1;
-      this.triangulation = Array.from({ length: this.triangleCount }, () => new Array(6).fill(0));
+      this.triangulation = Array.from({ length: this.triangleCount }, () =>
+        new Array(6).fill(0),
+      );
       this.skipTriangle = new Array<boolean>(this.triangleCount).fill(false);
       this.points = new Array<TriangulationPoint>(this.N + 3); // Extra 3 points used to store super triangle
       this.normal = normal.clone().normalize();
 
       // Choose two points in the plane as one basis vector
-      let e1 = (inputPoints[0].position.clone().sub(inputPoints[1].position)).normalize();
+      let e1 = inputPoints[0].position
+        .clone()
+        .sub(inputPoints[1].position)
+        .normalize();
       let e2 = this.normal.clone();
       let e3 = new Vector3();
       e3.crossVectors(e1, e2).normalize();
-      
+
       // To find the 2nd basis vector, find the largest component and swap with the smallest, negating the largest
 
       // Project 3D vertex onto the 2D plane
@@ -104,7 +109,7 @@ export class Triangulator {
 
   /**
    * Performs the triangulation
-   * 
+   *
    * @returns Returns an array containing the indices of the triangles, mapped to the list of points passed in during initialization
    */
   triangulate(): number[] {
@@ -125,7 +130,7 @@ export class Triangulator {
         triangles.push(
           this.triangulation[i][V1],
           this.triangulation[i][V2],
-          this.triangulation[i][V3]
+          this.triangulation[i][V3],
         );
       }
     }
@@ -150,7 +155,7 @@ export class Triangulator {
       xMax = Math.max(xMax, this.points[i].coords.x);
       yMin = Math.min(yMin, this.points[i].coords.y);
       yMax = Math.max(yMax, this.points[i].coords.y);
-    };
+    }
 
     // Normalization coefficient. Using same coefficient for both x & y
     // ensures uniform scaling
@@ -161,7 +166,8 @@ export class Triangulator {
       var point = this.points[i];
       var normalizedPos = new Vector2(
         (point.coords.x - xMin) / normalizationScaleFactor,
-        (point.coords.y - yMin) / normalizationScaleFactor);
+        (point.coords.y - yMin) / normalizationScaleFactor,
+      );
 
       this.points[i].coords = normalizedPos;
     }
@@ -169,7 +175,7 @@ export class Triangulator {
 
   /**
    * Sorts the points into bins using an ordered grid
-   * 
+   *
    * @returns Returns the array of sorted points
    */
   sortPointsIntoBins(): TriangulationPoint[] {
@@ -243,9 +249,18 @@ export class Triangulator {
    */
   addSuperTriangle(): void {
     // Add new points to the end of the points array
-    this.points[this.N] = new TriangulationPoint(this.N, new Vector2(-100, -100));
-    this.points[this.N + 1] = new TriangulationPoint(this.N + 1, new Vector2(0, 100));
-    this.points[this.N + 2] = new TriangulationPoint(this.N + 2, new Vector2(100, -100));
+    this.points[this.N] = new TriangulationPoint(
+      this.N,
+      new Vector2(-100, -100),
+    );
+    this.points[this.N + 1] = new TriangulationPoint(
+      this.N + 1,
+      new Vector2(0, 100),
+    );
+    this.points[this.N + 2] = new TriangulationPoint(
+      this.N + 2,
+      new Vector2(100, -100),
+    );
 
     // Store supertriangle in the first column of the vertex and adjacency data
     this.triangulation[SUPERTRIANGLE][V1] = this.N;
@@ -260,12 +275,16 @@ export class Triangulator {
 
   /**
    * Inserts the point `p` into triangle `t`, replacing it with three new triangles
-   * 
+   *
    * @param p The index of the point to insert
    * @param t The index of the triangle
    * @param triangleCount Total number of triangles created so far
    */
-  insertPointIntoTriangle(p: TriangulationPoint, t: number, triangleCount: number) {
+  insertPointIntoTriangle(
+    p: TriangulationPoint,
+    t: number,
+    triangleCount: number,
+  ) {
     //                         V1
     //                         *
     //                        /|\
@@ -326,13 +345,18 @@ export class Triangulator {
 
   /**
    * Restores the triangulation to a Delauney triangulation after new triangles have been added.
-   * 
+   *
    * @param p Index of the inserted point
    * @param t1 Index of first triangle to check
    * @param t2 Index of second triangle to check
    * @param t3 Index of third triangle to check
    */
-  restoreDelauneyTriangulation(p: TriangulationPoint, t1: number, t2: number, t3: number): void {
+  restoreDelauneyTriangulation(
+    p: TriangulationPoint,
+    t1: number,
+    t2: number,
+    t3: number,
+  ): void {
     const s: [t1: number, t2: number][] = [];
 
     s.push([t1, this.triangulation[t1][E23]]);
@@ -365,7 +389,7 @@ export class Triangulator {
   /**
    * Swaps the diagonal of the quadrilateral formed by triangle `t` and the
    * triangle adjacent to the edge that is opposite of the newly added point
-   * 
+   *
    * @param p The index of the inserted point
    * @param t1 Index of the triangle containing p
    * @param t2 Index of the triangle opposite t1 that shares edge E23 with t1
@@ -376,29 +400,29 @@ export class Triangulator {
   swapQuadDiagonalIfNeeded(
     p: number,
     t1: number,
-    t2: number
-  ): { t3: number, t4: number } | null {
+    t2: number,
+  ): { t3: number; t4: number } | null {
     // 1) Form quadrilateral from t1 + t2 (q0->q1->q2->q3)
     // 2) Swap diagonal between q1->q3 to q0->q2
     //
     //               BEFORE                            AFTER
-    //  
+    //
     //                 q3                                q3
     //    *-------------*-------------*    *-------------*-------------*
-    //     \           / \           /      \           /|\           / 
-    //      \   t3    /   \   t4    /        \   t3    /3|2\   t4    /  
-    //       \       /     \       /          \       /  |  \       /   
-    //        \     /       \     /            \     /   |   \     /    
-    //         \   /   t2    \   /              \   /    |    \   /     
-    //          \ /           \ /                \ /     |     \ /     
+    //     \           / \           /      \           /|\           /
+    //      \   t3    /   \   t4    /        \   t3    /3|2\   t4    /
+    //       \       /     \       /          \       /  |  \       /
+    //        \     /       \     /            \     /   |   \     /
+    //         \   /   t2    \   /              \   /    |    \   /
+    //          \ /           \ /                \ /     |     \ /
     //        q1 *-------------*  q2           q1 * 2 t1 | t2 3 * q2
-    //            \2         3/                    \     |     /        
-    //             \         /                      \    |    /         
-    //              \  t1   /                        \   |   /          
-    //               \     /                          \  |  /          
-    //                \   /                            \1|1/            
-    //                 \1/                              \|/             
-    //                  *  q4 == p                       *  q4 == p   
+    //            \2         3/                    \     |     /
+    //             \         /                      \    |    /
+    //              \  t1   /                        \   |   /
+    //               \     /                          \  |  /
+    //                \   /                            \1|1/
+    //                 \1/                              \|/
+    //                  *  q4 == p                       *  q4 == p
     //
 
     // Get the vertices of the quad. The new vertex is always located at V1 of the triangle
@@ -420,17 +444,15 @@ export class Triangulator {
 
       t3 = this.triangulation[t2][E23];
       t4 = this.triangulation[t2][E31];
-    }
-    else if (this.triangulation[t2][E23] === t1) {
+    } else if (this.triangulation[t2][E23] === t1) {
       q1 = this.triangulation[t2][V3];
       q2 = this.triangulation[t2][V2];
       q3 = this.triangulation[t2][V1];
 
       t3 = this.triangulation[t2][E31];
       t4 = this.triangulation[t2][E12];
-    }
-    else // (this.triangulation[t2][E31] == t1)
-    {
+    } // (this.triangulation[t2][E31] == t1)
+    else {
       q1 = this.triangulation[t2][V1];
       q2 = this.triangulation[t2][V3];
       q3 = this.triangulation[t2][V2];
@@ -444,7 +466,8 @@ export class Triangulator {
       this.points[q1].coords,
       this.points[q2].coords,
       this.points[q3].coords,
-      this.points[q4].coords);
+      this.points[q4].coords,
+    );
 
     if (swap) {
       // Update adjacency for triangles adjacent to t1 and t2
@@ -471,8 +494,7 @@ export class Triangulator {
       this.triangulation[t1][E31] = t2;
 
       return { t3, t4 };
-    }
-    else {
+    } else {
       return null;
     }
   }
@@ -483,9 +505,11 @@ export class Triangulator {
   discardTrianglesWithSuperTriangleVertices(): void {
     for (let i = 0; i < this.triangleCount; i++) {
       // Add all triangles that don't contain a super-triangle vertex
-      if (this.triangleContainsVertex(i, this.N) ||
+      if (
+        this.triangleContainsVertex(i, this.N) ||
         this.triangleContainsVertex(i, this.N + 1) ||
-        this.triangleContainsVertex(i, this.N + 2)) {
+        this.triangleContainsVertex(i, this.N + 2)
+      ) {
         this.skipTriangle[i] = true;
       }
     }
@@ -518,8 +542,8 @@ export class Triangulator {
     } else if (cosA < 0 && cosB < 0) {
       return true;
     } else {
-      const sinA = (x13 * y23 - x23 * y13);
-      const sinB = (x24 * y14 - x14 * y24);
+      const sinA = x13 * y23 - x23 * y13;
+      const sinB = x24 * y14 - x14 * y24;
       const sinAB = sinA * cosB + sinB * cosA;
       return sinAB < 0;
     }
@@ -533,9 +557,11 @@ export class Triangulator {
    * @returns {boolean} Returns true if the triangle `t` contains the vertex `v`.
    */
   triangleContainsVertex(t: number, v: number): boolean {
-    return this.triangulation[t][V1] === v ||
-           this.triangulation[t][V2] === v ||
-           this.triangulation[t][V3] === v;
+    return (
+      this.triangulation[t][V1] === v ||
+      this.triangulation[t][V2] === v ||
+      this.triangulation[t][V3] === v
+    );
   }
 
   /**

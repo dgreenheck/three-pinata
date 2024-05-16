@@ -1,7 +1,6 @@
-import { Box3, Vector2, Vector3, BufferGeometry, BufferAttribute } from 'three';
-import MeshVertex from './MeshVertex';
-import EdgeConstraint from './EdgeConstraint';
-import { UnionFind } from '../utils/UnionFind';
+import { Box3, Vector2, Vector3, BufferGeometry, BufferAttribute } from "three";
+import MeshVertex from "./MeshVertex";
+import EdgeConstraint from "./EdgeConstraint";
 
 // The enum can be directly translated
 export enum SlicedMeshSubmesh {
@@ -67,16 +66,16 @@ export class Fragment {
       const position = new Vector3(
         positions[3 * i],
         positions[3 * i + 1],
-        positions[3 * i + 2]);
+        positions[3 * i + 2],
+      );
 
       const normal = new Vector3(
         normals[3 * i],
         normals[3 * i + 1],
-        normals[3 * i + 2]);
+        normals[3 * i + 2],
+      );
 
-      const uv = new Vector2(
-        uvs[2 * i],
-        uvs[2 * i + 1]);
+      const uv = new Vector2(uvs[2 * i], uvs[2 * i + 1]);
 
       data.vertices.push(new MeshVertex(position, normal, uv));
     }
@@ -98,7 +97,7 @@ export class Fragment {
    * Gets the total number of vertices in the geometry
    */
   get vertexCount(): number {
-    return (this.vertices.length + this.cutVertices.length);
+    return this.vertices.length + this.cutVertices.length;
   }
 
   /**
@@ -134,7 +133,12 @@ export class Fragment {
    * @param v3 Index of the third vertex
    * @param subMesh The sub-mesh to add the triangle to
    */
-  addTriangle(v1: number, v2: number, v3: number, subMesh: SlicedMeshSubmesh): void {
+  addTriangle(
+    v1: number,
+    v2: number,
+    v3: number,
+    subMesh: SlicedMeshSubmesh,
+  ): void {
     this.triangles[subMesh].push(v1, v2, v3);
   }
 
@@ -146,8 +150,17 @@ export class Fragment {
    * @param v3 Index of the third vertex
    * @param subMesh The sub-mesh to add the triangle to
    */
-  addMappedTriangle(v1: number, v2: number, v3: number, subMesh: SlicedMeshSubmesh): void {
-    this.triangles[subMesh].push(this.indexMap[v1], this.indexMap[v2], this.indexMap[v3]);
+  addMappedTriangle(
+    v1: number,
+    v2: number,
+    v3: number,
+    subMesh: SlicedMeshSubmesh,
+  ): void {
+    this.triangles[subMesh].push(
+      this.indexMap[v1],
+      this.indexMap[v2],
+      this.indexMap[v3],
+    );
   }
 
   /**
@@ -204,7 +217,7 @@ export class Fragment {
     let max = min.clone();
 
     // Iterate over the vertices to find the min and max x, y, and z
-    this.vertices.forEach(vertex => {
+    this.vertices.forEach((vertex) => {
       min.x = Math.min(min.x, vertex.position.x);
       min.y = Math.min(min.y, vertex.position.y);
       min.z = Math.min(min.z, vertex.position.z);
@@ -217,110 +230,13 @@ export class Fragment {
     this.bounds = new Box3(min, max);
   }
 
-
-  /**
-   * Uses the union-find algorithm to find isolated groups of geometry
-   * within a fragment that are not connected together. These groups
-   * are identified and split into separate fragments.
-   * @returns An array of fragments
-   */
-  findIsolatedGeometry(): Fragment[] {
-    // Initialize the union-find data structure
-    const uf = new UnionFind(this.vertexCount);
-    // Triangles for each submesh are stored separately
-    const rootTriangles: Record<number, number[][]> = {};
-
-    const N = this.vertices.length;
-    const M = this.cutVertices.length;
-
-    const adjacencyMap = new Map<number, number>();
-
-    // Hash each vertex based on its position. If a vertex already exists
-    // at that location, union this vertex with the existing vertex so they are
-    // included in the same geometry group.
-    this.vertices.forEach((vertex, index) => {
-      const key = vertex.hash();
-      const existingIndex = adjacencyMap.get(key);
-      if (!existingIndex) {
-        adjacencyMap.set(key, index);
-      } else {
-        uf.union(existingIndex, index);
-      }
-    });
-
-    // First, union each cut-face vertex with its coincident non-cut-face vertex
-    // The union is performed so no cut-face vertex can be a root.
-    for (let i = 0; i < M; i++) {
-      uf.union(this.vertexAdjacency[i], i + N);
-    }
-
-    // Group vertices by analyzing which vertices are connected via triangles
-    // Analyze the triangles of each submesh separately
-    const indices = this.triangles;
-    for (let submeshIndex = 0; submeshIndex < indices.length; submeshIndex++) {
-      for (let i = 0; i < indices[submeshIndex].length; i += 3) {
-        const a = indices[submeshIndex][i];
-        const b = indices[submeshIndex][i + 1];
-        const c = indices[submeshIndex][i + 2];
-        uf.union(a, b);
-        uf.union(b, c);
-
-        // Store triangles by root representative
-        const root = uf.find(a);
-        if (!rootTriangles[root]) {
-          rootTriangles[root] = [[], []]
-        }
-
-        rootTriangles[root][submeshIndex].push(a, b, c);
-      }
-    }
-
-    // New fragments created from geometry, mapped by root index
-    const rootFragments: Record<number, Fragment> = {};
-    const vertexMap: number[] = Array(this.vertexCount);
-
-    // Iterate over each vertex and add it to correct mesh
-    for (let i = 0; i < N; i++) {
-      const root = uf.find(i);
-
-      // If there is no fragment for this root yet, create it
-      if (!rootFragments[root]) {
-        rootFragments[root] = new Fragment();
-      }
-
-      rootFragments[root].vertices.push(this.vertices[i]);
-      vertexMap[i] = rootFragments[root].vertices.length - 1;
-    }
-
-    // Do the same for the cut-face vertices
-    for (let i = 0; i < M; i++) {
-      const root = uf.find(i + N);
-      rootFragments[root].cutVertices.push(this.cutVertices[i]);
-      vertexMap[i + N] = rootFragments[root].vertices.length + rootFragments[root].cutVertices.length - 1;
-    }
-
-    // Iterate over triangles and add to the correct mesh
-    for (const key of Object.keys(rootTriangles)) {
-      let i = Number(key);
-      let root = uf.find(i);
-      for (let submeshIndex = 0; submeshIndex < this.triangles.length; submeshIndex++) {
-        for (const vertexIndex of rootTriangles[i][submeshIndex]) {
-          const mappedIndex = vertexMap[vertexIndex];
-          rootFragments[root].triangles[submeshIndex].push(mappedIndex);
-        }
-      }
-    };
-
-    return Object.values(rootFragments);
-  }
-
   /**
    * Converts this to a BufferGeometry object
    */
   toGeometry(): BufferGeometry {
     const geometry = new BufferGeometry();
 
-    const vertexCount = (this.vertices.length + this.cutVertices.length);
+    const vertexCount = this.vertices.length + this.cutVertices.length;
     const positions = new Array<number>(vertexCount * 3);
     const normals = new Array<number>(vertexCount * 3);
     const uvs = new Array<number>(vertexCount * 2);
@@ -360,22 +276,19 @@ export class Fragment {
     geometry.addGroup(0, this.triangles[0].length, 0);
     geometry.addGroup(this.triangles[0].length, this.triangles[1].length, 1);
 
-    geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
-    geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), 3));
-    geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
-    geometry.setIndex(new BufferAttribute(new Uint32Array(this.triangles.flat()), 1));
+    geometry.setAttribute(
+      "position",
+      new BufferAttribute(new Float32Array(positions), 3),
+    );
+    geometry.setAttribute(
+      "normal",
+      new BufferAttribute(new Float32Array(normals), 3),
+    );
+    geometry.setAttribute("uv", new BufferAttribute(new Float32Array(uvs), 2));
+    geometry.setIndex(
+      new BufferAttribute(new Uint32Array(this.triangles.flat()), 1),
+    );
 
     return geometry;
-  }
-
-  clone(): Fragment {
-    const clone = new Fragment();
-    clone.bounds = this.bounds.clone();
-    clone.constraints = [...clone.constraints];
-    clone.cutVertices = [...clone.cutVertices];
-    clone.indexMap = [...clone.indexMap];
-    clone.triangles = [...clone.triangles];
-    clone.vertices = [...clone.vertices];
-    return clone;
   }
 }

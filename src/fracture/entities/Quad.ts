@@ -2,19 +2,19 @@
  * Data structure that holds triangulation adjacency data for a quad
  */
 export default class Quad {
-  //               q3        
+  //               q3
   //      *---------*---------*
   //       \       / \       /
   //        \ t2L /   \ t2R /
   //         \   /     \   /
   //          \ /   t2  \ /
-  //        q1 *---------* q2 
-  //          / \   t1  / \    
-  //         /   \     /   \     
-  //        / t1L \   / t1R \   
-  //       /       \ /       \  
+  //        q1 *---------* q2
+  //          / \   t1  / \
+  //         /   \     /   \
+  //        / t1L \   / t1R \
+  //       /       \ /       \
   //      *---------*---------*
-  //               q4           
+  //               q4
 
   // The indices of the quad vertices
   q1: number;

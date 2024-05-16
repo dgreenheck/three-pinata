@@ -1,4 +1,4 @@
-import { Vector2, Material, MeshBasicMaterial } from 'three';
+import { Vector2, Material, MeshBasicMaterial } from "three";
 
 export class FractureOptions {
   /**
@@ -10,10 +10,10 @@ export class FractureOptions {
    * Specify which planes to fracture in
    */
   public fracturePlanes: {
-    x: boolean,
-    y: boolean,
-    z: boolean
-  }
+    x: boolean;
+    y: boolean;
+    z: boolean;
+  };
 
   /**
    * Fracturing mode. If set to convex, a faster algorithm will be used under
@@ -21,7 +21,7 @@ export class FractureOptions {
    * non-convex, an algorithm which can handle non-convex geometry will be used
    * at the expensive of performance.
    */
-  public fractureMode: 'Convex' | 'Non-Convex';
+  public fractureMode: "Convex" | "Non-Convex";
 
   /**
    * The material to use for the inside faces
@@ -41,7 +41,7 @@ export class FractureOptions {
   constructor() {
     this.fragmentCount = 100;
     this.fracturePlanes = { x: true, y: true, z: true };
-    this.fractureMode = 'Non-Convex';
+    this.fractureMode = "Non-Convex";
     this.insideMaterial = new MeshBasicMaterial({ color: 0x0000ff });
     this.textureScale = new Vector2(1, 1);
     this.textureOffset = new Vector2();

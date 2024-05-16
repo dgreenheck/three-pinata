@@ -1,29 +1,29 @@
-import { Vector2, Vector3 } from 'three';
-import * as MathUtils from './MathUtils';
+import { Vector2, Vector3 } from "three";
+import * as MathUtils from "../src/fracture/utils/MathUtils";
 
-describe('isPointAbovePlane', () => {
-  test('point above plane returns true', () => {
+describe("isPointAbovePlane", () => {
+  test("point above plane returns true", () => {
     var p = new Vector3(0, 1, 0);
     var n = new Vector3(0, 1, 0);
     var o = new Vector3();
     MathUtils.isPointAbovePlane(p, n, o);
   });
 
-  test('point below plane returns false', () => {
+  test("point below plane returns false", () => {
     var p = new Vector3(0, -1, 0);
     var n = new Vector3(0, 1, 0);
     var o = new Vector3();
     MathUtils.isPointAbovePlane(p, n, o);
   });
 
-  test('point on plane returns true', () => {
+  test("point on plane returns true", () => {
     var p = new Vector3(1, 0, 0);
     var n = new Vector3(0, 1, 0);
     var o = new Vector3();
     MathUtils.isPointAbovePlane(p, n, o);
   });
 
-  test('point on origin returns true', () => {
+  test("point on origin returns true", () => {
     var p = new Vector3();
     var n = new Vector3(0, 1, 0);
     var o = new Vector3();
@@ -31,36 +31,36 @@ describe('isPointAbovePlane', () => {
   });
 });
 
-describe('isPointOnRightSideOfLine', () => {
-  test('test point on right side returns true', () => {
+describe("isPointOnRightSideOfLine", () => {
+  test("test point on right side returns true", () => {
     const a = new Vector2(0, 0);
     const b = new Vector2(1, 1);
     const p = new Vector2(1, 0);
     expect(MathUtils.isPointOnRightSideOfLine(a, b, p)).toBe(true);
   });
 
-  test('test point on left side returns false', () => {
+  test("test point on left side returns false", () => {
     const a = new Vector2(0, 0);
     const b = new Vector2(1, 1);
     const p = new Vector2(0, 1);
     expect(MathUtils.isPointOnRightSideOfLine(a, b, p)).not.toBe(true);
   });
 
-  test('test point is equal to first vertex of line returns true', () => {
+  test("test point is equal to first vertex of line returns true", () => {
     const a = new Vector2(0, 0);
     const b = new Vector2(1, 1);
     const p = new Vector2(0, 0);
     expect(MathUtils.isPointOnRightSideOfLine(a, b, p)).toBe(true);
   });
 
-  test('test point is equal to second vertex of line returns true', () => {
+  test("test point is equal to second vertex of line returns true", () => {
     const a = new Vector2(0, 0);
     const b = new Vector2(1, 1);
     const p = new Vector2(1, 1);
     expect(MathUtils.isPointOnRightSideOfLine(a, b, p)).toBe(true);
   });
 
-  test('test point is equal to midpoint returns true', () => {
+  test("test point is equal to midpoint returns true", () => {
     const a = new Vector2(0, 0);
     const b = new Vector2(1, 1);
     const p = new Vector2(0.5, 0.5);
@@ -68,8 +68,8 @@ describe('isPointOnRightSideOfLine', () => {
   });
 });
 
-describe('isQuadConvex', () => {
-  test('a1 == b1 is convex', () => {
+describe("isQuadConvex", () => {
+  test("a1 == b1 is convex", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = a1;
@@ -77,7 +77,7 @@ describe('isQuadConvex', () => {
     expect(MathUtils.isQuadConvex(a1, a2, b1, b2)).toBe(true);
   });
 
-  test('a1 == b2 is convex', () => {
+  test("a1 == b2 is convex", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = new Vector2(0, 1);
@@ -85,7 +85,7 @@ describe('isQuadConvex', () => {
     expect(MathUtils.isQuadConvex(a1, a2, b1, b2)).toBe(true);
   });
 
-  test('a2 == b1 is convex', () => {
+  test("a2 == b1 is convex", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = a2;
@@ -93,7 +93,7 @@ describe('isQuadConvex', () => {
     expect(MathUtils.isQuadConvex(a1, a2, b1, b2)).toBe(true);
   });
 
-  test('a2 == b2 is convex', () => {
+  test("a2 == b2 is convex", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = new Vector2(0, 1);
@@ -102,8 +102,8 @@ describe('isQuadConvex', () => {
   });
 });
 
-describe('linePlaneIntersection', () => {
-  test('degenerate line returns null', () => {
+describe("linePlaneIntersection", () => {
+  test("degenerate line returns null", () => {
     const a = new Vector3(1, 1, 1);
     const b = new Vector3(1, 1, 1);
     const n = new Vector3(0, 1, 0);
@@ -111,7 +111,7 @@ describe('linePlaneIntersection', () => {
     expect(MathUtils.linePlaneIntersection(a, b, n, p0)).toBeNull();
   });
 
-  test('zero length normal returns null', () => {
+  test("zero length normal returns null", () => {
     const a = new Vector3(0, 0, 0);
     const b = new Vector3(1, 1, 1);
     const n = new Vector3(0, 0, 0);
@@ -119,7 +119,7 @@ describe('linePlaneIntersection', () => {
     expect(MathUtils.linePlaneIntersection(a, b, n, p0)).toBeNull();
   });
 
-  test('line above plane returns null', () => {
+  test("line above plane returns null", () => {
     const a = new Vector3(0, 1, 0);
     const b = new Vector3(0, 2, 0);
     const n = new Vector3(0, 1, 0);
@@ -127,7 +127,7 @@ describe('linePlaneIntersection', () => {
     expect(MathUtils.linePlaneIntersection(a, b, n, p0)).toBeNull();
   });
 
-  test('line below plane returns null', () => {
+  test("line below plane returns null", () => {
     const a = new Vector3(0, -1, 0);
     const b = new Vector3(0, -2, 0);
     const n = new Vector3(0, 1, 0);
@@ -135,7 +135,7 @@ describe('linePlaneIntersection', () => {
     expect(MathUtils.linePlaneIntersection(a, b, n, p0)).toBeNull();
   });
 
-  test('line cross plane returns true', () => {
+  test("line cross plane returns true", () => {
     const a = new Vector3(0, -1, 0);
     const b = new Vector3(0, 1, 0);
     const n = new Vector3(0, 1, 0);
@@ -148,7 +148,7 @@ describe('linePlaneIntersection', () => {
     expect(result?.s).toBeCloseTo(0.5);
   });
 
-  test('line start point coincident with plane returns intersection', () => {
+  test("line start point coincident with plane returns intersection", () => {
     const a = new Vector3(0, 0, 0);
     const b = new Vector3(0, 1, 0);
     const n = new Vector3(0, 1, 0);
@@ -161,7 +161,7 @@ describe('linePlaneIntersection', () => {
     expect(result?.s).toBe(0);
   });
 
-  test('line endpoint coincident with plane returns intersection', () => {
+  test("line endpoint coincident with plane returns intersection", () => {
     const a = new Vector3(0, 1, 0);
     const b = new Vector3(0, 0, 0);
     const n = new Vector3(0, 1, 0);
@@ -175,8 +175,8 @@ describe('linePlaneIntersection', () => {
   });
 });
 
-describe('linesIntersect', () => {
-  test('intersection exists', () => {
+describe("linesIntersect", () => {
+  test("intersection exists", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = new Vector2(0, 1);
@@ -184,7 +184,7 @@ describe('linesIntersect', () => {
     expect(MathUtils.linesIntersect(a1, a2, b1, b2)).toBe(true);
   });
 
-  test('no intersection', () => {
+  test("no intersection", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = new Vector2(0, 1);
@@ -192,7 +192,7 @@ describe('linesIntersect', () => {
     expect(MathUtils.linesIntersect(a1, a2, b1, b2)).toBe(false);
   });
 
-  test('a1 == b1 intersect', () => {
+  test("a1 == b1 intersect", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = a1;
@@ -200,7 +200,7 @@ describe('linesIntersect', () => {
     expect(MathUtils.linesIntersect(a1, a2, b1, b2)).toBe(false);
   });
 
-  test('a1 == b2 intersect', () => {
+  test("a1 == b2 intersect", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = new Vector2(0, 1);
@@ -208,7 +208,7 @@ describe('linesIntersect', () => {
     expect(MathUtils.linesIntersect(a1, a2, b1, b2)).toBe(false);
   });
 
-  test('a2 == b1 intersect', () => {
+  test("a2 == b1 intersect", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = a2;
@@ -216,7 +216,7 @@ describe('linesIntersect', () => {
     expect(MathUtils.linesIntersect(a1, a2, b1, b2)).toBe(false);
   });
 
-  test('a2 == b2 intersect', () => {
+  test("a2 == b2 intersect", () => {
     const a1 = new Vector2(0, 0);
     const a2 = new Vector2(1, 1);
     const b1 = new Vector2(0, 1);

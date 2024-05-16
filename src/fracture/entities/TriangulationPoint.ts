@@ -1,5 +1,5 @@
-import { Vector2 } from 'three';
-import { IBinSortable } from '../utils/BinSort';
+import { Vector2 } from "three";
+import { IBinSortable } from "../utils/BinSort";
 
 /**
  * This data structure is used to represent a point during triangulation.

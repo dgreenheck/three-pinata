@@ -3,16 +3,19 @@ export class UnionFind {
   rank: number[];
 
   constructor(size: number) {
-    // All elements are in separate groups to begin with
-    this.parent = new Array(size).fill(0).map((_, index) => index);
-    this.rank = new Array(size).fill(1);
+    this.parent = new Array(size);
+    this.rank = new Array(size);
+    for (let i = 0; i < size; i++) {
+      this.parent[i] = i;
+      this.rank[i] = 1;
+    }
   }
 
   find(p: number): number {
     // If the element isn't in its own group, find the root of that group
     // and set it to the parent of p to compress the path.
     if (this.parent[p] !== p) {
-      this.parent[p] = this.find(this.parent[p]);  // Path compression
+      this.parent[p] = this.find(this.parent[p]); // Path compression
     }
     return this.parent[p];
   }

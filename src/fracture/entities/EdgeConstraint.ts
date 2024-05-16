@@ -30,11 +30,17 @@ export default class EdgeConstraint {
   /**
    * Creates a new edge constraint with the given end points
    */
-  constructor(v1: number, v2: number, triangle1?: number, triangle2?: number, edge1?: number) {
+  constructor(
+    v1: number,
+    v2: number,
+    triangle1?: number,
+    triangle2?: number,
+    edge1?: number,
+  ) {
     this.v1 = v1;
     this.v2 = v2;
     this.t1 = triangle1 ?? -1;
-    this.t2 = triangle2 ?? - 1;
+    this.t2 = triangle2 ?? -1;
     this.t1Edge = edge1 ?? 0;
   }
 
@@ -42,8 +48,10 @@ export default class EdgeConstraint {
    * Determines whether the specified object is equal to the current object
    */
   equals(other: EdgeConstraint): boolean {
-    return (this.v1 === other.v1 && this.v2 === other.v2) ||
-           (this.v1 === other.v2 && this.v2 === other.v1);
+    return (
+      (this.v1 === other.v1 && this.v2 === other.v2) ||
+      (this.v1 === other.v2 && this.v2 === other.v1)
+    );
   }
 
   /**
