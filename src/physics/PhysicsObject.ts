@@ -1,15 +1,19 @@
-import { Mesh, Quaternion } from 'three';
+import { Mesh, Quaternion } from "three";
 import type * as RAPIER from "@dimforge/rapier3d";
 
 export class PhysicsObject extends Mesh {
   breakable: boolean;
   rigidBody?: RAPIER.RigidBody;
-  shouldRemove = false;
-  
+
   constructor(rigidBody?: RAPIER.RigidBody, breakable: boolean = false) {
     super();
     this.rigidBody = rigidBody;
     this.breakable = breakable;
+
+    // Initialize position of object
+    if (this.rigidBody) {
+      this.update();
+    }
   }
 
   update() {

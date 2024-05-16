@@ -1,6 +1,6 @@
-import { Box3, Vector2, Vector3, BufferGeometry, BufferAttribute } from 'three';
-import MeshVertex from './MeshVertex';
-import EdgeConstraint from './EdgeConstraint';
+import { Box3, Vector2, Vector3, BufferGeometry, BufferAttribute } from "three";
+import MeshVertex from "./MeshVertex";
+import EdgeConstraint from "./EdgeConstraint";
 
 // The enum can be directly translated
 export enum SlicedMeshSubmesh {
@@ -66,16 +66,16 @@ export class Fragment {
       const position = new Vector3(
         positions[3 * i],
         positions[3 * i + 1],
-        positions[3 * i + 2]);
+        positions[3 * i + 2],
+      );
 
       const normal = new Vector3(
         normals[3 * i],
         normals[3 * i + 1],
-        normals[3 * i + 2]);
+        normals[3 * i + 2],
+      );
 
-      const uv = new Vector2(
-        uvs[2 * i],
-        uvs[2 * i + 1]);
+      const uv = new Vector2(uvs[2 * i], uvs[2 * i + 1]);
 
       data.vertices.push(new MeshVertex(position, normal, uv));
     }
@@ -97,7 +97,7 @@ export class Fragment {
    * Gets the total number of vertices in the geometry
    */
   get vertexCount(): number {
-    return (this.vertices.length + this.cutVertices.length);
+    return this.vertices.length + this.cutVertices.length;
   }
 
   /**
@@ -133,7 +133,12 @@ export class Fragment {
    * @param v3 Index of the third vertex
    * @param subMesh The sub-mesh to add the triangle to
    */
-  addTriangle(v1: number, v2: number, v3: number, subMesh: SlicedMeshSubmesh): void {
+  addTriangle(
+    v1: number,
+    v2: number,
+    v3: number,
+    subMesh: SlicedMeshSubmesh,
+  ): void {
     this.triangles[subMesh].push(v1, v2, v3);
   }
 
@@ -145,8 +150,17 @@ export class Fragment {
    * @param v3 Index of the third vertex
    * @param subMesh The sub-mesh to add the triangle to
    */
-  addMappedTriangle(v1: number, v2: number, v3: number, subMesh: SlicedMeshSubmesh): void {
-    this.triangles[subMesh].push(this.indexMap[v1], this.indexMap[v2], this.indexMap[v3]);
+  addMappedTriangle(
+    v1: number,
+    v2: number,
+    v3: number,
+    subMesh: SlicedMeshSubmesh,
+  ): void {
+    this.triangles[subMesh].push(
+      this.indexMap[v1],
+      this.indexMap[v2],
+      this.indexMap[v3],
+    );
   }
 
   /**
@@ -203,7 +217,7 @@ export class Fragment {
     let max = min.clone();
 
     // Iterate over the vertices to find the min and max x, y, and z
-    this.vertices.forEach(vertex => {
+    this.vertices.forEach((vertex) => {
       min.x = Math.min(min.x, vertex.position.x);
       min.y = Math.min(min.y, vertex.position.y);
       min.z = Math.min(min.z, vertex.position.z);
@@ -222,7 +236,7 @@ export class Fragment {
   toGeometry(): BufferGeometry {
     const geometry = new BufferGeometry();
 
-    const vertexCount = (this.vertices.length + this.cutVertices.length);
+    const vertexCount = this.vertices.length + this.cutVertices.length;
     const positions = new Array<number>(vertexCount * 3);
     const normals = new Array<number>(vertexCount * 3);
     const uvs = new Array<number>(vertexCount * 2);
@@ -262,10 +276,18 @@ export class Fragment {
     geometry.addGroup(0, this.triangles[0].length, 0);
     geometry.addGroup(this.triangles[0].length, this.triangles[1].length, 1);
 
-    geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3));
-    geometry.setAttribute('normal', new BufferAttribute(new Float32Array(normals), 3));
-    geometry.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
-    geometry.setIndex(new BufferAttribute(new Uint32Array(this.triangles.flat()), 1));
+    geometry.setAttribute(
+      "position",
+      new BufferAttribute(new Float32Array(positions), 3),
+    );
+    geometry.setAttribute(
+      "normal",
+      new BufferAttribute(new Float32Array(normals), 3),
+    );
+    geometry.setAttribute("uv", new BufferAttribute(new Float32Array(uvs), 2));
+    geometry.setIndex(
+      new BufferAttribute(new Uint32Array(this.triangles.flat()), 1),
+    );
 
     return geometry;
   }

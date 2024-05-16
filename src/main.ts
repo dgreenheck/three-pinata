@@ -1,6 +1,6 @@
-import { init } from './app';
+import { init } from "./app";
 
 // Dynamically import the Rapier WASM module
-import('@dimforge/rapier3d').then((RAPIER) => {
+import("@dimforge/rapier3d").then((RAPIER) => {
   init(RAPIER);
 });

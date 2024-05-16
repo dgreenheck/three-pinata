@@ -1,8 +1,8 @@
-import { Mesh, Vector3 } from 'three';
-import { FractureOptions } from './entities/FractureOptions';
-import { Fragment } from './entities/Fragment';
-import { slice } from './Slice';
-import { UnionFind } from './utils/UnionFind';
+import { Mesh, Vector3 } from "three";
+import { FractureOptions } from "./entities/FractureOptions";
+import { Fragment } from "./entities/Fragment";
+import { slice } from "./Slice";
+import { UnionFind } from "./utils/UnionFind";
 
 /**
  * Fractures the mesh into multiple fragments
@@ -23,29 +23,29 @@ export function fracture(mesh: Mesh, options: FractureOptions): Fragment[] {
 
     // Select an arbitrary fracture plane normal
     const normal = new Vector3(
-      options.fracturePlanes.x ? (2.0 * Math.random() - 1) : 0,
-      options.fracturePlanes.y ? (2.0 * Math.random() - 1) : 0,
-      options.fracturePlanes.z ? (2.0 * Math.random() - 1) : 0
+      options.fracturePlanes.x ? 2.0 * Math.random() - 1 : 0,
+      options.fracturePlanes.y ? 2.0 * Math.random() - 1 : 0,
+      options.fracturePlanes.z ? 2.0 * Math.random() - 1 : 0,
     ).normalize();
 
     const center = new Vector3();
     fragment.bounds.getCenter(center);
 
-    if (options.fractureMode === 'Non-Convex') {
+    if (options.fractureMode === "Non-Convex") {
       const { topSlice, bottomSlice } = slice(
         fragment,
         normal,
         center,
         options.textureScale,
         options.textureOffset,
-        false
+        false,
       );
 
       const topfragments = findIsolatedGeometry(topSlice);
       const bottomfragments = findIsolatedGeometry(bottomSlice);
 
       // Check both slices for isolated fragments
-      fragments.push(...topfragments)
+      fragments.push(...topfragments);
       fragments.push(...bottomfragments);
     } else {
       const { topSlice, bottomSlice } = slice(
@@ -54,7 +54,7 @@ export function fracture(mesh: Mesh, options: FractureOptions): Fragment[] {
         center,
         options.textureScale,
         options.textureOffset,
-        true
+        true,
       );
 
       fragments.push(topSlice);
@@ -115,7 +115,7 @@ function findIsolatedGeometry(fragment: Fragment): Fragment[] {
       // Store triangles by root representative
       const root = uf.find(a);
       if (!rootTriangles[root]) {
-        rootTriangles[root] = [[], []]
+        rootTriangles[root] = [[], []];
       }
 
       rootTriangles[root][submeshIndex].push(a, b, c);
@@ -143,20 +143,27 @@ function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   for (let i = 0; i < M; i++) {
     const root = uf.find(i + N);
     rootFragments[root].cutVertices.push(fragment.cutVertices[i]);
-    vertexMap[i + N] = rootFragments[root].vertices.length + rootFragments[root].cutVertices.length - 1;
+    vertexMap[i + N] =
+      rootFragments[root].vertices.length +
+      rootFragments[root].cutVertices.length -
+      1;
   }
 
   // Iterate over triangles and add to the correct mesh
   for (const key of Object.keys(rootTriangles)) {
     let i = Number(key);
     let root = uf.find(i);
-    for (let submeshIndex = 0; submeshIndex < fragment.triangles.length; submeshIndex++) {
+    for (
+      let submeshIndex = 0;
+      submeshIndex < fragment.triangles.length;
+      submeshIndex++
+    ) {
       for (const vertexIndex of rootTriangles[i][submeshIndex]) {
         const mappedIndex = vertexMap[vertexIndex];
         rootFragments[root].triangles[submeshIndex].push(mappedIndex);
       }
     }
-  };
+  }
 
   return Object.values(rootFragments);
 }

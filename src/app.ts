@@ -1,9 +1,9 @@
-import * as THREE from 'three';
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { PhysicsManager } from './physics/PhysicsManager';
-import { BreakableObject } from './physics/BreakableObject';
+import * as THREE from "three";
+import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { PhysicsManager } from "./physics/PhysicsManager";
+import { BreakableObject } from "./physics/BreakableObject";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 
@@ -11,24 +11,25 @@ export async function init(RAPIER: RAPIER_API) {
   const gui = new GUI();
   const gltfLoader = new GLTFLoader();
 
-  // Set up Three.js scene
+  const physics = new PhysicsManager(RAPIER);
+
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const camera = new THREE.PerspectiveCamera(
+    50,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000,
+  );
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   document.body.appendChild(renderer.domElement);
 
-  // Orbit controls
   const controls = new OrbitControls(camera, renderer.domElement);
 
-  const physics = new PhysicsManager(RAPIER);
-
-  // Load the model
-  const lionModel = await gltfLoader.loadAsync('lion2.glb');
-
+  const lionModel = await gltfLoader.loadAsync("lion2.glb");
   lionModel.scene.traverse((obj) => {
-    if ('isMesh' in obj && obj.isMesh) {
+    if ("isMesh" in obj && obj.isMesh) {
       const lion = new BreakableObject();
 
       const mesh = obj as THREE.Mesh;
@@ -44,16 +45,14 @@ export async function init(RAPIER: RAPIER_API) {
         .setRestitution(0)
         .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
 
-      lion.rigidBody = physics.world.createRigidBody(RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(0, size.y / 2 + 1, 0));
-      lion.update();
-
-      physics.world.createCollider(colliderDesc, lion.rigidBody);
+      lion.rigidBody = physics.world.createRigidBody(
+        RAPIER.RigidBodyDesc.dynamic().setTranslation(0, size.y / 2 + 1, 0),
+      );
 
       scene.add(lion);
-      physics.worldObjects.push(lion);
+      physics.addObject(lion, colliderDesc);
     }
-  })
+  });
 
   // Create a ground plane
   const planeGeometry = new THREE.PlaneGeometry(200, 200);
@@ -64,8 +63,13 @@ export async function init(RAPIER: RAPIER_API) {
   scene.add(plane);
 
   // Add ground plane to Rapier world
-  const groundBody = physics.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  physics.world.createCollider(RAPIER.ColliderDesc.cuboid(200, 0.01, 200), groundBody);
+  const groundBody = physics.world.createRigidBody(
+    RAPIER.RigidBodyDesc.fixed(),
+  );
+  physics.world.createCollider(
+    RAPIER.ColliderDesc.cuboid(200, 0.01, 200),
+    groundBody,
+  );
 
   // Lighting
   const ambient = new THREE.AmbientLight(0xffffff, 0.2);
@@ -88,23 +92,23 @@ export async function init(RAPIER: RAPIER_API) {
 
   function animate() {
     requestAnimationFrame(animate);
-    physics.update(RAPIER, scene);
+    physics.update(scene);
     renderer.render(scene, camera);
     controls.update();
   }
 
-  window.addEventListener('resize', () => {
+  window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  const physicsFolder = gui.addFolder('Physics');
+  const physicsFolder = gui.addFolder("Physics");
 
-  const gravityFolder = physicsFolder.addFolder('Gravity');
-  gravityFolder.add(physics.world.gravity, 'x', -100, 100, 0.1).name('X');
-  gravityFolder.add(physics.world.gravity, 'y', -100, 100, 0.1).name('Y');
-  gravityFolder.add(physics.world.gravity, 'z', -100, 100, 0.1).name('Z');
+  const gravityFolder = physicsFolder.addFolder("Gravity");
+  gravityFolder.add(physics.world.gravity, "x", -100, 100, 0.1).name("X");
+  gravityFolder.add(physics.world.gravity, "y", -100, 100, 0.1).name("Y");
+  gravityFolder.add(physics.world.gravity, "z", -100, 100, 0.1).name("Z");
 
   /*
   const fractureFolder = gui.addFolder('Fracture Options');

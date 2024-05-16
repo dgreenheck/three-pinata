@@ -1,4 +1,4 @@
-import { Vector2, Vector3 } from 'three';
+import { Vector2, Vector3 } from "three";
 
 /**
  * Data structure containing position/normal/UV data for a single vertex
@@ -8,7 +8,11 @@ export default class MeshVertex {
   normal: Vector3;
   uv: Vector2;
 
-  constructor(position: Vector3 = new Vector3(), normal: Vector3 = new Vector3(), uv: Vector2 = new Vector2()) {
+  constructor(
+    position: Vector3 = new Vector3(),
+    normal: Vector3 = new Vector3(),
+    uv: Vector2 = new Vector2(),
+  ) {
     this.position = position;
     this.normal = normal;
     this.uv = uv;
@@ -17,22 +21,22 @@ export default class MeshVertex {
   /**
    * Uses Cantor pairing to hash vertex position into a unique integer
    * @param tolerance The tolerance used for spatial hashing
-   * @returns 
+   * @returns
    */
-  hash(tolerance: number = 1E-9): number {
+  hash(tolerance: number = 1e-9): number {
     const x = Math.floor(this.position.x / tolerance);
     const y = Math.floor(this.position.y / tolerance);
     const z = Math.floor(this.position.z / tolerance);
-    const xy = ((x + y) * (x + y + 1) / 2) + y; // Pairing x and y
-    return (((xy + z) * (xy + z + 1) / 2) + z);
+    const xy = ((x + y) * (x + y + 1)) / 2 + y; // Pairing x and y
+    return ((xy + z) * (xy + z + 1)) / 2 + z;
   }
-  
+
   /**
    * Returns true if this vertex and another vertex share the same position
-   * @param other 
-   * @returns 
+   * @param other
+   * @returns
    */
-  equals(other: MeshVertex, tolerance: number = 1E-9): boolean {
+  equals(other: MeshVertex, tolerance: number = 1e-9): boolean {
     return this.hash(tolerance) === other.hash(tolerance);
     /*
     return Math.abs(this.position.x - other.position.x) < 1E-9 &&

@@ -12,7 +12,7 @@ export class UnionFind {
     // If the element isn't in its own group, find the root of that group
     // and set it to the parent of p to compress the path.
     if (this.parent[p] !== p) {
-      this.parent[p] = this.find(this.parent[p]);  // Path compression
+      this.parent[p] = this.find(this.parent[p]); // Path compression
     }
     return this.parent[p];
   }
