@@ -3,9 +3,12 @@ export class UnionFind {
   rank: number[];
 
   constructor(size: number) {
-    // All elements are in separate groups to begin with
-    this.parent = new Array(size).fill(0).map((_, index) => index);
-    this.rank = new Array(size).fill(1);
+    this.parent = new Array(size);
+    this.rank = new Array(size);
+    for (let i = 0; i < size; i++) {
+      this.parent[i] = i;
+      this.rank[i] = 1;
+    }
   }
 
   find(p: number): number {

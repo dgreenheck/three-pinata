@@ -20,15 +20,16 @@ export default class MeshVertex {
 
   /**
    * Uses Cantor pairing to hash vertex position into a unique integer
-   * @param tolerance The tolerance used for spatial hashing
+   * @param inverseTolerance The inverse of the tolerance used for spatial hashing
    * @returns
    */
-  hash(tolerance: number = 1e-9): number {
-    const x = Math.floor(this.position.x / tolerance);
-    const y = Math.floor(this.position.y / tolerance);
-    const z = Math.floor(this.position.z / tolerance);
-    const xy = ((x + y) * (x + y + 1)) / 2 + y; // Pairing x and y
-    return ((xy + z) * (xy + z + 1)) / 2 + z;
+  hash(inverseTolerance: number = 1e6): number {
+    // Use inverse so we can multiply instead of divide to save a few ops
+    const x = Math.floor(this.position.x * inverseTolerance);
+    const y = Math.floor(this.position.y * inverseTolerance);
+    const z = Math.floor(this.position.z * inverseTolerance);
+    const xy = 0.5 * ((x + y) * (x + y + 1)) + y; // Pairing x and y
+    return (0.5 * ((xy + z) * (xy + z + 1))) / 2 + z;
   }
 
   /**
@@ -38,11 +39,6 @@ export default class MeshVertex {
    */
   equals(other: MeshVertex, tolerance: number = 1e-9): boolean {
     return this.hash(tolerance) === other.hash(tolerance);
-    /*
-    return Math.abs(this.position.x - other.position.x) < 1E-9 &&
-           Math.abs(this.position.y - other.position.y) < 1E-9 &&
-           Math.abs(this.position.z - other.position.z) < 1E-9;
-           */
   }
 
   toString(): string {

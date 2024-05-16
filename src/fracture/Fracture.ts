@@ -88,7 +88,7 @@ function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   fragment.vertices.forEach((vertex, index) => {
     const key = vertex.hash();
     const existingIndex = adjacencyMap.get(key);
-    if (!existingIndex) {
+    if (existingIndex === undefined) {
       adjacencyMap.set(key, index);
     } else {
       uf.union(existingIndex, index);
@@ -152,7 +152,12 @@ function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   // Iterate over triangles and add to the correct mesh
   for (const key of Object.keys(rootTriangles)) {
     let i = Number(key);
-    let root = uf.find(i);
+
+    // Minor optimization here:
+    // Access the parent directly rather than using find() since the paths
+    // for all indices have been compressed in the last two for loops
+    let root = uf.parent[i];
+
     for (
       let submeshIndex = 0;
       submeshIndex < fragment.triangles.length;
