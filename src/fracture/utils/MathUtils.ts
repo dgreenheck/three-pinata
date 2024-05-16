@@ -57,33 +57,35 @@ function linesIntersectInternal(
   // If any of the vertices are shared between the two diagonals,
   // the quad collapses into a triangle and is convex by default.
   const hashA1 = hash2(a1);
-  const hashA2 = hash2(a2);
   const hashB1 = hash2(b1);
+
+  // Return ASAP  to avoid computing other hashes
+  if (hashA1 === hashB1) return includeSharedEndpoints;
+
+  const hashA2 = hash2(a2);
+
+  if (hashA2 === hashB1) return includeSharedEndpoints;
+
   const hashB2 = hash2(b2);
-  if (
-    hashA1 === hashB1 ||
-    hashA1 === hashB2 ||
-    hashA2 === hashB1 ||
-    hashA2 === hashB2
-  ) {
-    return includeSharedEndpoints;
-  } else {
-    // Compute cross product between each point and the opposite diagonal
-    // Look at sign of the Z component to see which side of line point is on
-    let a1xb = (a1.x - b1.x) * b12.y - (a1.y - b1.y) * b12.x;
-    let a2xb = (a2.x - b1.x) * b12.y - (a2.y - b1.y) * b12.x;
-    let b1xa = (b1.x - a1.x) * a12.y - (b1.y - a1.y) * a12.x;
-    let b2xa = (b2.x - a1.x) * a12.y - (b2.y - a1.y) * a12.x;
 
-    // Check that the points for each diagonal lie on opposite sides of the other
-    // diagonal. Quad is also convex if a1/a2 lie on b1->b2 (and vice versa) since
-    // the shape collapses into a triangle (hence >= instead of >)
-    const intersecting =
-      ((a1xb >= 0 && a2xb <= 0) || (a1xb <= 0 && a2xb >= 0)) &&
-      ((b1xa >= 0 && b2xa <= 0) || (b1xa <= 0 && b2xa >= 0));
+  if (hashA1 === hashB2) return includeSharedEndpoints;
+  if (hashA2 === hashB2) return includeSharedEndpoints;
 
-    return intersecting;
-  }
+  // Compute cross product between each point and the opposite diagonal
+  // Look at sign of the Z component to see which side of line point is on
+  let a1xb = (a1.x - b1.x) * b12.y - (a1.y - b1.y) * b12.x;
+  let a2xb = (a2.x - b1.x) * b12.y - (a2.y - b1.y) * b12.x;
+  let b1xa = (b1.x - a1.x) * a12.y - (b1.y - a1.y) * a12.x;
+  let b2xa = (b2.x - a1.x) * a12.y - (b2.y - a1.y) * a12.x;
+
+  // Check that the points for each diagonal lie on opposite sides of the other
+  // diagonal. Quad is also convex if a1/a2 lie on b1->b2 (and vice versa) since
+  // the shape collapses into a triangle (hence >= instead of >)
+  const intersecting =
+    ((a1xb >= 0 && a2xb <= 0) || (a1xb <= 0 && a2xb >= 0)) &&
+    ((b1xa >= 0 && b2xa <= 0) || (b1xa <= 0 && b2xa >= 0));
+
+  return intersecting;
 }
 
 /**
@@ -147,21 +149,23 @@ export function isPointOnRightSideOfLine(
 /**
  * Calculates hash value of Vector2 using Cantor pairing
  */
-function hash2(v: Vector2, tolerance: number = 1e-6): number {
-  const x = Math.floor(v.x / tolerance);
-  const y = Math.floor(v.y / tolerance);
-  return ((x + y) * (x + y + 1)) / 2 + y; // Pairing x and y
+function hash2(v: Vector2, tolerance: number = 1e6): number {
+  // Multiply by the inverse of the tolerance to avoid division
+  const x = Math.floor(v.x * tolerance);
+  const y = Math.floor(v.y * tolerance);
+  return 0.5 * ((x + y) * (x + y + 1)) + y; // Pairing x and y
 }
 
 /**
  * Returns true if p1 and p2 are effectively equal.
  */
-function hash3(v: Vector3, tolerance: number = 1e-6): number {
-  const x = Math.floor(v.x / tolerance);
-  const y = Math.floor(v.y / tolerance);
-  const z = Math.floor(v.z / tolerance);
-  const xy = ((x + y) * (x + y + 1)) / 2 + y;
-  return ((xy + z) * (xy + z + 1)) / 2 + z;
+function hash3(v: Vector3, tolerance: number = 1e6): number {
+  // Multiply by the inverse of the tolerance to avoid division
+  const x = Math.floor(v.x * tolerance);
+  const y = Math.floor(v.y * tolerance);
+  const z = Math.floor(v.z * tolerance);
+  const xy = 0.5 * ((x + y) * (x + y + 1)) + y;
+  return 0.5 * ((xy + z) * (xy + z + 1)) + z;
 }
 
 /**

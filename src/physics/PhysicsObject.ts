@@ -1,7 +1,7 @@
-import { Mesh, Quaternion } from "three";
+import * as THREE from "three";
 import type * as RAPIER from "@dimforge/rapier3d";
 
-export class PhysicsObject extends Mesh {
+export class PhysicsObject extends THREE.Mesh {
   breakable: boolean;
   rigidBody?: RAPIER.RigidBody;
 
@@ -21,7 +21,7 @@ export class PhysicsObject extends Mesh {
       const pos = this.rigidBody.translation();
       const q = this.rigidBody.rotation();
       this.position.set(pos.x, pos.y, pos.z);
-      this.rotation.setFromQuaternion(new Quaternion(q.x, q.y, q.z, q.w));
+      this.rotation.setFromQuaternion(new THREE.Quaternion(q.x, q.y, q.z, q.w));
     }
   }
 }
