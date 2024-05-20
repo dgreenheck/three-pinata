@@ -1,4 +1,4 @@
-import { Mesh, Vector3 } from "three";
+import { Vector3 } from "three";
 import { FractureOptions } from "./entities/FractureOptions";
 import { Fragment } from "./entities/Fragment";
 import { slice } from "./Slice";
@@ -6,13 +6,16 @@ import { UnionFind } from "./utils/UnionFind";
 
 /**
  * Fractures the mesh into multiple fragments
- * @param mesh The source mesh to fracture
+ * @param source The source object to fracture
  * @param options Options for fracturing
  */
-export function fracture(mesh: Mesh, options: FractureOptions): Fragment[] {
+export function fracture(
+  source: Fragment,
+  options: FractureOptions,
+): Fragment[] {
   // We begin by fragmenting the source mesh, then process each fragment in a FIFO queue
   // until we achieve the target fragment count.
-  let fragments = [Fragment.fromGeometry(mesh.geometry)];
+  let fragments = [source];
 
   // Subdivide the mesh into multiple fragments until we reach the fragment limit
   while (fragments.length < options.fragmentCount) {

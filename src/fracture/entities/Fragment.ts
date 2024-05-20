@@ -56,11 +56,12 @@ export class Fragment {
     this.vertexAdjacency = [];
   }
 
-  static fromGeometry(geometry: BufferGeometry): Fragment {
-    var positions = geometry.attributes.position.array as Float32Array;
-    var normals = geometry.attributes.normal.array as Float32Array;
-    var uvs = geometry.attributes.uv.array as Float32Array;
-
+  static fromGeometry(
+    positions: Float32Array,
+    normals: Float32Array,
+    uvs: Float32Array,
+    indices: Uint32Array,
+  ): Fragment {
     const data = new Fragment();
     for (let i = 0; i < positions.length / 3; i++) {
       const position = new Vector3(
@@ -80,7 +81,7 @@ export class Fragment {
       data.vertices.push(new MeshVertex(position, normal, uv));
     }
 
-    data.triangles = [Array.from(geometry.index?.array as Uint32Array), []];
+    data.triangles = [Array.from(indices), []];
     data.calculateBounds();
 
     return data;

@@ -11,9 +11,8 @@ export async function init(RAPIER: RAPIER_API) {
   const gui = new GUI();
   const gltfLoader = new GLTFLoader();
 
-  const physics = new PhysicsManager(RAPIER);
-
   const scene = new THREE.Scene();
+  const physics = new PhysicsManager(RAPIER, scene);
   const camera = new THREE.PerspectiveCamera(
     50,
     window.innerWidth / window.innerHeight,
@@ -92,7 +91,7 @@ export async function init(RAPIER: RAPIER_API) {
 
   function animate() {
     requestAnimationFrame(animate);
-    physics.update(scene);
+    physics.update();
     renderer.render(scene, camera);
     controls.update();
   }
