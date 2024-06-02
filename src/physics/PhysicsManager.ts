@@ -6,13 +6,12 @@ import { PhysicsObject } from "./PhysicsObject";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 
-const fractureOptions = new FractureOptions();
-
 /**
  * Manager for physics simulation, including detecting collision events
  * and fracturing objects as needed
  */
 export class PhysicsManager {
+  fractureOptions: FractureOptions;
   RAPIER: RAPIER_API;
   eventQueue: RAPIER.EventQueue;
   world: RAPIER.World;
@@ -21,10 +20,19 @@ export class PhysicsManager {
   constructor(
     RAPIER: RAPIER_API,
     gravity: RAPIER.Vector3 = new RAPIER.Vector3(0, -9.81, 0),
+    fractureOptions: FractureOptions = new FractureOptions(),
   ) {
+    this.fractureOptions = fractureOptions;
     this.RAPIER = RAPIER;
     this.eventQueue = new RAPIER.EventQueue(true);
     this.world = new RAPIER.World(gravity);
+    this.world.integrationParameters.lengthUnit = 0.1;
+    this.worldObjects = new Map();
+  }
+
+  reset() {
+    this.eventQueue.clear();
+    this.world = new RAPIER.World(this.world.gravity);
     this.world.integrationParameters.lengthUnit = 0.1;
     this.worldObjects = new Map();
   }
@@ -57,8 +65,12 @@ export class PhysicsManager {
    * @param obj The object to fracture
    * @param scene The scene to add the resultant fragments to
    */
-  handleFracture(obj: BreakableObject, scene: THREE.Scene) {
-    const fragments = obj.fracture(this.RAPIER, this.world, fractureOptions);
+  async handleFracture(obj: BreakableObject, scene: THREE.Scene) {
+    const fragments = obj.fracture(
+      this.RAPIER,
+      this.world,
+      this.fractureOptions,
+    );
 
     // Add the fragments to the scene and the physics world
     scene.add(...fragments);
