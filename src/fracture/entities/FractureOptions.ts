@@ -39,7 +39,7 @@ export class FractureOptions {
   public textureOffset: Vector2;
 
   constructor() {
-    this.fragmentCount = 20;
+    this.fragmentCount = 50;
     this.fracturePlanes = { x: true, y: true, z: true };
     this.fractureMode = "Non-Convex";
     this.insideMaterial = new MeshBasicMaterial({ color: 0x0000ff });

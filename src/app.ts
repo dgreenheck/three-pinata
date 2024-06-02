@@ -33,7 +33,7 @@ export async function init(RAPIER: RAPIER_API) {
 
   const controls = new OrbitControls(camera, renderer.domElement);
 
-  const lionModel = await gltfLoader.loadAsync("lion2.glb");
+  const lionModel = await gltfLoader.loadAsync("lion.glb");
 
   function loadScene() {
     scene.clear();
