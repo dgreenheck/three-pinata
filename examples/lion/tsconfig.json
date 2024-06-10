@@ -6,7 +6,7 @@
     "baseUrl": "./",
     "paths": {
       "three-pinata": [
-        "../../dist/*"
+        "../../dist"
       ]
     }
   },
