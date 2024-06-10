@@ -32,15 +32,6 @@ export default class MeshVertex {
     return (0.5 * ((xy + z) * (xy + z + 1))) / 2 + z;
   }
 
-  /**
-   * Returns true if this vertex and another vertex share the same position
-   * @param other
-   * @returns
-   */
-  equals(other: MeshVertex, tolerance: number = 1e-9): boolean {
-    return this.hash(tolerance) === other.hash(tolerance);
-  }
-
   toString(): string {
     return `Position = ${this.position.x}, ${this.position.y}, ${this.position.z}, Normal = ${this.normal.x}, ${this.normal.y}, ${this.normal.z}, UV = ${this.uv.x}, ${this.uv.y}`;
   }

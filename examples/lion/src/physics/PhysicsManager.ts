@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import * as RAPIER from "@dimforge/rapier3d";
-import { FractureOptions } from "../fracture/entities/FractureOptions";
+import { FractureOptions } from "three-pinata";
 import { BreakableObject } from "./BreakableObject";
 import { PhysicsObject } from "./PhysicsObject";
 

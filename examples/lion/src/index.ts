@@ -4,7 +4,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { PhysicsManager } from "./physics/PhysicsManager";
 import { BreakableObject } from "./physics/BreakableObject";
-import { FractureOptions } from "./fracture/entities/FractureOptions";
+import { FractureOptions } from "three-pinata";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 const RAPIER = await import("@dimforge/rapier3d");
@@ -33,7 +33,7 @@ document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 
-const lionModel = await gltfLoader.loadAsync("lion.glb");
+const lionModel = await gltfLoader.loadAsync("/lion.glb");
 
 function loadScene() {
   scene.clear();

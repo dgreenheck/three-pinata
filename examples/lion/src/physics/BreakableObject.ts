@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import type * as RAPIER from "@dimforge/rapier3d";
-import { fracture } from "../fracture/Fracture";
+import { fracture } from "three-pinata";
 import { PhysicsObject } from "./PhysicsObject";
-import { FractureOptions } from "../fracture/entities/FractureOptions";
+import { FractureOptions } from "three-pinata";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 
@@ -34,8 +34,8 @@ export class BreakableObject extends PhysicsObject {
       // Create a new rigid body using the position/orientation of the original object
       obj.rigidBody = world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(obj.position.x, obj.position.y, obj.position.z)
-          .setRotation(new THREE.Quaternion().setFromEuler(obj.rotation)),
+          .setTranslation(this.position.x, this.position.y, this.position.z)
+          .setRotation(new THREE.Quaternion().setFromEuler(this.rotation)),
       );
 
       // Preserve the velocity of hte original object

@@ -1,22 +1,20 @@
+import { defineConfig } from 'vite';
 import path from 'path';
-import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
-/** @type {import('vite').UserConfig} */
-export default {
-  base: '/three-pinata/',
+export default defineConfig({
   build: {
-    outDir: './dist',
-    sourcemap: true,
+    lib: {
+      entry: path.resolve(__dirname, 'src/index.ts'),
+      name: 'three-pinata',
+      fileName: (format) => `three-pinata.${format}.js`
+    },
     rollupOptions: {
-      // Required to prevent Rapier issue: https://github.com/dimforge/rapier.js/issues/278
-      treeshake: false
-    }
-  },
-  plugins: [wasm(), topLevelAwait()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src')
+      external: ['three'],
+      output: {
+        globals: {
+          three: 'THREE'
+        }
+      }
     }
   }
-};
+});
