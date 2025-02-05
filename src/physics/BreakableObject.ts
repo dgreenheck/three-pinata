@@ -3,6 +3,7 @@ import type * as RAPIER from "@dimforge/rapier3d";
 import { fracture } from "../fracture/Fracture";
 import { PhysicsObject } from "./PhysicsObject";
 import { FractureOptions } from "../fracture/entities/FractureOptions";
+import { Fragment } from "../fracture/entities/Fragment";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 
@@ -13,8 +14,8 @@ export class BreakableObject extends PhysicsObject {
 
   /**
    * Fractures this mesh into smaller pieces
+   * @param RAPIER The RAPIER physics API
    * @param world The physics world object
-   * @param objects The list of world objects to add the fragments to
    * @param options Options controlling how to fracture this object
    */
   fracture(
@@ -22,14 +23,19 @@ export class BreakableObject extends PhysicsObject {
     world: RAPIER.World,
     options: FractureOptions,
   ): PhysicsObject[] {
-    return fracture(this, options).map((fragment, index) => {
+    // Call the fracture function to split the mesh into fragments
+    return fracture(this.geometry, options).map((fragment) => {
       const obj = new PhysicsObject();
 
       // Use the original object as a template
-      obj.name = `${this.name}_${index++}`;
-      obj.geometry = fragment.toGeometry();
+      obj.name = `${this.name}_fragment`;
+      obj.geometry = fragment;
       obj.material = this.material;
       obj.castShadow = true;
+
+      // Copy the position/rotation from the original object
+      obj.position.copy(this.position);
+      obj.rotation.copy(this.rotation);
 
       // Create a new rigid body using the position/orientation of the original object
       obj.rigidBody = world.createRigidBody(
@@ -38,7 +44,7 @@ export class BreakableObject extends PhysicsObject {
           .setRotation(new THREE.Quaternion().setFromEuler(obj.rotation)),
       );
 
-      // Preserve the velocity of hte original object
+      // Preserve the velocity of the original object
       obj.rigidBody.setAngvel(this.rigidBody!.angvel(), true);
       obj.rigidBody.setLinvel(this.rigidBody!.linvel(), true);
 

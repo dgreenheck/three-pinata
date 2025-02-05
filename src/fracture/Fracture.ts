@@ -1,18 +1,24 @@
-import { Mesh, Vector3 } from "three";
+import * as THREE from "three";
 import { FractureOptions } from "./entities/FractureOptions";
 import { Fragment } from "./entities/Fragment";
 import { slice } from "./Slice";
 import { UnionFind } from "./utils/UnionFind";
+import { Vector3 } from "./utils/Vector3";
+import MeshVertex from "./entities/MeshVertex";
+import { Vector2 } from "./utils/Vector2";
 
 /**
  * Fractures the mesh into multiple fragments
  * @param mesh The source mesh to fracture
  * @param options Options for fracturing
  */
-export function fracture(mesh: Mesh, options: FractureOptions): Fragment[] {
+export function fracture(
+  geometry: THREE.BufferGeometry,
+  options: FractureOptions,
+): THREE.BufferGeometry[] {
   // We begin by fragmenting the source mesh, then process each fragment in a FIFO queue
   // until we achieve the target fragment count.
-  let fragments = [Fragment.fromGeometry(mesh.geometry)];
+  let fragments = [fragmentFromGeometry(geometry)];
 
   // Subdivide the mesh into multiple fragments until we reach the fragment limit
   while (fragments.length < options.fragmentCount) {
@@ -62,7 +68,7 @@ export function fracture(mesh: Mesh, options: FractureOptions): Fragment[] {
     }
   }
 
-  return fragments;
+  return fragments.map((fragment) => fragmentToGeometry(fragment));
 }
 
 /**
@@ -171,4 +177,103 @@ function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   }
 
   return Object.values(rootFragments);
+}
+
+/**
+ * Converts this to a BufferGeometry object
+ */
+function fragmentToGeometry(fragment: Fragment): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+
+  const vertexCount = fragment.vertices.length + fragment.cutVertices.length;
+  const positions = new Array<number>(vertexCount * 3);
+  const normals = new Array<number>(vertexCount * 3);
+  const uvs = new Array<number>(vertexCount * 2);
+
+  let posIdx = 0;
+  let normIdx = 0;
+  let uvIdx = 0;
+
+  // Add the positions, normals and uvs for the non-cut-face geometry
+  for (const vert of fragment.vertices) {
+    positions[posIdx++] = vert.position.x;
+    positions[posIdx++] = vert.position.y;
+    positions[posIdx++] = vert.position.z;
+
+    normals[normIdx++] = vert.normal.x;
+    normals[normIdx++] = vert.normal.y;
+    normals[normIdx++] = vert.normal.z;
+
+    uvs[uvIdx++] = vert.uv.x;
+    uvs[uvIdx++] = vert.uv.y;
+  }
+
+  // Next, add the positions, normals and uvs for the cut-face geometry
+  for (const vert of fragment.cutVertices) {
+    positions[posIdx++] = vert.position.x;
+    positions[posIdx++] = vert.position.y;
+    positions[posIdx++] = vert.position.z;
+
+    normals[normIdx++] = vert.normal.x;
+    normals[normIdx++] = vert.normal.y;
+    normals[normIdx++] = vert.normal.z;
+
+    uvs[uvIdx++] = vert.uv.x;
+    uvs[uvIdx++] = vert.uv.y;
+  }
+
+  geometry.addGroup(0, fragment.triangles[0].length, 0);
+  geometry.addGroup(
+    fragment.triangles[0].length,
+    fragment.triangles[1].length,
+    1,
+  );
+
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(new Float32Array(positions), 3),
+  );
+  geometry.setAttribute(
+    "normal",
+    new THREE.BufferAttribute(new Float32Array(normals), 3),
+  );
+  geometry.setAttribute(
+    "uv",
+    new THREE.BufferAttribute(new Float32Array(uvs), 2),
+  );
+  geometry.setIndex(
+    new THREE.BufferAttribute(new Uint32Array(fragment.triangles.flat()), 1),
+  );
+
+  return geometry;
+}
+
+function fragmentFromGeometry(geometry: THREE.BufferGeometry): Fragment {
+  var positions = geometry.attributes.position.array as Float32Array;
+  var normals = geometry.attributes.normal.array as Float32Array;
+  var uvs = geometry.attributes.uv.array as Float32Array;
+
+  const data = new Fragment();
+  for (let i = 0; i < positions.length / 3; i++) {
+    const position = new Vector3(
+      positions[3 * i],
+      positions[3 * i + 1],
+      positions[3 * i + 2],
+    );
+
+    const normal = new Vector3(
+      normals[3 * i],
+      normals[3 * i + 1],
+      normals[3 * i + 2],
+    );
+
+    const uv = new Vector2(uvs[2 * i], uvs[2 * i + 1]);
+
+    data.vertices.push(new MeshVertex(position, normal, uv));
+  }
+
+  data.triangles = [Array.from(geometry.index?.array as Uint32Array), []];
+  data.calculateBounds();
+
+  return data;
 }
