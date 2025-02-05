@@ -1,6 +1,6 @@
 import { Vector3 } from "three";
-import { Triangulator } from "../src/fracture/triangulators/Triangulator";
-import MeshVertex from "../src/fracture/entities/MeshVertex";
+import { Triangulator } from "./Triangulator";
+import MeshVertex from "../entities/MeshVertex";
 
 function getAdjacentVertex(i: number, n: number): number {
   if (i + 1 < n) {
