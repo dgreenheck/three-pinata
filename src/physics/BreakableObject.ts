@@ -3,7 +3,6 @@ import type * as RAPIER from "@dimforge/rapier3d";
 import { fracture } from "../fracture/Fracture";
 import { PhysicsObject } from "./PhysicsObject";
 import { FractureOptions } from "../fracture/entities/FractureOptions";
-import { Fragment } from "../fracture/entities/Fragment";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 

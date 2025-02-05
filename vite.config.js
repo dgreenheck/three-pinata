@@ -4,7 +4,7 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 
 /** @type {import('vite').UserConfig} */
 export default {
-  base: '/three-pinata/',
+  base: process.env.NODE_ENV === 'production' ? '/three-pinata/' : '/',
   build: {
     outDir: './dist',
     sourcemap: true,
