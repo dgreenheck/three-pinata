@@ -1,4 +1,6 @@
-import { Box3, Vector2, Vector3, BufferGeometry, BufferAttribute } from "three";
+import { Vector2 } from "../utils/Vector2";
+import { Vector3 } from "../utils/Vector3";
+import { Box3 } from "../utils/Box3";
 import MeshVertex from "./MeshVertex";
 import EdgeConstraint from "./EdgeConstraint";
 
@@ -7,6 +9,13 @@ export enum SlicedMeshSubmesh {
   Default = 0,
   CutFace = 1,
 }
+
+type FragmentArgs = {
+  positions: Float32Array;
+  normals: Float32Array;
+  uvs: Float32Array;
+  indices: Uint32Array;
+};
 
 // The class definition is translated into TypeScript
 export class Fragment {
@@ -46,7 +55,11 @@ export class Fragment {
    */
   vertexAdjacency: number[];
 
-  constructor() {
+  /**
+   * Constructor for a Fragment object
+   * @param args The arguments for the Fragment object
+   */
+  constructor(args: FragmentArgs | undefined = undefined) {
     this.vertices = [];
     this.cutVertices = [];
     this.triangles = [[], []];
@@ -54,14 +67,13 @@ export class Fragment {
     this.indexMap = [];
     this.bounds = new Box3();
     this.vertexAdjacency = [];
-  }
 
-  static fromGeometry(geometry: BufferGeometry): Fragment {
-    var positions = geometry.attributes.position.array as Float32Array;
-    var normals = geometry.attributes.normal.array as Float32Array;
-    var uvs = geometry.attributes.uv.array as Float32Array;
+    if (!args) {
+      return;
+    }
 
-    const data = new Fragment();
+    const { positions, normals, uvs, indices } = args;
+
     for (let i = 0; i < positions.length / 3; i++) {
       const position = new Vector3(
         positions[3 * i],
@@ -77,13 +89,11 @@ export class Fragment {
 
       const uv = new Vector2(uvs[2 * i], uvs[2 * i + 1]);
 
-      data.vertices.push(new MeshVertex(position, normal, uv));
+      this.vertices.push(new MeshVertex(position, normal, uv));
     }
 
-    data.triangles = [Array.from(geometry.index?.array as Uint32Array), []];
-    data.calculateBounds();
-
-    return data;
+    this.triangles = [Array.from(indices)];
+    this.calculateBounds();
   }
 
   /**
@@ -228,67 +238,5 @@ export class Fragment {
     });
 
     this.bounds = new Box3(min, max);
-  }
-
-  /**
-   * Converts this to a BufferGeometry object
-   */
-  toGeometry(): BufferGeometry {
-    const geometry = new BufferGeometry();
-
-    const vertexCount = this.vertices.length + this.cutVertices.length;
-    const positions = new Array<number>(vertexCount * 3);
-    const normals = new Array<number>(vertexCount * 3);
-    const uvs = new Array<number>(vertexCount * 2);
-
-    let posIdx = 0;
-    let normIdx = 0;
-    let uvIdx = 0;
-
-    // Add the positions, normals and uvs for the non-cut-face geometry
-    for (const vert of this.vertices) {
-      positions[posIdx++] = vert.position.x;
-      positions[posIdx++] = vert.position.y;
-      positions[posIdx++] = vert.position.z;
-
-      normals[normIdx++] = vert.normal.x;
-      normals[normIdx++] = vert.normal.y;
-      normals[normIdx++] = vert.normal.z;
-
-      uvs[uvIdx++] = vert.uv.x;
-      uvs[uvIdx++] = vert.uv.y;
-    }
-
-    // Next, add the positions, normals and uvs for the cut-face geometry
-    for (const vert of this.cutVertices) {
-      positions[posIdx++] = vert.position.x;
-      positions[posIdx++] = vert.position.y;
-      positions[posIdx++] = vert.position.z;
-
-      normals[normIdx++] = vert.normal.x;
-      normals[normIdx++] = vert.normal.y;
-      normals[normIdx++] = vert.normal.z;
-
-      uvs[uvIdx++] = vert.uv.x;
-      uvs[uvIdx++] = vert.uv.y;
-    }
-
-    geometry.addGroup(0, this.triangles[0].length, 0);
-    geometry.addGroup(this.triangles[0].length, this.triangles[1].length, 1);
-
-    geometry.setAttribute(
-      "position",
-      new BufferAttribute(new Float32Array(positions), 3),
-    );
-    geometry.setAttribute(
-      "normal",
-      new BufferAttribute(new Float32Array(normals), 3),
-    );
-    geometry.setAttribute("uv", new BufferAttribute(new Float32Array(uvs), 2));
-    geometry.setIndex(
-      new BufferAttribute(new Uint32Array(this.triangles.flat()), 1),
-    );
-
-    return geometry;
   }
 }

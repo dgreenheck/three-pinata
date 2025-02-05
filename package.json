@@ -5,9 +5,9 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "preview": "vite preview",
     "test": "jest"
   },
   "repository": {

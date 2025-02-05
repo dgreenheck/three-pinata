@@ -1,4 +1,5 @@
-import { Vector2, Material, MeshBasicMaterial } from "three";
+import { Vector2 } from "../utils/Vector2";
+import { Material, MeshBasicMaterial } from "three";
 
 export class FractureOptions {
   /**

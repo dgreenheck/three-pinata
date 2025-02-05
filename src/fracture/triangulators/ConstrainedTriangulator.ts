@@ -1,4 +1,4 @@
-import { Vector3 } from "three";
+import { Vector3 } from "../utils/Vector3";
 import EdgeConstraint from "../entities/EdgeConstraint";
 import MeshVertex from "../entities/MeshVertex";
 import { Triangulator } from "./Triangulator";

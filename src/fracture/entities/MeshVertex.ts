@@ -1,9 +1,12 @@
-import { Vector2, Vector3 } from "three";
+import { Vector2 } from "../utils/Vector2";
+import { Vector3 } from "../utils/Vector3";
 
 /**
  * Data structure containing position/normal/UV data for a single vertex
  */
 export default class MeshVertex {
+  tolerance = 1e-9;
+  invTolerance = 1e9;
   position: Vector3;
   normal: Vector3;
   uv: Vector2;
@@ -23,11 +26,11 @@ export default class MeshVertex {
    * @param inverseTolerance The inverse of the tolerance used for spatial hashing
    * @returns
    */
-  hash(inverseTolerance: number = 1e6): number {
+  hash(): number {
     // Use inverse so we can multiply instead of divide to save a few ops
-    const x = Math.floor(this.position.x * inverseTolerance);
-    const y = Math.floor(this.position.y * inverseTolerance);
-    const z = Math.floor(this.position.z * inverseTolerance);
+    const x = Math.floor(this.position.x * this.invTolerance);
+    const y = Math.floor(this.position.y * this.invTolerance);
+    const z = Math.floor(this.position.z * this.invTolerance);
     const xy = 0.5 * ((x + y) * (x + y + 1)) + y; // Pairing x and y
     return (0.5 * ((xy + z) * (xy + z + 1))) / 2 + z;
   }
@@ -37,8 +40,8 @@ export default class MeshVertex {
    * @param other
    * @returns
    */
-  equals(other: MeshVertex, tolerance: number = 1e-9): boolean {
-    return this.hash(tolerance) === other.hash(tolerance);
+  equals(other: MeshVertex): boolean {
+    return this.hash() === other.hash();
   }
 
   toString(): string {
