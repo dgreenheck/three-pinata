@@ -1,7 +1,7 @@
 import { Vector2, Vector3 } from "three";
-import { ConstrainedTriangulator } from "../src/fracture/triangulators/ConstrainedTriangulator";
-import MeshVertex from "../src/fracture/entities/MeshVertex";
-import EdgeConstraint from "../src/fracture/entities/EdgeConstraint";
+import { ConstrainedTriangulator } from "./ConstrainedTriangulator";
+import MeshVertex from "../entities/MeshVertex";
+import EdgeConstraint from "../entities/EdgeConstraint";
 
 // Helper function for getting an adjacent vertex, translated to TypeScript
 function getAdjacentVertex(i: number, n: number): number {

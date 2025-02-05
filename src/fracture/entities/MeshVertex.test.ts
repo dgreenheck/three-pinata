@@ -1,4 +1,4 @@
-import MeshVertex from "../src/fracture/entities/MeshVertex";
+import MeshVertex from "./MeshVertex";
 import { Vector3 } from "three";
 
 describe("MeshVertex", () => {
