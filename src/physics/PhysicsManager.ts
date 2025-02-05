@@ -16,6 +16,8 @@ export class PhysicsManager {
   eventQueue: RAPIER.EventQueue;
   world: RAPIER.World;
   worldObjects: Map<number, PhysicsObject>;
+  private trackedObjects: Map<THREE.Object3D, RAPIER.RigidBody> = new Map();
+  private ballColliderHandle: number | null = null;
 
   constructor(
     RAPIER: RAPIER_API,
@@ -26,14 +28,29 @@ export class PhysicsManager {
     this.RAPIER = RAPIER;
     this.eventQueue = new RAPIER.EventQueue(true);
     this.world = new RAPIER.World(gravity);
+
+    // Improve physics accuracy by:
+    // - Using smaller timesteps for more precise integration
+    // - Increasing solver iterations for better constraint solving
+    // - Setting appropriate length unit for scene scale
+    this.world.integrationParameters.dt = 1 / 120; // Smaller timestep (120Hz)
+    this.world.integrationParameters.numSolverIterations = 8;
     this.world.integrationParameters.lengthUnit = 0.1;
+    this.world.integrationParameters.erp = 0.01; // Error reduction parameter
+
     this.worldObjects = new Map();
   }
 
   reset() {
     this.eventQueue.clear();
     this.world = new RAPIER.World(this.world.gravity);
+
+    // Maintain same improved physics parameters after reset
+    //this.world.integrationParameters.dt = 1 / 120;
+    this.world.integrationParameters.numSolverIterations = 8;
     this.world.integrationParameters.lengthUnit = 0.1;
+    this.world.integrationParameters.erp = 0.01;
+
     this.worldObjects = new Map();
   }
 
@@ -98,33 +115,51 @@ export class PhysicsManager {
     this.removeObject(obj);
   }
 
+  trackMesh(mesh: THREE.Object3D, body: RAPIER.RigidBody) {
+    this.trackedObjects.set(mesh, body);
+  }
+
+  setBallCollider(collider: RAPIER.Collider) {
+    this.ballColliderHandle = collider.handle;
+  }
+
   /**
    * Updates the physics state and handles any collisions
    * @param scene
    */
   update(scene: THREE.Scene) {
-    // Step the physics world
     this.world.step(this.eventQueue);
 
-    // Handle collisions
     this.eventQueue.drainCollisionEvents((handle1, handle2, started) => {
       if (!started) return;
 
-      // Using the handles from the collision event, find the object that needs to be updated
-      const obj1 = this.worldObjects.get(handle1);
-      if (obj1 instanceof BreakableObject) {
-        this.handleFracture(obj1, scene);
+      if (
+        handle1 !== this.ballColliderHandle &&
+        handle2 !== this.ballColliderHandle
+      ) {
+        console.log("not a collision");
+        return;
       }
 
-      const obj2 = this.worldObjects.get(handle2);
-      if (obj2 instanceof BreakableObject) {
-        this.handleFracture(obj2, scene);
+      const obj =
+        handle1 === this.ballColliderHandle
+          ? this.worldObjects.get(handle2)
+          : this.worldObjects.get(handle1);
+
+      if (obj instanceof BreakableObject) {
+        this.handleFracture(obj, scene);
       }
     });
 
-    // Update the position and rotation of each object
     this.worldObjects.forEach((obj) => {
       obj.update();
+    });
+
+    this.trackedObjects.forEach((body, mesh) => {
+      const position = body.translation();
+      const rotation = body.rotation();
+      mesh.position.set(position.x, position.y, position.z);
+      mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
     });
   }
 }
