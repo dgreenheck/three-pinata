@@ -165,7 +165,7 @@ export function hashv2(v: Vector2, tolerance: number = 1e-6): number {
 }
 
 /**
- * Returns true if p1 and p2 are effectively equal.
+ * Calculates hash value of Vector3 using Cantor pairing
  */
 export function hash3(v: Vector3, tolerance: number = 1e-6): number {
   const invTolerance = 1 / tolerance;
