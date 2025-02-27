@@ -1,4 +1,4 @@
-import MeshVertex from "./MeshVertex";
+import MeshVertex from "../MeshVertex";
 import { Vector3 } from "three";
 
 describe("MeshVertex", () => {
