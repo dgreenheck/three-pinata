@@ -1,6 +1,7 @@
 import { Vector2 } from "../utils/Vector2";
 import { Vector3 } from "../utils/Vector3";
 import { Box3 } from "../utils/Box3";
+import { hash3 } from "../utils/MathUtils";
 import MeshVertex from "./MeshVertex";
 import EdgeConstraint from "./EdgeConstraint";
 
@@ -194,7 +195,7 @@ export class Fragment {
     // Perform spatial hashing of vertices
     const adjacencyMap = new Map<number, number>();
     this.cutVertices.forEach((vertex, i) => {
-      const key = vertex.hash();
+      const key = hash3(vertex.position);
       if (!adjacencyMap.has(key)) {
         indexMap[i] = k;
         adjacencyMap.set(key, k);

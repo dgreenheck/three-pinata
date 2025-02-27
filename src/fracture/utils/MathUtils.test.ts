@@ -1,5 +1,6 @@
 import { Vector2, Vector3 } from "three";
 import * as MathUtils from "./MathUtils";
+import { hashi2, hashv2, hash3 } from "./MathUtils";
 
 describe("isPointAbovePlane", () => {
   test("point above plane returns true", () => {
@@ -222,5 +223,131 @@ describe("linesIntersect", () => {
     const b1 = new Vector2(0, 1);
     const b2 = a2;
     expect(MathUtils.linesIntersect(a1, a2, b1, b2)).toBe(false);
+  });
+});
+
+describe("hashi2", () => {
+  it("should generate unique hashes for different integer pairs", () => {
+    expect(hashi2(1, 2)).not.toBe(hashi2(2, 1));
+    expect(hashi2(0, 0)).not.toBe(hashi2(1, 0));
+    expect(hashi2(-1, 1)).not.toBe(hashi2(1, -1));
+  });
+
+  it("should be consistent for the same inputs", () => {
+    const hash1 = hashi2(5, 3);
+    const hash2 = hashi2(5, 3);
+    expect(hash1).toBe(hash2);
+  });
+
+  it("should generate different hashes when only x component differs", () => {
+    expect(hashi2(1, 5)).not.toBe(hashi2(2, 5));
+  });
+
+  it("should generate different hashes when only y component differs", () => {
+    expect(hashi2(1, 5)).not.toBe(hashi2(1, 6));
+  });
+});
+
+describe("hashv2", () => {
+  it("should generate same hash for effectively equal Vector2s", () => {
+    const tolerance = 1e-6;
+    const offset = tolerance / 10;
+    const v1 = new Vector2(1, 2);
+    const v2 = new Vector2(1 + offset, 2 + offset);
+    expect(hashv2(v1, tolerance)).toBe(hashv2(v2, tolerance));
+  });
+
+  it("should generate different hashes for distinct Vector2s", () => {
+    const tolerance = 1e-6;
+    const offset = tolerance;
+    const v1 = new Vector2(1, 2);
+    const v2 = new Vector2(1 + offset, 2 + offset);
+    expect(hashv2(v1, tolerance)).not.toBe(hashv2(v2, tolerance));
+  });
+
+  it("should handle custom tolerance", () => {
+    const tolerance = 1e-6;
+    const v1 = new Vector2(1.1, 2.1);
+    const v2 = new Vector2(1.2, 2.2);
+    // Should be different with high precision
+    expect(hashv2(v1, tolerance)).not.toBe(hashv2(v2, tolerance));
+    // Should be same with low precision
+    expect(hashv2(v1, 1)).toBe(hashv2(v2, 1));
+  });
+
+  it("should handle zero and negative values", () => {
+    const v1 = new Vector2(0, 0);
+    const v2 = new Vector2(-1, -1);
+    const v3 = new Vector2(1, 1);
+
+    expect(hashv2(v1)).not.toBe(hashv2(v2));
+    expect(hashv2(v2)).not.toBe(hashv2(v3));
+  });
+
+  it("should generate different hashes when only x component differs", () => {
+    const v1 = new Vector2(1, 2);
+    const v2 = new Vector2(2, 2);
+    expect(hashv2(v1)).not.toBe(hashv2(v2));
+  });
+
+  it("should generate different hashes when only y component differs", () => {
+    const v1 = new Vector2(1, 2);
+    const v2 = new Vector2(1, 3);
+    expect(hashv2(v1)).not.toBe(hashv2(v2));
+  });
+});
+
+describe("hash3", () => {
+  it("should generate same hash for effectively equal Vector3s", () => {
+    const tolerance = 1e-6;
+    const offset = tolerance / 10;
+    const v1 = new Vector3(1, 2, 3);
+    const v2 = new Vector3(1 + offset, 2 + offset, 3 + offset);
+    expect(hash3(v1, tolerance)).toBe(hash3(v2, tolerance));
+  });
+
+  it("should generate different hashes for distinct Vector3s", () => {
+    const tolerance = 1e-6;
+    const offset = tolerance;
+    const v1 = new Vector3(1, 2, 3);
+    const v2 = new Vector3(1 + offset, 2 + offset, 3 + offset);
+    expect(hash3(v1, tolerance)).not.toBe(hash3(v2, tolerance));
+  });
+
+  it("should handle custom tolerance", () => {
+    const tolerance = 1e-6;
+    const v1 = new Vector3(1.1, 2.1, 3.1);
+    const v2 = new Vector3(1.2, 2.2, 3.2);
+    // Should be different with high precision
+    expect(hash3(v1, tolerance)).not.toBe(hash3(v2, tolerance));
+    // Should be same with low precision
+    expect(hash3(v1, 1)).toBe(hash3(v2, 1));
+  });
+
+  it("should handle zero and negative values", () => {
+    const v1 = new Vector3(0, 0, 0);
+    const v2 = new Vector3(-1, -1, -1);
+    const v3 = new Vector3(1, 1, 1);
+
+    expect(hash3(v1)).not.toBe(hash3(v2));
+    expect(hash3(v2)).not.toBe(hash3(v3));
+  });
+
+  it("should generate different hashes when only x component differs", () => {
+    const v1 = new Vector3(1, 2, 3);
+    const v2 = new Vector3(2, 2, 3);
+    expect(hash3(v1)).not.toBe(hash3(v2));
+  });
+
+  it("should generate different hashes when only y component differs", () => {
+    const v1 = new Vector3(1, 2, 3);
+    const v2 = new Vector3(1, 3, 3);
+    expect(hash3(v1)).not.toBe(hash3(v2));
+  });
+
+  it("should generate different hashes when only z component differs", () => {
+    const v1 = new Vector3(1, 2, 3);
+    const v2 = new Vector3(1, 2, 4);
+    expect(hash3(v1)).not.toBe(hash3(v2));
   });
 });

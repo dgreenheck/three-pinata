@@ -4,6 +4,7 @@ import { Fragment } from "./entities/Fragment";
 import { sliceFragment } from "./Slice";
 import { UnionFind } from "./utils/UnionFind";
 import { Vector3 } from "./utils/Vector3";
+import { hash3 } from "./utils/MathUtils";
 import {
   geometryToFragment,
   fragmentToGeometry,
@@ -103,7 +104,7 @@ function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   // at that location, union this vertex with the existing vertex so they are
   // included in the same geometry group.
   fragment.vertices.forEach((vertex, index) => {
-    const key = vertex.hash();
+    const key = hash3(vertex.position);
     const existingIndex = adjacencyMap.get(key);
     if (existingIndex === undefined) {
       adjacencyMap.set(key, index);
