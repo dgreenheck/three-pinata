@@ -57,17 +57,17 @@ function linesIntersectInternal(
 
   // If any of the vertices are shared between the two diagonals,
   // the quad collapses into a triangle and is convex by default.
-  const hashA1 = hash2(a1);
-  const hashB1 = hash2(b1);
+  const hashA1 = hashv2(a1);
+  const hashB1 = hashv2(b1);
 
   // Return ASAP  to avoid computing other hashes
   if (hashA1 === hashB1) return includeSharedEndpoints;
 
-  const hashA2 = hash2(a2);
+  const hashA2 = hashv2(a2);
 
   if (hashA2 === hashB1) return includeSharedEndpoints;
 
-  const hashB2 = hash2(b2);
+  const hashB2 = hashv2(b2);
 
   if (hashA1 === hashB2) return includeSharedEndpoints;
   if (hashA2 === hashB2) return includeSharedEndpoints;
@@ -148,23 +148,30 @@ export function isPointOnRightSideOfLine(
 }
 
 /**
- * Calculates hash value of Vector2 using Cantor pairing
+ * Calculates hash value of an integer pair using Cantor pairing
  */
-function hash2(v: Vector2, tolerance: number = 1e6): number {
-  // Multiply by the inverse of the tolerance to avoid division
-  const x = Math.floor(v.x * tolerance);
-  const y = Math.floor(v.y * tolerance);
+export function hashi2(x: number, y: number): number {
   return 0.5 * ((x + y) * (x + y + 1)) + y; // Pairing x and y
 }
 
 /**
- * Returns true if p1 and p2 are effectively equal.
+ * Calculates hash value of Vector2 using Cantor pairing
  */
-function hash3(v: Vector3, tolerance: number = 1e6): number {
-  // Multiply by the inverse of the tolerance to avoid division
-  const x = Math.floor(v.x * tolerance);
-  const y = Math.floor(v.y * tolerance);
-  const z = Math.floor(v.z * tolerance);
+export function hashv2(v: Vector2, tolerance: number = 1e-6): number {
+  const invTolerance = 1 / tolerance;
+  const x = Math.floor(v.x * invTolerance);
+  const y = Math.floor(v.y * invTolerance);
+  return hashi2(x, y);
+}
+
+/**
+ * Calculates hash value of Vector3 using Cantor pairing
+ */
+export function hash3(v: Vector3, tolerance: number = 1e-6): number {
+  const invTolerance = 1 / tolerance;
+  const x = Math.floor(v.x * invTolerance);
+  const y = Math.floor(v.y * invTolerance);
+  const z = Math.floor(v.z * invTolerance);
   const xy = 0.5 * ((x + y) * (x + y + 1)) + y;
   return 0.5 * ((xy + z) * (xy + z + 1)) + z;
 }
