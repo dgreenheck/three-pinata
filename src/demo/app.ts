@@ -3,6 +3,7 @@ import { Pane } from "tweakpane";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Demo } from "./types/Demo";
 import { PhysicsDemo } from "./examples/physics";
+import { ExplodeDemo } from "./examples/explode";
 
 let activeDemo: Demo | null = null;
 
@@ -14,8 +15,11 @@ const camera = new THREE.PerspectiveCamera(
   1000,
 );
 const renderer = new THREE.WebGLRenderer();
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0x000000);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
 document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -29,12 +33,13 @@ tweakpaneElement.parentElement!.style.width = "300px"; // Set your desired width
 
 // Setup demo selection
 const demoOptions = {
-  current: "Physics",
+  current: "Skull",
 };
 
 // Initialize demos
 const physicsDemo = new PhysicsDemo(camera, controls, pane);
-activeDemo = physicsDemo;
+const explodeDemo = new ExplodeDemo(camera, controls, pane);
+activeDemo = explodeDemo;
 loadDemo(activeDemo);
 
 async function loadDemo(demo: Demo) {
@@ -49,6 +54,7 @@ pane
   .addBinding(demoOptions, "current", {
     options: {
       Physics: "Physics",
+      Skull: "Skull",
     },
     label: "Select Demo",
   })
@@ -58,6 +64,9 @@ pane
     switch (ev.value) {
       case "Physics":
         await loadDemo(physicsDemo);
+        break;
+      case "Skull":
+        await loadDemo(explodeDemo);
         break;
       default:
         console.warn("Unknown demo:", ev.value);
