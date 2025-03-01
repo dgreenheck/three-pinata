@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import type * as RAPIER from "@dimforge/rapier3d";
-import { fracture } from "../fracture/Fracture";
+import { fracture, FractureOptions } from "three-pinata";
 import { PhysicsObject } from "./PhysicsObject";
-import { FractureOptions } from "../fracture/entities/FractureOptions";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 

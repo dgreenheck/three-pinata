@@ -1,25 +1,15 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "lib": [
-      "ESNext",
-      "DOM",
-      "DOM.Iterable"
-    ],
-    "skipLibCheck": true,
-    /* Bundler mode */
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist",
+    "allowJs": true,
     "moduleResolution": "Bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    /* Linting */
-    "strict": true
+    "skipLibCheck": true,
+    "target": "ESNext",
+    "module": "ESNext"
   },
   "include": [
-    "src",
-    "__tests__"
+    "src/lib/**/*"
   ]
 }
