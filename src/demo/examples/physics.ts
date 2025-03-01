@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+import { Pane, FolderApi } from "tweakpane";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { PhysicsManager } from "../physics/PhysicsManager";
 import { BreakableObject } from "../physics/BreakableObject";
@@ -9,7 +9,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export class PhysicsDemo implements Demo {
   private RAPIER: typeof import("@dimforge/rapier3d");
-  private gui: GUI;
+  private pane: Pane;
   private gltfLoader: GLTFLoader;
   private fractureOptions: FractureOptions;
   private physics: PhysicsManager;
@@ -18,11 +18,15 @@ export class PhysicsDemo implements Demo {
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
 
-  constructor(camera: THREE.PerspectiveCamera, controls: OrbitControls) {
+  constructor(
+    camera: THREE.PerspectiveCamera,
+    controls: OrbitControls,
+    pane: Pane,
+  ) {
     this.scene = new THREE.Scene();
     this.camera = camera;
     this.controls = controls;
-    this.gui = new GUI();
+    this.pane = pane;
     this.gltfLoader = new GLTFLoader();
     this.fractureOptions = new FractureOptions();
   }
@@ -45,41 +49,67 @@ export class PhysicsDemo implements Demo {
   }
 
   destroy() {
-    this.gui.destroy();
+    this.pane.dispose();
   }
 
   private setupGUI() {
-    const gravityFolder = this.gui.addFolder("Gravity");
-    gravityFolder
-      .add(this.physics.world.gravity, "x", -100, 100, 0.1)
-      .name("X");
-    gravityFolder
-      .add(this.physics.world.gravity, "y", -100, 100, 0.1)
-      .name("Y");
-    gravityFolder
-      .add(this.physics.world.gravity, "z", -100, 100, 0.1)
-      .name("Z");
+    const demoFolder = this.pane.addFolder({ title: "Demo Settings" });
 
-    const fractureFolder = this.gui.addFolder("Fracture Options");
-    fractureFolder
-      .add(this.fractureOptions, "fractureMode", ["Convex", "Non-Convex"])
-      .name("Fracture Mode");
-    fractureFolder.add(this.fractureOptions, "fragmentCount", 2, 500, 1);
+    const gravityFolder = demoFolder.addFolder({ title: "Gravity" });
+    gravityFolder.addBinding(this.physics.world.gravity, "x", {
+      min: -100,
+      max: 100,
+      step: 0.1,
+      label: "X",
+    });
+    gravityFolder.addBinding(this.physics.world.gravity, "y", {
+      min: -100,
+      max: 100,
+      step: 0.1,
+      label: "Y",
+    });
+    gravityFolder.addBinding(this.physics.world.gravity, "z", {
+      min: -100,
+      max: 100,
+      step: 0.1,
+      label: "Z",
+    });
 
-    const fracturePlanesFolder = fractureFolder.addFolder("Fracture Planes");
-    fracturePlanesFolder
-      .add(this.fractureOptions.fracturePlanes, "x")
-      .name("X");
-    fracturePlanesFolder
-      .add(this.fractureOptions.fracturePlanes, "y")
-      .name("Y");
-    fracturePlanesFolder
-      .add(this.fractureOptions.fracturePlanes, "z")
-      .name("Z");
+    const fractureFolder = demoFolder.addFolder({ title: "Fracture Options" });
+    fractureFolder.addBinding(this.fractureOptions, "fractureMode", {
+      options: {
+        Convex: "Convex",
+        "Non-Convex": "Non-Convex",
+      },
+      label: "Fracture Mode",
+    });
+    fractureFolder.addBinding(this.fractureOptions, "fragmentCount", {
+      min: 2,
+      max: 500,
+      step: 1,
+    });
 
-    this.gui
-      .add({ loadScene: () => this.loadScene() }, "loadScene")
-      .name("Reset");
+    const fracturePlanesFolder = fractureFolder.addFolder({
+      title: "Fracture Planes",
+    });
+    fracturePlanesFolder.addBinding(this.fractureOptions.fracturePlanes, "x", {
+      label: "X",
+    });
+    fracturePlanesFolder.addBinding(this.fractureOptions.fracturePlanes, "y", {
+      label: "Y",
+    });
+    fracturePlanesFolder.addBinding(this.fractureOptions.fracturePlanes, "z", {
+      label: "Z",
+    });
+
+    const resetButton = demoFolder.addButton({
+      title: "Reset",
+      label: "Reset",
+    });
+
+    resetButton.on("click", () => {
+      this.loadScene();
+    });
   }
 
   resetScene() {

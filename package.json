@@ -38,7 +38,9 @@
   "homepage": "https://github.com/dgreenheck/three-pinata#readme",
   "dependencies": {
     "@dimforge/rapier3d": "^0.13.0",
+    "@tweakpane/core": "^2.0.5",
     "three": "^0.158.0",
+    "tweakpane": "^4.0.5",
     "vite-plugin-top-level-await": "^1.4.1",
     "vite-plugin-wasm": "^3.3.0"
   },

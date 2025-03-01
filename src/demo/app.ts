@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+import { Pane } from "tweakpane";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Demo } from "./types/Demo";
 import { PhysicsDemo } from "./examples/physics";
@@ -21,7 +21,11 @@ document.body.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 
 // Create GUI
-const gui = new GUI();
+const pane = new Pane();
+
+// Style the Tweakpane element
+const tweakpaneElement = pane.element;
+tweakpaneElement.parentElement!.style.width = "300px"; // Set your desired width
 
 // Setup demo selection
 const demoOptions = {
@@ -29,7 +33,7 @@ const demoOptions = {
 };
 
 // Initialize demos
-const physicsDemo = new PhysicsDemo(camera, controls);
+const physicsDemo = new PhysicsDemo(camera, controls, pane);
 activeDemo = physicsDemo;
 loadDemo(activeDemo);
 
@@ -41,18 +45,28 @@ async function loadDemo(demo: Demo) {
 }
 
 // Add demo selector to GUI
-gui.add(demoOptions, "current", ["Physics"]).onChange(async (value: string) => {
-  gui.destroy();
+pane
+  .addBinding(demoOptions, "current", {
+    options: {
+      Physics: "Physics",
+    },
+    label: "Select Demo",
+  })
+  .on("change", async (ev) => {
+    pane.dispose();
 
-  switch (value) {
-    case "Physics":
-      await loadDemo(physicsDemo);
-      break;
-    default:
-      console.warn("Unknown demo:", value);
-      return;
-  }
-});
+    switch (ev.value) {
+      case "Physics":
+        await loadDemo(physicsDemo);
+        break;
+      default:
+        console.warn("Unknown demo:", ev.value);
+        return;
+    }
+  });
+
+// Add a separator to the GUI
+pane.addBlade({ view: "separator" });
 
 // Animation loop with delta time
 function animate() {
