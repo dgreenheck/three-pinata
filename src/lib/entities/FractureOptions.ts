@@ -1,5 +1,10 @@
+import { MeshBasicMaterial } from "three";
 import { Vector2 } from "../utils/Vector2";
-import { Material, MeshBasicMaterial } from "three";
+
+export enum FractureMode {
+  CONVEX = "Convex",
+  NON_CONVEX = "Non-Convex",
+}
 
 export class FractureOptions {
   /**
@@ -22,12 +27,7 @@ export class FractureOptions {
    * non-convex, an algorithm which can handle non-convex geometry will be used
    * at the expensive of performance.
    */
-  public fractureMode: "Convex" | "Non-Convex";
-
-  /**
-   * The material to use for the inside faces
-   */
-  public insideMaterial: Material | undefined;
+  public fractureMode: FractureMode;
 
   /**
    * Scale factor to apply to texture coordinates
@@ -40,10 +40,9 @@ export class FractureOptions {
   public textureOffset: Vector2;
 
   constructor() {
-    this.fragmentCount = 50;
+    this.fragmentCount = 30;
     this.fracturePlanes = { x: true, y: true, z: true };
-    this.fractureMode = "Non-Convex";
-    this.insideMaterial = new MeshBasicMaterial({ color: 0x0000ff });
+    this.fractureMode = FractureMode.NON_CONVEX;
     this.textureScale = new Vector2(1, 1);
     this.textureOffset = new Vector2();
   }

@@ -1,9 +1,10 @@
 import * as THREE from "three";
+import { FolderApi, Pane } from "tweakpane";
 
 export interface Demo {
   scene: THREE.Scene;
   update: (dt: number) => void;
   destroy: () => void;
-  loadScene: () => Promise<THREE.Scene>;
-  initialize: () => Promise<void>;
+  setupGUI: (pane: Pane) => FolderApi;
+  load: () => Promise<void>;
 }

@@ -151,7 +151,7 @@ export function isPointOnRightSideOfLine(
  * Calculates hash value of an integer pair using Cantor pairing
  */
 export function hashi2(x: number, y: number): number {
-  return 0.5 * ((x + y) * (x + y + 1)) + y; // Pairing x and y
+  return Math.round(0.5 * ((x + y) * (x + y + 1)) + y); // Pairing x and y
 }
 
 /**

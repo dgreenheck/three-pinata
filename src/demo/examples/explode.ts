@@ -6,67 +6,74 @@ import { Demo } from "../types/Demo";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 export class ExplodeDemo implements Demo {
-  scene: THREE.Scene;
-  fragments: THREE.Group;
+  scene = new THREE.Scene();
+  materials: THREE.Material[] = [];
+  fragments = new THREE.Group();
   fragmentDistance: number = 0;
   animationTime: number = 0;
-  isAnimating: boolean = false;
-  animationSpeed: number = 0.7;
-  baseFragmentDistance: number = 0.5;
-  pane: Pane;
-  gltfLoader: GLTFLoader;
-  fractureOptions: FractureOptions;
-  skullModel: THREE.Group;
+  isAnimating: boolean = true;
+  animationSpeed: number = 0.8;
+  baseFragmentDistance: number = 0.3;
+  gltfLoader = new GLTFLoader();
+  fractureOptions = new FractureOptions();
+  skullModel: THREE.Mesh;
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
 
-  constructor(
-    camera: THREE.PerspectiveCamera,
-    controls: OrbitControls,
-    pane: Pane,
-  ) {
-    this.scene = new THREE.Scene();
+  constructor(camera: THREE.PerspectiveCamera, controls: OrbitControls) {
     this.camera = camera;
     this.controls = controls;
-    this.pane = pane;
-    this.gltfLoader = new GLTFLoader();
-    this.fractureOptions = new FractureOptions();
   }
 
-  async initialize() {
+  async load() {
     this.skullModel = (
       await this.gltfLoader.loadAsync("public/human_skull.glb")
-    ).scene;
+    ).scene.children[0] as THREE.Mesh;
 
-    this.skullModel.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.material.envMapIntensity = 1;
-      }
+    const outerMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.0,
+      metalness: 0.9,
+      envMapIntensity: 0.3,
     });
 
-    this.fragments = new THREE.Group();
+    const innerMaterial = new THREE.MeshStandardMaterial({
+      color: 0x808080,
+      envMapIntensity: 1.0,
+    });
+    this.materials = [outerMaterial, innerMaterial];
+
     this.scene.add(this.fragments);
 
     // Position the camera
     this.camera.position.set(0, 0, -5);
     this.controls.target.set(0, 0, 0);
+    this.controls.autoRotate = true;
     this.controls.update();
 
-    // Add environment map
-    const textureLoader = new THREE.TextureLoader();
-    const envMap = await textureLoader.loadAsync("public/golden_bay_4k.jpg");
-    envMap.mapping = THREE.EquirectangularReflectionMapping;
-    this.scene.environment = envMap;
+    // Add directional light from bottom
+    const directionalLight1 = new THREE.DirectionalLight(0x0000ff, 10);
+    directionalLight1.position.set(4, -1, -4); // Position below the skull
+    directionalLight1.lookAt(0, 0, 0); // Point toward the center
+    this.scene.add(directionalLight1);
 
-    this.setupGUI();
+    // Add directional light from bottom
+    const directionalLight2 = new THREE.DirectionalLight(0xff0000, 10);
+    directionalLight2.position.set(-4, -1, -4); // Position below the skull
+    directionalLight2.lookAt(0, 0, 0); // Point toward the center
+    this.scene.add(directionalLight2);
+
+    const environment = new THREE.TextureLoader().load(
+      "public/golden_bay_4k.jpg",
+    );
+    environment.mapping = THREE.EquirectangularReflectionMapping;
+    this.scene.environment = environment;
+
+    this.fractureSkull();
   }
 
-  destroy() {
-    this.pane.dispose();
-  }
-
-  private setupGUI() {
-    const demoFolder = this.pane.addFolder({ title: "Skull Fracture Demo" });
+  setupGUI(pane: Pane) {
+    const demoFolder = pane.addFolder({ title: "Skull Fracture Demo" });
 
     // Fracture options
     const fractureFolder = demoFolder.addFolder({ title: "Fracture Options" });
@@ -140,6 +147,21 @@ export class ExplodeDemo implements Demo {
       .on("change", () => {
         this.updateFragmentPositions();
       });
+
+    return demoFolder;
+  }
+
+  update(dt: number): void {
+    this.animationTime += dt * this.animationSpeed;
+    if (this.isAnimating) {
+      // Create a pulsing effect using quadratic easing
+      // t is normalized between 0 and 1 for each cycle
+      const t = this.animationTime;
+      // Quadratic ease in-out: t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2
+      const easeValue = Math.pow(Math.sin(t), 2);
+      this.fragmentDistance = this.baseFragmentDistance * easeValue;
+      this.updateFragmentPositions();
+    }
   }
 
   fractureSkull() {
@@ -154,7 +176,7 @@ export class ExplodeDemo implements Demo {
         );
 
         fragmentGeometries.forEach((fragment) => {
-          const mesh = new THREE.Mesh(fragment, skullMesh.material);
+          const mesh = new THREE.Mesh(fragment, this.materials);
 
           fragment.computeBoundingBox();
           const center = new THREE.Vector3();
@@ -186,21 +208,12 @@ export class ExplodeDemo implements Demo {
     });
   }
 
-  async loadScene(): Promise<THREE.Scene> {
-    this.fractureSkull();
-    return this.scene;
-  }
-
-  update(dt: number): void {
-    this.animationTime += dt * this.animationSpeed;
-    if (this.isAnimating) {
-      // Create a pulsing effect using quadratic easing
-      // t is normalized between 0 and 1 for each cycle
-      const t = this.animationTime;
-      // Quadratic ease in-out: t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2
-      const easeValue = Math.pow(Math.sin(t), 2);
-      this.fragmentDistance = this.baseFragmentDistance * easeValue;
-      this.updateFragmentPositions();
-    }
+  destroy() {
+    this.fragments.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry.dispose();
+      }
+    });
+    this.fragments.clear();
   }
 }
