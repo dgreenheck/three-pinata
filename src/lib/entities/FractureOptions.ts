@@ -40,7 +40,7 @@ export class FractureOptions {
   public textureOffset: Vector2;
 
   constructor() {
-    this.fragmentCount = 30;
+    this.fragmentCount = 50;
     this.fracturePlanes = { x: true, y: true, z: true };
     this.fractureMode = FractureMode.NON_CONVEX;
     this.textureScale = new Vector2(1, 1);

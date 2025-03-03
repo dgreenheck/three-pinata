@@ -6,7 +6,6 @@ import { fracture, FractureOptions } from "three-pinata";
 import { Demo } from "../types/Demo";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { PhysicsObject } from "../physics/PhysicsObject";
-import type * as RAPIER from "@dimforge/rapier3d";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 
@@ -62,7 +61,7 @@ export class PhysicsDemo implements Demo {
     // Position the camera
     this.camera.position.set(5, 4, 6);
     this.camera.updateProjectionMatrix();
-    this.controls.target.set(-1, 2, 0);
+    this.controls.target.set(0, 2, 0);
     this.controls.update();
 
     this.lionObject = this.setupLion();
@@ -229,7 +228,8 @@ export class PhysicsDemo implements Demo {
 
     // Add a collider to the ball with collision events enabled
     const ballCollider = this.RAPIER.ColliderDesc.ball(0.5)
-      .setRestitution(0.2)
+      .setMass(3.0)
+      .setRestitution(0.5)
       .setActiveEvents(this.RAPIER.ActiveEvents.COLLISION_EVENTS);
 
     // Add the ball to the scene
