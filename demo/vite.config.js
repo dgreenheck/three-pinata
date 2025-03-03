@@ -19,5 +19,6 @@ export default {
     alias: {
       '@dgreenheck/three-pinata': path.resolve(__dirname, '../lib/src'),
     },
-  }
+  },
+  assetsInclude: ["**/*.glb"]
 };

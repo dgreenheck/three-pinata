@@ -7,6 +7,10 @@ import { Demo } from "../types/Demo";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { PhysicsObject } from "../physics/PhysicsObject";
 
+import lionUrl from "../assets/lion.glb";
+import stoneColorUrl from "../assets/stone_color.jpg";
+import stoneDispUrl from "../assets/stone_disp.jpg";
+
 type RAPIER_API = typeof import("@dimforge/rapier3d");
 
 export class PhysicsDemo implements Demo {
@@ -43,11 +47,11 @@ export class PhysicsDemo implements Demo {
     );
     this.physics.onCollision = this.onCollision.bind(this);
 
-    this.lionMesh = (await this.gltfLoader.loadAsync("/lion.glb")).scene
+    this.lionMesh = (await this.gltfLoader.loadAsync(lionUrl)).scene
       .children[0] as THREE.Mesh;
 
-    const map = new THREE.TextureLoader().load("/stone_color.jpg");
-    const displacementMap = new THREE.TextureLoader().load("/stone_disp.jpg");
+    const map = new THREE.TextureLoader().load(stoneColorUrl);
+    const displacementMap = new THREE.TextureLoader().load(stoneDispUrl);
 
     this.insideMaterial = new THREE.MeshStandardMaterial({
       roughness: 0.3,
@@ -133,11 +137,6 @@ export class PhysicsDemo implements Demo {
       this.RAPIER.RigidBodyDesc.dynamic(),
     );
     lion.rigidBody.sleep();
-
-    // Create collider with collision events enabled
-    const collider = this.RAPIER.ColliderDesc.convexHull(
-      lion.geometry.getAttribute("position").array as Float32Array,
-    )!.setActiveEvents(this.RAPIER.ActiveEvents.COLLISION_EVENTS);
 
     this.fractureLion(lion, this.scene);
 

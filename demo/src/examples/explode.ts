@@ -6,13 +6,15 @@ import { Demo } from "../types/Demo";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
 
+import skullFileUrl from "../assets/human_skull.glb";
+import environmentUrl from "../assets/golden_bay_4k.jpg";
+
 export class ExplodeDemo implements Demo {
   scene = new THREE.Scene();
   materials: THREE.Material[] = [];
   fragments = new THREE.Group();
   fragmentDistance: number = 0;
   animationTime: number = 0;
-  1;
   isAnimating: boolean = true;
   animationSpeed: number = 0.8;
   baseFragmentDistance: number = 0.75;
@@ -28,8 +30,8 @@ export class ExplodeDemo implements Demo {
   }
 
   async load() {
-    this.skullModel = (await this.gltfLoader.loadAsync("/human_skull.glb"))
-      .scene.children[0] as THREE.Mesh;
+    this.skullModel = (await this.gltfLoader.loadAsync(skullFileUrl)).scene
+      .children[0] as THREE.Mesh;
 
     this.scene.add(this.fragments);
 
@@ -87,7 +89,7 @@ export class ExplodeDemo implements Demo {
     groundPlane.receiveShadow = true;
     this.scene.add(groundPlane);
 
-    const environment = new THREE.TextureLoader().load("/golden_bay_4k.jpg");
+    const environment = new THREE.TextureLoader().load(environmentUrl);
     environment.colorSpace = THREE.SRGBColorSpace;
     environment.mapping = THREE.EquirectangularReflectionMapping;
     this.scene.background = environment;
