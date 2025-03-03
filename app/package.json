@@ -25,22 +25,23 @@
   "homepage": "https://github.com/dgreenheck/three-pinata#readme",
   "dependencies": {
     "@dimforge/rapier3d": "^0.13.0",
-    "three": "^0.158.0"
+    "three": "^0.158.0",
+    "three-perf": "^1.0.10"
   },
   "peerDependencies": {
     "three": "^0.158.0"
   },
   "devDependencies": {
     "@tweakpane/core": "^2.0.5",
-    "postprocessing": "^6.36.7",
-    "tweakpane": "^4.0.5",
     "@types/jest": "^29.5.8",
     "@types/three": "^0.158.2",
     "jest": "^29.7.0",
+    "postprocessing": "^6.36.7",
     "prettier": "3.2.5",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
     "tsx": "^4.7.3",
+    "tweakpane": "^4.0.5",
     "typescript": "^5.2.2",
     "vite": "^4.5.0",
     "vite-plugin-dts": "^3.9.1",

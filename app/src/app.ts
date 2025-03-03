@@ -4,6 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Demo } from "./types/Demo";
 import { PhysicsDemo } from "./examples/physics";
 import { ExplodeDemo } from "./examples/explode";
+import { ThreePerf } from "three-perf";
 
 // Add imports for postprocessing
 import {
@@ -29,9 +30,17 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setClearColor(0x000000);
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setAnimationLoop(animate);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
+
+const perf = new ThreePerf({
+  anchorX: "right",
+  anchorY: "bottom",
+  domElement: document.body,
+  renderer,
+});
 
 // Set up post-processing
 const composer = new EffectComposer(renderer);
@@ -60,6 +69,7 @@ controls.enablePan = false;
 
 // Create GUI
 const pane = new Pane();
+pane.title = "three-pinata";
 
 // Style the Tweakpane element
 const tweakpaneElement = pane.element;
@@ -125,7 +135,7 @@ pane.addBlade({ view: "separator" });
 
 // Animation loop with delta time
 function animate() {
-  requestAnimationFrame(animate);
+  perf.begin();
 
   const dt = clock.getDelta();
 
@@ -135,6 +145,9 @@ function animate() {
     // Use the composer instead of directly rendering
     composer.render(dt);
   }
+
+  controls.update();
+  perf.end();
 }
 
 window.addEventListener("resize", () => {

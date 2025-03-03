@@ -57,10 +57,10 @@ export class PhysicsDemo implements Demo {
     });
 
     // Position the camera
-    this.camera.position.set(5, 4, 6);
+    this.camera.position.set(4, 3, 5);
     this.camera.updateProjectionMatrix();
     this.controls.target.set(0, 2, 0);
-    this.controls.update();
+    this.controls.autoRotate = false;
 
     this.lionObject = this.setupLion();
     this.setupGround();
@@ -139,8 +139,7 @@ export class PhysicsDemo implements Demo {
       lion.geometry.getAttribute("position").array as Float32Array,
     )!.setActiveEvents(this.RAPIER.ActiveEvents.COLLISION_EVENTS);
 
-    this.scene.add(lion);
-    this.physics.addObject(lion, collider);
+    this.fractureLion(lion, this.scene);
 
     return lion;
   }
@@ -168,6 +167,7 @@ export class PhysicsDemo implements Demo {
     keyLight.position.set(5, 8, 5);
     keyLight.target.position.set(0, 0, 0);
     keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(1024, 1024);
     this.scene.add(keyLight);
     this.scene.add(keyLight.target);
 
@@ -176,6 +176,7 @@ export class PhysicsDemo implements Demo {
     fillLight.position.set(5, 8, -5);
     fillLight.target.position.set(0, 0, 0);
     fillLight.castShadow = true;
+    fillLight.shadow.mapSize.set(1024, 1024);
     this.scene.add(fillLight);
     this.scene.add(fillLight.target);
   }
@@ -184,9 +185,9 @@ export class PhysicsDemo implements Demo {
     // Create a metal ball
     const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
     const ballMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.1,
-      metalness: 0.99,
+      color: 0x0000ff,
+      roughness: 0.0,
+      metalness: 0.95,
     });
 
     this.metalBall = new PhysicsObject();
@@ -195,11 +196,11 @@ export class PhysicsDemo implements Demo {
     this.metalBall.castShadow = true;
 
     // Position the ball to the side of the lion
-    this.metalBall.position.set(-30, 10, 0);
+    this.metalBall.position.set(-20, 5, 10);
 
     // Create rigid body for the ball
     this.metalBall.rigidBody = this.physics.world.createRigidBody(
-      this.RAPIER.RigidBodyDesc.dynamic().setTranslation(-30, 10, 0),
+      this.RAPIER.RigidBodyDesc.dynamic().setTranslation(-20, 5, 10),
     );
 
     // Add a collider to the ball with collision events enabled
@@ -214,7 +215,10 @@ export class PhysicsDemo implements Demo {
     this.physics.addObject(this.metalBall, ballCollider);
 
     // Give the ball an initial velocity toward the lion
-    this.metalBall.rigidBody.setLinvel(new this.RAPIER.Vector3(10, 0, 0), true);
+    this.metalBall.rigidBody.setLinvel(
+      new this.RAPIER.Vector3(7, 1.5, -3.5),
+      true,
+    );
   }
 
   /**
@@ -295,6 +299,7 @@ export class PhysicsDemo implements Demo {
             new THREE.Quaternion().setFromEuler(fragmentObj.rotation),
           ),
       );
+      fragmentObj.rigidBody.sleep();
 
       // Preserve the velocity of the original object
       fragmentObj.rigidBody.setAngvel(fragmentObj.rigidBody!.angvel(), true);

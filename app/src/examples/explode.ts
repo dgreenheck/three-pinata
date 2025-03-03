@@ -17,7 +17,7 @@ export class ExplodeDemo implements Demo {
   animationSpeed: number = 0.8;
   baseFragmentDistance: number = 0.75;
   gltfLoader = new GLTFLoader();
-  fractureOptions = new FractureOptions({ fragmentCount: 250 });
+  fractureOptions = new FractureOptions({ fragmentCount: 100 });
   skullModel: THREE.Mesh;
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
@@ -28,9 +28,10 @@ export class ExplodeDemo implements Demo {
   }
 
   async load() {
-    this.skullModel = (
-      await this.gltfLoader.loadAsync("public/human_skull.glb")
-    ).scene.children[0] as THREE.Mesh;
+    this.skullModel = (await this.gltfLoader.loadAsync("/human_skull.glb"))
+      .scene.children[0] as THREE.Mesh;
+
+    this.scene.add(this.fragments);
 
     const outerMaterial = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -47,26 +48,11 @@ export class ExplodeDemo implements Demo {
     });
     this.materials = [outerMaterial, innerMaterial];
 
-    this.scene.add(this.fragments);
-
-    const spotlight = new THREE.SpotLight(0xffffff, 100);
-    spotlight.position.set(0, 3.5, 0);
-    spotlight.angle = Math.PI / 2;
-    spotlight.penumbra = 1;
-    spotlight.decay = 2;
-    spotlight.distance = 10;
-    spotlight.castShadow = true;
-    spotlight.shadow.mapSize.width = 1024; // default
-    spotlight.shadow.mapSize.height = 1024; // default
-    spotlight.shadow.camera.near = 0.5; // default
-    spotlight.shadow.camera.far = 100; // default
-    spotlight.shadow.focus = 0.4; // default
-    this.scene.add(spotlight);
-
     // Position the camera
     this.camera.position.set(0, 0, -5);
-    this.controls.target.set(0, -1, 0);
+    this.controls.target.set(0, 0, 0);
     this.controls.autoRotate = true;
+    this.controls.autoRotateSpeed = 0.5;
     this.controls.maxPolarAngle = Math.PI / 2;
     this.controls.update();
 
@@ -91,7 +77,7 @@ export class ExplodeDemo implements Demo {
       transparent: true,
       opacity: 0.8,
       roughness: 0.7,
-      envMapIntensity: 0.3,
+      envMapIntensity: 0.0,
     });
     const groundPlane = new THREE.Mesh(
       groundPlaneGeometry,
@@ -101,9 +87,7 @@ export class ExplodeDemo implements Demo {
     groundPlane.receiveShadow = true;
     this.scene.add(groundPlane);
 
-    const environment = new THREE.TextureLoader().load(
-      "public/golden_bay_4k.jpg",
-    );
+    const environment = new THREE.TextureLoader().load("/golden_bay_4k.jpg");
     environment.colorSpace = THREE.SRGBColorSpace;
     environment.mapping = THREE.EquirectangularReflectionMapping;
     this.scene.background = environment;
