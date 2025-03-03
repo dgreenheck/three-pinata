@@ -1,28 +1,22 @@
+import path from 'path';
 import wasm from 'vite-plugin-wasm';
-import { defineConfig } from 'vite';
-import { resolve } from 'path';
+import topLevelAwait from 'vite-plugin-top-level-await';
 
-export default defineConfig({
-  // Configure the build
+/** @type {import('vite').UserConfig} */
+export default {
+  base: process.env.NODE_ENV === 'production' ? '/three-pinata/' : '/',
   build: {
-    // Generate source maps
+    outDir: './dist',
     sourcemap: true,
-
-    // Configure Rollup options
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, 'index.html'),
-      },
-    },
+      // Required to prevent Rapier issue: https://github.com/dimforge/rapier.js/issues/278
+      treeshake: false
+    }
   },
-  // Configure resolve options
+  plugins: [wasm(), topLevelAwait()],
   resolve: {
     alias: {
-      // Allow importing from the library directly during development
-      '@dgreenheck/three-pinata': resolve(__dirname, '../lib/src'),
+      '@dgreenheck/three-pinata': path.resolve(__dirname, '../lib/src'),
     },
-  },
-  plugins: [
-    wasm()
-  ]
-}); 
+  }
+};

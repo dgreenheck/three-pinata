@@ -1,4 +1,3 @@
-import { MeshBasicMaterial } from "three";
 import { Vector2 } from "../utils/Vector2";
 
 export enum FractureMode {
