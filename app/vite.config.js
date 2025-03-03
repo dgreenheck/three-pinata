@@ -3,12 +3,6 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
-  // Root directory for the app
-  root: 'src/demo',
-
-  // Base public path when served
-  publicDir: '/public',
-
   // Configure the build
   build: {
     // Generate source maps
@@ -25,7 +19,7 @@ export default defineConfig({
   resolve: {
     alias: {
       // Allow importing from the library directly during development
-      'three-pinata': resolve(__dirname, 'src/lib'),
+      '@dgreenheck/three-pinata': resolve(__dirname, '../lib/src'),
     },
   },
   plugins: [

@@ -1,5 +1,5 @@
 import * as RAPIER from "@dimforge/rapier3d";
-import { FractureOptions } from "three-pinata";
+import { FractureOptions } from "@dgreenheck/three-pinata";
 import { PhysicsObject } from "./PhysicsObject";
 
 type RAPIER_API = typeof import("@dimforge/rapier3d");

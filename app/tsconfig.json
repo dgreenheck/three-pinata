@@ -7,9 +7,15 @@
     "moduleResolution": "Bundler",
     "skipLibCheck": true,
     "target": "ESNext",
-    "module": "ESNext"
+    "module": "ESNext",
+    "baseUrl": ".",
+    "paths": {
+      "@dgreenheck/three-pinata": [
+        "../lib/src"
+      ]
+    }
   },
   "include": [
-    "src/lib/**/*"
+    "src/**/*"
   ]
 }

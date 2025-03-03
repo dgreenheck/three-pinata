@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { Pane } from "tweakpane";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { PhysicsManager } from "../physics/PhysicsManager";
-import { fracture, FractureOptions } from "three-pinata";
+import { fracture, FractureOptions } from "@dgreenheck/three-pinata";
 import { Demo } from "../types/Demo";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { PhysicsObject } from "../physics/PhysicsObject";
@@ -43,13 +43,11 @@ export class PhysicsDemo implements Demo {
     );
     this.physics.onCollision = this.onCollision.bind(this);
 
-    this.lionMesh = (await this.gltfLoader.loadAsync("public/lion.glb")).scene
+    this.lionMesh = (await this.gltfLoader.loadAsync("/lion.glb")).scene
       .children[0] as THREE.Mesh;
 
-    const map = new THREE.TextureLoader().load("public/stone_color.jpg");
-    const displacementMap = new THREE.TextureLoader().load(
-      "public/stone_disp.jpg",
-    );
+    const map = new THREE.TextureLoader().load("/stone_color.jpg");
+    const displacementMap = new THREE.TextureLoader().load("/stone_disp.jpg");
 
     this.insideMaterial = new THREE.MeshStandardMaterial({
       roughness: 0.3,
@@ -77,41 +75,28 @@ export class PhysicsDemo implements Demo {
   setupGUI(pane: Pane) {
     const demoFolder = pane.addFolder({ title: "Demo Settings" });
 
-    const gravityFolder = demoFolder.addFolder({ title: "Gravity" });
-    gravityFolder.addBinding(this.physics.world.gravity, "x", {
-      min: -100,
-      max: 100,
-      step: 0.1,
-      label: "X",
-    });
-    gravityFolder.addBinding(this.physics.world.gravity, "y", {
-      min: -100,
-      max: 100,
-      step: 0.1,
-      label: "Y",
-    });
-    gravityFolder.addBinding(this.physics.world.gravity, "z", {
-      min: -100,
-      max: 100,
-      step: 0.1,
-      label: "Z",
-    });
-
-    const fractureFolder = demoFolder.addFolder({ title: "Fracture Options" });
-    fractureFolder.addBinding(this.fractureOptions, "fractureMode", {
+    demoFolder.addBinding(this.fractureOptions, "fractureMode", {
       options: {
         Convex: "Convex",
         "Non-Convex": "Non-Convex",
       },
       label: "Fracture Mode",
     });
-    fractureFolder.addBinding(this.fractureOptions, "fragmentCount", {
+    demoFolder.addBinding(this.fractureOptions, "fragmentCount", {
       min: 2,
       max: 500,
       step: 1,
     });
+    demoFolder
+      .addButton({
+        title: "Reset",
+        label: "Reset",
+      })
+      .on("click", () => {
+        this.resetScene();
+      });
 
-    const fracturePlanesFolder = fractureFolder.addFolder({
+    const fracturePlanesFolder = demoFolder.addFolder({
       title: "Fracture Planes",
     });
     fracturePlanesFolder.addBinding(this.fractureOptions.fracturePlanes, "x", {
@@ -122,15 +107,6 @@ export class PhysicsDemo implements Demo {
     });
     fracturePlanesFolder.addBinding(this.fractureOptions.fracturePlanes, "z", {
       label: "Z",
-    });
-
-    const resetButton = demoFolder.addButton({
-      title: "Reset",
-      label: "Reset",
-    });
-
-    resetButton.on("click", () => {
-      this.resetScene();
     });
 
     return demoFolder;
@@ -359,7 +335,6 @@ export class PhysicsDemo implements Demo {
         (handle2 === this.lionObject.rigidBody?.handle &&
           handle1 === this.metalBall.rigidBody?.handle)
       ) {
-        console.log("collision");
         await this.fractureLion(this.lionObject, this.scene);
         this.collisionOccurred = true;
       }

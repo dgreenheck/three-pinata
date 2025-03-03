@@ -4,6 +4,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Demo } from "./types/Demo";
 import { PhysicsDemo } from "./examples/physics";
 import { ExplodeDemo } from "./examples/explode";
+
 // Add imports for postprocessing
 import {
   BloomEffect,
@@ -28,9 +29,8 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setClearColor(0x000000);
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 // Set up post-processing
@@ -45,6 +45,7 @@ const bloomEffect = new BloomEffect({
   luminanceSmoothing: 0.9,
   height: 480,
 });
+
 // Add the effects to the composer
 const effectPass = new EffectPass(camera, bloomEffect);
 composer.addPass(effectPass);
@@ -101,7 +102,7 @@ pane
   .addBinding(demoOptions, "current", {
     options: {
       Physics: "Physics",
-      Skull: "Skull",
+      Explode: "Explode",
     },
     label: "Select Demo",
   })
@@ -110,7 +111,7 @@ pane
       case "Physics":
         await loadDemo(physicsDemo);
         break;
-      case "Skull":
+      case "Explode":
         await loadDemo(explodeDemo);
         break;
       default:
