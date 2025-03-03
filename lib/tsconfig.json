@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "declaration": true,
+    "baseUrl": ".",
     "outDir": "./build",
     "allowJs": true,
     "moduleResolution": "Bundler",
