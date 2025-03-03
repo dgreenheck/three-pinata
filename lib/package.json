@@ -1,6 +1,6 @@
 {
   "name": "@dgreenheck/three-pinata",
-  "version": "0.3.1",
+  "version": "0.3.4",
   "description": "Three.js library for fracturing and slicing non-convex meshes in real time.",
   "type": "module",
   "main": "./dist/three-pinata.umd.js",
@@ -8,9 +8,9 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
-    "lib",
-    "LICENSE",
-    "README.md"
+    "src/**/*",
+    "../LICENSE",
+    "../README.md"
   ],
   "exports": {
     ".": {

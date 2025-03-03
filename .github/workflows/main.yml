@@ -33,8 +33,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
       - name: Install dependencies
+        working-directory: ./demo
         run: npm install
       - name: Build
+        working-directory: ./demo
         run: npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -42,7 +44,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload dist repository
-          path: "./dist"
+          path: "./demo/dist"
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
