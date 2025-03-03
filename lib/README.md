@@ -40,42 +40,65 @@ npm install @dgreenheck/three-pinata
 
 ## Usage
 
+Below is a minimal working example of a sphere being fractured into many pieces and the positon of the fragments are animated over time.
+
 ```typescript
 import * as THREE from "three";
-import { fracture, FractureOptions } from "@dgreenheck/three-pinata";
+import * as PINATA from "@dgreenheck/three-pinata";
 
-// Replace with your mesh
-const mesh = new THREE.Mesh();
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-const options = new FractureOption({
-  // Maximum number of fragments
-  fragmentCount: 50,
-  // The local model axes to fracture along
-  fracturePlanes: {
-    x: true,
-    y: true,
-    z: true,
-  },
-  // CONVEX or NON_CONVEX
-  fractureMode: FractureMode.NON_CONVEX,
-  // Scale factor for texture coordinates
-  textureScale: new THREE.Vector2(1, 1),
-  // Offset for texture coordinates
-  textureOffset: new THREE.Vector2(0, 0),
+const clock = new THREE.Clock();
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000,
+);
+camera.position.z = 5;
+
+const geometry = new THREE.SphereGeometry(1, 32, 32);
+
+const outerMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+const innerMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+
+const fragmentGroup = new THREE.Group();
+
+const options = new PINATA.FractureOptions();
+options.fragmentCount = 50;
+
+// Fracture sphere
+PINATA.fracture(geometry, options).forEach((fragment) => {
+  const fragmentMesh = new THREE.Mesh(fragment, [outerMaterial, innerMaterial]);
+  fragment.computeBoundingBox();
+  fragment.boundingBox.getCenter(fragmentMesh.position);
+  // Store fragment position in user data so it can be animated later
+  fragmentMesh.userData.center = fragmentMesh.position.clone();
+  fragmentGroup.add(fragmentMesh);
 });
 
-// Fracture the geometry into fragments
-const fragments = fracture(mesh.geometry, options);
+scene.add(fragmentGroup);
 
-// Each fragment is a THREE.BufferGeometry that you can use to create meshes
-fragments.forEach((fragment) => {
-  const mesh = new THREE.Mesh(
-    fragment,
-    // Use an array of materials for outside/inside
-    [outerMaterial, innerMaterial],
-  );
-  scene.add(mesh);
-});
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(1, 1, 1);
+scene.add(light);
+
+function animate() {
+  requestAnimationFrame(animate);
+  fragmentGroup.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.position
+        .copy(child.userData.center)
+        .multiplyScalar(1 + Math.sin(clock.getElapsedTime()));
+    }
+  });
+  renderer.render(scene, camera);
+}
+
+animate();
 ```
 
 ## Restrictions
