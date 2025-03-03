@@ -2,7 +2,7 @@
   "name": "three-pinata-monorepo",
   "private": true,
   "workspaces": [
-    "app",
+    "demo",
     "lib"
   ],
   "scripts": {
