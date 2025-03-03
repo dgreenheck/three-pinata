@@ -6,8 +6,8 @@
     "allowJs": true,
     "moduleResolution": "Bundler",
     "skipLibCheck": true,
-    "target": "ESNext",
-    "module": "ESNext",
+    "target": "ES2022",
+    "module": "ES2022",
     "baseUrl": ".",
     "paths": {
       "@dgreenheck/three-pinata": [
