@@ -3,19 +3,19 @@
   "version": "0.3.4",
   "description": "Three.js library for fracturing and slicing non-convex meshes in real time.",
   "type": "module",
-  "main": "./dist/three-pinata.umd.js",
-  "module": "./dist/three-pinata.es.js",
-  "types": "./dist/index.d.ts",
+  "main": "./build/three-pinata.umd.js",
+  "module": "./build/three-pinata.es.js",
+  "types": "./build/index.d.ts",
   "files": [
-    "dist",
-    "src/**/*",
+    "build",
+    "src",
     "../LICENSE",
     "../README.md"
   ],
   "exports": {
     ".": {
-      "import": "./dist/three-pinata.es.js",
-      "require": "./dist/three-pinata.umd.js"
+      "import": "./build/three-pinata.es.js",
+      "require": "./build/three-pinata.umd.js"
     }
   },
   "scripts": {

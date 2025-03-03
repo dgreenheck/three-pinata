@@ -1,8 +1,7 @@
 {
   "compilerOptions": {
     "declaration": true,
-    "emitDeclarationOnly": true,
-    "outDir": "./dist",
+    "outDir": "./build",
     "allowJs": true,
     "moduleResolution": "Bundler",
     "skipLibCheck": true,
