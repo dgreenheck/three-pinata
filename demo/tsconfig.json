@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist",
+    "allowJs": true,
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "baseUrl": ".",
+    "paths": {
+      "@dgreenheck/three-pinata": [
+        "../lib/src"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*"
+  ]
+}
