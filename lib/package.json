@@ -1,6 +1,6 @@
 {
   "name": "@dgreenheck/three-pinata",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "Three.js library for fracturing and slicing non-convex meshes in real time.",
   "type": "module",
   "main": "./build/three-pinata.umd.js",
@@ -8,12 +8,13 @@
   "types": "./build/index.d.ts",
   "files": [
     "build",
-    "src",
+    "./src",
     "../LICENSE",
     "../README.md"
   ],
   "exports": {
     ".": {
+      "types": "./build/index.d.ts",
       "import": "./build/three-pinata.es.js",
       "require": "./build/three-pinata.umd.js"
     }
@@ -37,9 +38,6 @@
     "url": "https://github.com/dgreenheck/three-pinata/issues"
   },
   "homepage": "https://github.com/dgreenheck/three-pinata#readme",
-  "dependencies": {
-    "three": "^0.158.0"
-  },
   "peerDependencies": {
     "three": "^0.158.0"
   },
@@ -52,7 +50,7 @@
     "ts-node": "^10.9.1",
     "tsx": "^4.7.3",
     "typescript": "^5.2.2",
-    "vite": "^4.5.0",
+    "vite": "^6.2.0",
     "vite-plugin-dts": "^3.9.1",
     "vite-plugin-top-level-await": "^1.4.1",
     "vite-plugin-wasm": "^3.3.0"

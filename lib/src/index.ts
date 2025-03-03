@@ -10,10 +10,7 @@ export { slice, sliceFragment } from "./Slice";
 
 // Export entity types
 export { Fragment, SlicedMeshSubmesh } from "./entities/Fragment";
-export {
-  FractureOptions,
-  type FractureOptionsProps,
-} from "./entities/FractureOptions";
+export { FractureOptions } from "./entities/FractureOptions";
 export { SliceOptions } from "./entities/SliceOptions";
 export { default as MeshVertex } from "./entities/MeshVertex";
 export { default as EdgeConstraint } from "./entities/EdgeConstraint";

@@ -1,22 +1,5 @@
 import { Vector2 } from "../utils/Vector2";
 
-export enum FractureMode {
-  CONVEX = "Convex",
-  NON_CONVEX = "Non-Convex",
-}
-
-export interface FractureOptionsProps {
-  fragmentCount?: number;
-  fracturePlanes?: {
-    x: boolean;
-    y: boolean;
-    z: boolean;
-  };
-  fractureMode?: FractureMode;
-  textureScale?: Vector2;
-  textureOffset?: Vector2;
-}
-
 /**
  * Options for the fracture operation
  */
@@ -41,7 +24,7 @@ export class FractureOptions {
    * non-convex, an algorithm which can handle non-convex geometry will be used
    * at the expensive of performance.
    */
-  public fractureMode: FractureMode = FractureMode.NON_CONVEX;
+  public fractureMode: "Convex" | "Non-Convex" = "Non-Convex";
 
   /**
    * Scale factor to apply to texture coordinates
@@ -53,25 +36,41 @@ export class FractureOptions {
    */
   public textureOffset: Vector2 = new Vector2();
 
-  constructor(props: FractureOptionsProps = {}) {
-    if (props.fragmentCount) {
-      this.fragmentCount = props.fragmentCount;
+  constructor({
+    fragmentCount,
+    fracturePlanes,
+    fractureMode,
+    textureScale,
+    textureOffset,
+  }: {
+    fragmentCount?: number;
+    fracturePlanes?: {
+      x: boolean;
+      y: boolean;
+      z: boolean;
+    };
+    fractureMode?: "Convex" | "Non-Convex";
+    textureScale?: Vector2;
+    textureOffset?: Vector2;
+  } = {}) {
+    if (fragmentCount) {
+      this.fragmentCount = fragmentCount;
     }
 
-    if (props.fracturePlanes) {
-      this.fracturePlanes = props.fracturePlanes;
+    if (fracturePlanes) {
+      this.fracturePlanes = fracturePlanes;
     }
 
-    if (props.fractureMode) {
-      this.fractureMode = props.fractureMode;
+    if (fractureMode) {
+      this.fractureMode = fractureMode;
     }
 
-    if (props.textureScale) {
-      this.textureScale = props.textureScale;
+    if (textureScale) {
+      this.textureScale = textureScale;
     }
 
-    if (props.textureOffset) {
-      this.textureOffset = props.textureOffset;
+    if (textureOffset) {
+      this.textureOffset = textureOffset;
     }
   }
 }
