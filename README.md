@@ -1,5 +1,15 @@
 # three-pinata
 
+![NPM Version](https://img.shields.io/npm/v/%40dgreenheck%2Fthree-pinata)
+![NPM Downloads](https://img.shields.io/npm/dw/%40dgreenheck%2Fthree-pinata)
+![GitHub Repo stars](https://img.shields.io/github/stars/dgreenheck/three-pinata)
+![X (formerly Twitter) Follow](https://img.shields.io/twitter/follow/dangreenheck)
+![YouTube Channel Subscribers](https://img.shields.io/youtube/channel/subscribers/UCrdx_EU_Wx8_uBfqO0cI-9Q)
+
+<p align="center">
+<img src="https://github.com/user-attachments/assets/abf37715-d631-4cc6-b31a-1ea9a784f215" />
+</p>
+
 Three.js library for fracturing and slicing non-convex meshes in real time.
 
 The library provides a simple way to fracture 3D meshes in real-time. The `fracture` function takes a geometry and options, returning an array of fragment geometries that you can use to create individual meshes. The fragments support different materials for outer and inner surfaces.
@@ -39,6 +49,10 @@ npm install @dgreenheck/three-pinata
 ```
 
 ## Usage
+
+<p align="center">
+<img src="https://github.com/user-attachments/assets/4427f2ab-4e6d-4eb1-8f6a-f549feb1c9d0" style="width:600px;" />
+</p>
 
 Below is a minimal working example of a sphere being fractured into many pieces and the positon of the fragments are animated over time.
 
