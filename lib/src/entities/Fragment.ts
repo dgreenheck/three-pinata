@@ -93,7 +93,7 @@ export class Fragment {
       this.vertices.push(new MeshVertex(position, normal, uv));
     }
 
-    this.triangles = [Array.from(indices)];
+    this.triangles = [Array.from(indices), []];
     this.calculateBounds();
   }
 
