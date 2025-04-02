@@ -5,7 +5,7 @@
  */
 
 // Export main functionality
-export { fracture, fractureFragment } from "./Fracture";
+export { fracture, fractureFragments } from "./Fracture";
 export { slice, sliceFragment } from "./Slice";
 
 // Export entity types

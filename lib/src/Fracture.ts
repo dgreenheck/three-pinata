@@ -19,67 +19,63 @@ export function fracture(
   geometry: THREE.BufferGeometry,
   options: FractureOptions,
 ): THREE.BufferGeometry[] {
-  // We begin by fragmenting the source mesh, then process each fragment in a FIFO queue
-  let fragments = [geometryToFragment(geometry)];
-
-  // Subdivide the mesh into multiple fragments until we reach the fragment limit
-  while (fragments.length < options.fragmentCount) {
-    const fragment = fragments.shift()!;
-    if (!fragment) continue;
-
-    fragments.push(...fractureFragment(fragment, options));
-  }
-
+  const fragments = [geometryToFragment(geometry)];
+  fractureFragments(fragments, options);
   return fragments.map((fragment) => fragmentToGeometry(fragment));
 }
 
 /**
- * Fractures a single fragment into two or more pieces
+ * Fractures a single fragment into two or more pieces. Newly created fragments
+ * are added to the end of the fragments array.
  * @param fragment The fragment to fracture
  * @param options Options for fracturing
- * @returns Array of resulting fragments
  */
-export function fractureFragment(
-  fragment: Fragment,
+export function fractureFragments(
+  fragments: Fragment[],
   options: FractureOptions,
-): Fragment[] {
-  fragment.calculateBounds();
+) {
+  // Subdivide the mesh into multiple fragments until we reach the fragment limit
+  while (fragments.length < options.fragmentCount) {
+    const fragment = fragments.shift()!;
+    if (!fragment) continue;
+    fragment.calculateBounds();
 
-  // Select an arbitrary fracture plane normal
-  const normal = new Vector3(
-    options.fracturePlanes.x ? 2.0 * Math.random() - 1 : 0,
-    options.fracturePlanes.y ? 2.0 * Math.random() - 1 : 0,
-    options.fracturePlanes.z ? 2.0 * Math.random() - 1 : 0,
-  ).normalize();
+    // Select an arbitrary fracture plane normal
+    const normal = new Vector3(
+      options.fracturePlanes.x ? 2.0 * Math.random() - 1 : 0,
+      options.fracturePlanes.y ? 2.0 * Math.random() - 1 : 0,
+      options.fracturePlanes.z ? 2.0 * Math.random() - 1 : 0,
+    ).normalize();
 
-  const center = new Vector3();
-  fragment.bounds.getCenter(center);
+    const center = new Vector3();
+    fragment.bounds.getCenter(center);
 
-  if (options.fractureMode === "Non-Convex") {
-    const { topSlice, bottomSlice } = sliceFragment(
-      fragment,
-      normal,
-      center,
-      options.textureScale,
-      options.textureOffset,
-      false,
-    );
+    if (options.fractureMode === "Non-Convex") {
+      const { topSlice, bottomSlice } = sliceFragment(
+        fragment,
+        normal,
+        center,
+        options.textureScale,
+        options.textureOffset,
+        false,
+      );
 
-    const topfragments = findIsolatedGeometry(topSlice);
-    const bottomfragments = findIsolatedGeometry(bottomSlice);
+      const topfragments = findIsolatedGeometry(topSlice);
+      const bottomfragments = findIsolatedGeometry(bottomSlice);
 
-    return [...topfragments, ...bottomfragments];
-  } else {
-    const { topSlice, bottomSlice } = sliceFragment(
-      fragment,
-      normal,
-      center,
-      options.textureScale,
-      options.textureOffset,
-      true,
-    );
+      fragments.push(...topfragments, ...bottomfragments);
+    } else {
+      const { topSlice, bottomSlice } = sliceFragment(
+        fragment,
+        normal,
+        center,
+        options.textureScale,
+        options.textureOffset,
+        true,
+      );
 
-    return [topSlice, bottomSlice];
+      fragments.push(topSlice, bottomSlice);
+    }
   }
 }
 
