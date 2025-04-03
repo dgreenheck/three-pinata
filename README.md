@@ -32,6 +32,22 @@ npm run dev
 
 3. Go to http://localhost:5173/ in your browser.
 
+## Building the Library
+
+The library can be built by running `npm run build:lib`.
+
+This will generate several build products.
+
+- `three-pinata.core.es.js` - The core fracture library packaged as an ES Module without Three.js dependencies
+- `three-pinata.core.umd.js` - The core fracture library packaged as a UMD Module without Three.js dependencies
+- `three-pinata.es.js` - The fracture library packaged as an ES Module for use with Three.js
+- `three-pinata.umd.js` - The fracture library packaged as a UMD Module for use with Three.js
+
+The primary difference is the `three-pinata` (non-core) library includes some additional helper methods
+for fracturing and slicing `THREE.Geometry` directly to avoid needing to pass in the raw geometry data.
+
+The core libraries are for 3D applications that do not use Three.js, e.g., PlayCanvas.
+
 ## Features
 
 - Real-time mesh fracturing and slicing
