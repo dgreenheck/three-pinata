@@ -1,39 +1,46 @@
-import * as THREE from "three";
-import { FractureOptions } from "./entities/FractureOptions";
-import { Fragment } from "./entities/Fragment";
-import { sliceFragment } from "./Slice";
-import { UnionFind } from "./utils/UnionFind";
-import { Vector3 } from "./utils/Vector3";
-import { hash3 } from "./utils/MathUtils";
-import {
-  geometryToFragment,
-  fragmentToGeometry,
-} from "./utils/GeometryConversion";
+import { FractureOptions } from "../entities/FractureOptions";
+import { Fragment } from "../entities/Fragment";
+import { sliceFragment } from "./SliceFragment";
+import { UnionFind } from "../utils/UnionFind";
+import { Vector3 } from "../utils/Vector3";
+import { hash3 } from "../utils/MathUtils";
 
 /**
- * Fractures the mesh into multiple fragments
- * @param mesh The source mesh to fracture
+ * Takes in raw geometry data and fractures it into multiple fragments
+ * @param positions The positions of the vertices
+ * @param normals The normals of the vertices
+ * @param uvs The uvs of the vertices
+ * @param indices The indices of the vertices
  * @param options Options for fracturing
  */
-export function fracture(
-  geometry: THREE.BufferGeometry,
+export function fractureRawData(
+  positions: Float32Array,
+  normals: Float32Array,
+  uvs: Float32Array,
+  indices: Uint32Array,
   options: FractureOptions,
-): THREE.BufferGeometry[] {
-  const fragments = [geometryToFragment(geometry)];
-  fractureFragments(fragments, options);
-  return fragments.map((fragment) => fragmentToGeometry(fragment));
+): Fragment[] {
+  const fragment = new Fragment({
+    positions,
+    normals,
+    uvs,
+    indices,
+  });
+
+  return fractureFragment(fragment, options);
 }
 
 /**
- * Fractures a single fragment into two or more pieces. Newly created fragments
- * are added to the end of the fragments array.
+ * Fractures a single fragment into multiple fragments
  * @param fragment The fragment to fracture
  * @param options Options for fracturing
  */
-export function fractureFragments(
-  fragments: Fragment[],
+export function fractureFragment(
+  fragment: Fragment,
   options: FractureOptions,
-) {
+): Fragment[] {
+  const fragments: Fragment[] = [fragment];
+
   // Subdivide the mesh into multiple fragments until we reach the fragment limit
   while (fragments.length < options.fragmentCount) {
     const fragment = fragments.shift()!;
@@ -77,6 +84,8 @@ export function fractureFragments(
       fragments.push(topSlice, bottomSlice);
     }
   }
+
+  return fragments;
 }
 
 /**

@@ -1,40 +1,39 @@
-import * as THREE from "three";
-import { Vector2 } from "./utils/Vector2";
-import { Vector3 } from "./utils/Vector3";
-import { Fragment, SlicedMeshSubmesh } from "./entities/Fragment";
-import {
-  geometryToFragment,
-  fragmentToGeometry,
-} from "./utils/GeometryConversion";
-import { isPointAbovePlane, linePlaneIntersection } from "./utils/MathUtils";
-import MeshVertex from "./entities/MeshVertex";
-import EdgeConstraint from "./entities/EdgeConstraint";
-import { Triangulator } from "./triangulators/Triangulator";
-import { ConstrainedTriangulator } from "./triangulators/ConstrainedTriangulator";
+import { Vector2 } from "../utils/Vector2";
+import { Vector3 } from "../utils/Vector3";
+import { Fragment, SlicedMeshSubmesh } from "../entities/Fragment";
+import { isPointAbovePlane, linePlaneIntersection } from "../utils/MathUtils";
+import MeshVertex from "../entities/MeshVertex";
+import EdgeConstraint from "../entities/EdgeConstraint";
+import { Triangulator } from "../triangulators/Triangulator";
+import { ConstrainedTriangulator } from "../triangulators/ConstrainedTriangulator";
 
 /**
- * Slices the mesh by the plane specified by `sliceNormal` and `sliceOrigin`
- * @param geometry The geometry to slice
- * @param sliceNormal The normal of the slice plane (points towards the top slice)
- * @param sliceOrigin The origin of the slice plane
- * @param textureScale Scale factor to apply to UV coordinates
- * @param textureOffset Offset to apply to UV coordinates
- * @param convex Set to true if geometry is convex
- * @returns An object containing the geometries above and below the slice plane
+ * Takes in raw geometry data and fractures it into multiple fragments
+ * @param positions The positions of the vertices
+ * @param normals The normals of the vertices
+ * @param uvs The uvs of the vertices
+ * @param indices The indices of the vertices
+ * @param options Options for fracturing
  */
-export function slice(
-  geometry: THREE.BufferGeometry,
+export function sliceRawData(
+  positions: Float32Array,
+  normals: Float32Array,
+  uvs: Float32Array,
+  indices: Uint32Array,
   sliceNormal: Vector3,
   sliceOrigin: Vector3,
   textureScale: Vector2,
   textureOffset: Vector2,
   convex: boolean,
-): { topSlice: THREE.BufferGeometry; bottomSlice: THREE.BufferGeometry } {
-  // Convert THREE.BufferGeometry to our internal Fragment representation
-  const fragment = geometryToFragment(geometry);
+): { topSlice: Fragment; bottomSlice: Fragment } {
+  const fragment = new Fragment({
+    positions,
+    normals,
+    uvs,
+    indices,
+  });
 
-  // Perform the slice operation using our existing code
-  const { topSlice, bottomSlice } = sliceFragment(
+  return sliceFragment(
     fragment,
     sliceNormal,
     sliceOrigin,
@@ -42,12 +41,6 @@ export function slice(
     textureOffset,
     convex,
   );
-
-  // Convert the fragments back to THREE.BufferGeometry
-  return {
-    topSlice: fragmentToGeometry(topSlice),
-    bottomSlice: fragmentToGeometry(bottomSlice),
-  };
 }
 
 /**
