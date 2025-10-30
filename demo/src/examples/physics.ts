@@ -1,11 +1,10 @@
 import * as THREE from "three";
 import { Pane } from "tweakpane";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { PhysicsManager } from "../physics/PhysicsManager";
-import { fracture, FractureOptions } from "@dgreenheck/three-pinata";
+import { PhysicsWorld } from "../physics/PhysicsWorld";
+import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 import { Demo } from "../types/Demo";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { PhysicsObject } from "../physics/PhysicsObject";
 
 import lionUrl from "../assets/lion.glb";
 import stoneColorUrl from "../assets/stone_color.jpg";
@@ -15,7 +14,6 @@ type RAPIER_API = typeof import("@dimforge/rapier3d");
 
 export class PhysicsDemo implements Demo {
   RAPIER: RAPIER_API;
-
   camera: THREE.PerspectiveCamera;
   clock = new THREE.Clock();
   controls: OrbitControls;
@@ -23,10 +21,10 @@ export class PhysicsDemo implements Demo {
   fractureOptions = new FractureOptions();
   insideMaterial: THREE.Material;
   lionMesh: THREE.Mesh;
-  lionObject: PhysicsObject;
-  physics: PhysicsManager;
+  lion: DestructibleMesh;
+  physics: PhysicsWorld;
   scene = new THREE.Scene();
-  metalBall: PhysicsObject;
+  metalBall: THREE.Mesh;
   collisionOccurred = false;
 
   constructor(
@@ -40,16 +38,18 @@ export class PhysicsDemo implements Demo {
   }
 
   async load() {
-    this.physics = new PhysicsManager(
+    // Create physics world
+    this.physics = new PhysicsWorld(
       this.RAPIER,
       new this.RAPIER.Vector3(0, -2, 0),
-      this.fractureOptions,
     );
     this.physics.onCollision = this.onCollision.bind(this);
 
+    // Load lion model
     this.lionMesh = (await this.gltfLoader.loadAsync(lionUrl)).scene
       .children[0] as THREE.Mesh;
 
+    // Load materials
     const map = new THREE.TextureLoader().load(stoneColorUrl);
     const displacementMap = new THREE.TextureLoader().load(stoneDispUrl);
 
@@ -60,13 +60,14 @@ export class PhysicsDemo implements Demo {
       bumpMap: displacementMap,
     });
 
-    // Position the camera
+    // Setup camera
     this.camera.position.set(4, 3, 5);
     this.camera.updateProjectionMatrix();
     this.controls.target.set(0, 2, 0);
     this.controls.autoRotate = false;
 
-    this.lionObject = this.setupLion();
+    // Setup scene
+    this.setupLion();
     this.setupGround();
     this.setupLighting();
     this.setupMetalBall();
@@ -116,31 +117,52 @@ export class PhysicsDemo implements Demo {
     return demoFolder;
   }
 
-  setupLion(): PhysicsObject {
-    const lion = new PhysicsObject();
-    lion.geometry = this.lionMesh.geometry;
-    lion.material = this.lionMesh.material;
+  setupLion(): void {
+    // Create DestructibleMesh from lion model
+    this.lion = new DestructibleMesh(
+      this.lionMesh.geometry,
+      this.lionMesh.material,
+    );
 
-    // Cast to MeshStandardMaterial to access roughness and metalness properties
-    if (lion.material instanceof THREE.MeshStandardMaterial) {
-      lion.material.roughness = 0.3;
-      lion.material.metalness = 0.2;
+    // Set material properties
+    if (this.lion.mesh.material instanceof THREE.MeshStandardMaterial) {
+      this.lion.mesh.material.roughness = 0.3;
+      this.lion.mesh.material.metalness = 0.2;
     }
 
-    lion.castShadow = true;
+    this.lion.mesh.castShadow = true;
 
-    lion.geometry.computeBoundingBox();
-    const size = new THREE.Vector3();
-    lion.geometry.boundingBox?.getSize(size);
+    // Add physics to the mesh (not the group)
+    const lionBody = this.physics.add(this.lion.mesh, {
+      type: "dynamic",
+      collider: "convexHull",
+    });
+    lionBody.sleep();
 
-    lion.rigidBody = this.physics.world.createRigidBody(
-      this.RAPIER.RigidBodyDesc.dynamic(),
+    // Pre-fracture with freeze
+    this.lion.fracture(
+      this.fractureOptions,
+      true, // freeze
+      (fragment) => {
+        // Set materials for each fragment
+        fragment.material = [
+          this.lionMesh.material as THREE.Material,
+          this.insideMaterial,
+        ];
+        fragment.castShadow = true;
+
+        // Add physics to fragment (sleeping)
+        const fragmentBody = this.physics.add(fragment, {
+          type: "dynamic",
+          collider: "convexHull",
+          restitution: 0.2,
+        });
+        fragmentBody.sleep();
+      },
     );
-    lion.rigidBody.sleep();
 
-    this.fractureLion(lion, this.scene);
-
-    return lion;
+    // Add to scene
+    this.scene.add(this.lion);
   }
 
   setupGround(): void {
@@ -151,37 +173,32 @@ export class PhysicsDemo implements Demo {
     plane.receiveShadow = true;
     this.scene.add(plane);
 
-    const groundBody = this.physics.world.createRigidBody(
-      this.RAPIER.RigidBodyDesc.fixed(),
-    );
-    this.physics.world.createCollider(
-      this.RAPIER.ColliderDesc.cuboid(200, 0.01, 200),
-      groundBody,
-    );
+    // Add physics to ground
+    // Create a fixed body at Y=0 with no rotation
+    const groundBody = this.RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0);
+    const rigidBody = this.physics.world.createRigidBody(groundBody);
+
+    // Create a thin cuboid in the XZ plane (200 wide in X, 0.01 tall in Y, 200 deep in Z)
+    const groundCollider = this.RAPIER.ColliderDesc.cuboid(100, 0.01, 100);
+    this.physics.world.createCollider(groundCollider, rigidBody);
   }
 
   setupLighting(): void {
-    // Add key light (white spotlight with low intensity)
-    const keyLight = new THREE.SpotLight(0xffffff, 20, 20, 1, 1, 1);
-    keyLight.position.set(5, 8, 5);
-    keyLight.target.position.set(0, 0, 0);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.set(1024, 1024);
+    // Add key light
+    const keyLight = new THREE.AmbientLight(0xffffff, 0.2);
     this.scene.add(keyLight);
-    this.scene.add(keyLight.target);
 
-    // Add fill light (white spotlight with even lower intensity)
-    const fillLight = new THREE.SpotLight(0xffffff, 10, 20, 1, 1, 1);
-    fillLight.position.set(5, 8, -5);
+    // Add fill light
+    const fillLight = new THREE.DirectionalLight(0xffffff, 1);
+    fillLight.position.set(5, 8, 5);
     fillLight.target.position.set(0, 0, 0);
     fillLight.castShadow = true;
     fillLight.shadow.mapSize.set(1024, 1024);
     this.scene.add(fillLight);
-    this.scene.add(fillLight.target);
   }
 
   setupMetalBall(): void {
-    // Create a metal ball
+    // Create metal ball
     const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
     const ballMaterial = new THREE.MeshStandardMaterial({
       color: 0x0000ff,
@@ -189,123 +206,23 @@ export class PhysicsDemo implements Demo {
       metalness: 0.95,
     });
 
-    this.metalBall = new PhysicsObject();
-    this.metalBall.geometry = ballGeometry;
-    this.metalBall.material = ballMaterial;
+    this.metalBall = new THREE.Mesh(ballGeometry, ballMaterial);
     this.metalBall.castShadow = true;
-
-    // Position the ball to the side of the lion
     this.metalBall.position.set(-20, 5, 10);
 
-    // Create rigid body for the ball
-    this.metalBall.rigidBody = this.physics.world.createRigidBody(
-      this.RAPIER.RigidBodyDesc.dynamic().setTranslation(-20, 5, 10),
-    );
-
-    // Add a collider to the ball with collision events enabled
-    const ballCollider = this.RAPIER.ColliderDesc.ball(0.5)
-      .setMass(3.0)
-      .setRestitution(0.5)
-      .setActiveEvents(this.RAPIER.ActiveEvents.COLLISION_EVENTS);
-
-    // Add the ball to the scene
+    // Add to scene
     this.scene.add(this.metalBall);
 
-    this.physics.addObject(this.metalBall, ballCollider);
-
-    // Give the ball an initial velocity toward the lion
-    this.metalBall.rigidBody.setLinvel(
-      new this.RAPIER.Vector3(7, 1.5, -3.5),
-      true,
-    );
-  }
-
-  /**
-   * Handles fracturing `obj` into fragments and adding those to the scene
-   * @param obj The object to fracture
-   * @param scene The scene to add the resultant fragments to
-   */
-  async fractureLion(obj: PhysicsObject, scene: THREE.Scene) {
-    const fragments = this.createFragments(
-      obj,
-      this.RAPIER,
-      this.fractureOptions,
-    );
-
-    // Add the fragments to the scene and the physics world
-    scene.add(...fragments);
-
-    // Map the handle for each rigid body to the physics object so we can
-    // quickly perform a lookup when handling collision events
-    fragments.forEach((fragment) => {
-      // Approximate collider using a convex hull. While fragments may not
-      // be convex, non-convex colliders are extremely expensive
-      const vertices = fragment.geometry.getAttribute("position")
-        .array as Float32Array;
-      const colliderDesc =
-        this.RAPIER.ColliderDesc.convexHull(vertices)!.setRestitution(0.2);
-
-      // If unable to generate convex hull, ignore fragment
-      if (colliderDesc) {
-        this.physics.addObject(fragment, colliderDesc);
-      } else {
-        console.warn("Failed to generate convex hull for fragment");
-      }
+    // Add physics to ball
+    const ballBody = this.physics.add(this.metalBall, {
+      type: "dynamic",
+      collider: "ball",
+      mass: 3.0,
+      restitution: 0.5,
     });
 
-    // Remove the original object from the scene and the physics world
-    obj.removeFromParent();
-    this.physics.removeObject(obj);
-  }
-
-  /**
-   * Fractures this mesh into smaller pieces
-   * @param RAPIER The RAPIER physics API
-   * @param world The physics world object
-   * @param options Options controlling how to fracture this object
-   */
-  createFragments(
-    obj: PhysicsObject,
-    RAPIER: RAPIER_API,
-    options: FractureOptions,
-  ): PhysicsObject[] {
-    // Call the fracture function to split the mesh into fragments
-    return fracture(obj.geometry, options).map((fragment) => {
-      const fragmentObj = new PhysicsObject();
-
-      // Use the original object as a template
-      fragmentObj.name = `${fragmentObj.name}_fragment`;
-      fragmentObj.geometry = fragment;
-      fragmentObj.material = [
-        obj.material as THREE.Material,
-        this.insideMaterial,
-      ];
-      fragmentObj.castShadow = true;
-
-      // Copy the position/rotation from the original object
-      fragmentObj.position.copy(obj.position);
-      fragmentObj.rotation.copy(obj.rotation);
-
-      // Create a new rigid body using the position/orientation of the original object
-      fragmentObj.rigidBody = this.physics.world.createRigidBody(
-        RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(
-            fragmentObj.position.x,
-            fragmentObj.position.y,
-            fragmentObj.position.z,
-          )
-          .setRotation(
-            new THREE.Quaternion().setFromEuler(fragmentObj.rotation),
-          ),
-      );
-      fragmentObj.rigidBody.sleep();
-
-      // Preserve the velocity of the original object
-      fragmentObj.rigidBody.setAngvel(fragmentObj.rigidBody!.angvel(), true);
-      fragmentObj.rigidBody.setLinvel(fragmentObj.rigidBody!.linvel(), true);
-
-      return fragmentObj;
-    });
+    // Give it initial velocity
+    ballBody.setLinearVelocity(new this.RAPIER.Vector3(7, 1.5, -3.5));
   }
 
   resetScene(): void {
@@ -313,40 +230,57 @@ export class PhysicsDemo implements Demo {
     this.physics.destroy();
     this.scene.clear();
 
-    this.collisionOccurred = false; // Reset collision flag
+    this.collisionOccurred = false;
 
-    this.physics = new PhysicsManager(
+    this.physics = new PhysicsWorld(
       this.RAPIER,
       new this.RAPIER.Vector3(0, -2, 0),
-      this.fractureOptions,
     );
     this.physics.onCollision = this.onCollision.bind(this);
 
-    this.lionObject = this.setupLion();
+    this.setupLion();
     this.setupGround();
     this.setupLighting();
-    this.setupMetalBall(); // Re-add the metal ball
+    this.setupMetalBall();
 
     this.physics.update();
   }
 
-  async onCollision(handle1: number, handle2: number, started: boolean) {
+  async onCollision(body1, body2, started) {
     if (!this.collisionOccurred) {
-      // Check if the collision involves the lion and the ball
-      if (
-        (handle1 === this.lionObject.rigidBody?.handle &&
-          handle2 === this.metalBall.rigidBody?.handle) ||
-        (handle2 === this.lionObject.rigidBody?.handle &&
-          handle1 === this.metalBall.rigidBody?.handle)
-      ) {
-        await this.fractureLion(this.lionObject, this.scene);
+      // Check if collision involves lion fragments and ball
+      const ballBody = this.physics.getBody(this.metalBall);
+
+      // Check if one of the bodies is the ball and the other is a lion fragment
+      const isLionFragmentCollision =
+        (body2 === ballBody && body1.object.parent === this.lion) ||
+        (body1 === ballBody && body2.object.parent === this.lion);
+
+      if (isLionFragmentCollision) {
+        console.log("Ball hit lion! Unfreezing...");
+
+        // Remove physics from original lion mesh (if it still has one)
+        this.physics.remove(this.lion.mesh);
+
+        // Unfreeze fragments and wake them up
+        this.lion.unfreeze(
+          (fragment) => {
+            const fragmentBody = this.physics.getBody(fragment);
+            if (fragmentBody) {
+              fragmentBody.wakeUp();
+            }
+          },
+          () => {
+            console.log("Lion shattered!");
+          },
+        );
+
         this.collisionOccurred = true;
       }
     }
   }
 
   update(): void {
-    // Update physics objects
     this.physics.update();
   }
 }

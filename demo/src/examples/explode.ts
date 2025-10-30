@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Pane } from "tweakpane";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { fracture, FractureOptions } from "@dgreenheck/three-pinata";
+import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 import { Demo } from "../types/Demo";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Reflector } from "three/examples/jsm/objects/Reflector.js";
@@ -194,25 +194,33 @@ export class ExplodeDemo implements Demo {
     this.skullModel.traverse((obj) => {
       if ("isMesh" in obj && obj.isMesh) {
         const skullMesh = obj as THREE.Mesh;
-        skullMesh.castShadow = true;
 
-        const fragmentGeometries = fracture(
+        // Create a DestructibleMesh from the skull
+        const destructibleMesh = new DestructibleMesh(
           skullMesh.geometry,
-          this.fractureOptions,
+          skullMesh.material
         );
 
-        fragmentGeometries.forEach((fragment) => {
-          const mesh = new THREE.Mesh(fragment, this.materials);
+        // Fracture it (not frozen, fragments visible immediately)
+        destructibleMesh.fracture(
+          this.fractureOptions,
+          false, // not frozen
+          (fragment, index) => {
+            // Set materials and properties for each fragment
+            fragment.material = this.materials;
+            fragment.castShadow = true;
+            fragment.receiveShadow = true;
 
-          fragment.computeBoundingBox();
-          const center = new THREE.Vector3();
-          fragment.boundingBox!.getCenter(center);
+            // Calculate direction from center for animation
+            fragment.geometry.computeBoundingBox();
+            const center = new THREE.Vector3();
+            fragment.geometry.boundingBox!.getCenter(center);
+            fragment.userData.direction = center.normalize();
 
-          mesh.userData.direction = center.normalize();
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
-          this.fragments.add(mesh);
-        });
+            // Add fragment to the group
+            this.fragments.add(fragment);
+          }
+        );
       }
     });
 
