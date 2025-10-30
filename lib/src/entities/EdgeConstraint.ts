@@ -55,6 +55,13 @@ export default class EdgeConstraint {
   }
 
   /**
+   * Creates a copy of this edge constraint
+   */
+  clone(): EdgeConstraint {
+    return new EdgeConstraint(this.v1, this.v2, this.t1, this.t2, this.t1Edge);
+  }
+
+  /**
    * Returns a string that represents the current object
    */
   toString(): string {
