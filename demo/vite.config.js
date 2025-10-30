@@ -15,10 +15,5 @@ export default {
     }
   },
   plugins: [wasm(), topLevelAwait()],
-  resolve: {
-    alias: {
-      '@dgreenheck/three-pinata': path.resolve(__dirname, '../lib/src'),
-    },
-  },
   assetsInclude: ["**/*.glb"]
 };

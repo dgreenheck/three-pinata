@@ -25,15 +25,16 @@
   },
   "homepage": "https://github.com/dgreenheck/three-pinata#readme",
   "dependencies": {
+    "@dgreenheck/three-pinata": "*",
     "@tweakpane/core": "^2.0.5",
     "@dimforge/rapier3d": "^0.13.0",
-    "three": "^0.158.0",
+    "three": "^0.180.0",
     "three-perf": "^1.0.10",
     "tweakpane": "^4.0.5"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",
-    "@types/three": "^0.158.2",
+    "@types/three": "^0.180.0",
     "jest": "^29.7.0",
     "postprocessing": "^6.36.7",
     "prettier": "3.2.5",
