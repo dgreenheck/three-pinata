@@ -29,6 +29,18 @@ export default class MeshVertex {
     return hash3(this.position) === hash3(other.position);
   }
 
+  /**
+   * Creates a deep copy of this vertex
+   * @returns A new MeshVertex with cloned position, normal, and UV
+   */
+  clone(): MeshVertex {
+    return new MeshVertex(
+      this.position.clone(),
+      this.normal.clone(),
+      this.uv.clone(),
+    );
+  }
+
   toString(): string {
     return `Position = ${this.position.x}, ${this.position.y}, ${this.position.z}, Normal = ${this.normal.x}, ${this.normal.y}, ${this.normal.z}, UV = ${this.uv.x}, ${this.uv.y}`;
   }

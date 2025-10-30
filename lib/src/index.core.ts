@@ -7,6 +7,7 @@ export { sliceRawData, sliceFragment } from "./fracture/SliceFragment";
 // Export entity types
 export { Fragment, SlicedMeshSubmesh } from "./entities/Fragment";
 export { FractureOptions } from "./entities/FractureOptions";
+export { VoronoiFractureOptions } from "./entities/VoronoiFractureOptions";
 export { SliceOptions } from "./entities/SliceOptions";
 export { default as MeshVertex } from "./entities/MeshVertex";
 export { default as EdgeConstraint } from "./entities/EdgeConstraint";
