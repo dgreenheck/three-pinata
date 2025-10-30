@@ -1,5 +1,4 @@
-import { Vector2 } from "../utils/Vector2";
-import { Vector3 } from "../utils/Vector3";
+import { Vector2, Vector3 } from "three";
 
 /**
  * Options for Voronoi fracture operation

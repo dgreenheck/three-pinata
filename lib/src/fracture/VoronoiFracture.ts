@@ -1,10 +1,10 @@
 import * as THREE from "three";
+import { Vector3 } from "three";
 import { VoronoiFractureOptions } from "../entities/VoronoiFractureOptions";
 import { SeedPointGenerator } from "../utils/SeedPointGenerator";
 import { computeVoronoiCell, findKNearestNeighbors } from "./VoronoiCell";
 import { geometryToFragment, fragmentToGeometry } from "../utils/GeometryConversion";
 import { Fragment } from "../entities/Fragment";
-import { Vector3 } from "../utils/Vector3";
 
 /**
  * Fractures a mesh using Voronoi tessellation.

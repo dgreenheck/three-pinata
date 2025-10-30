@@ -1,5 +1,4 @@
-import { Material } from "three";
-import { Vector2 } from "../utils/Vector2";
+import { Material, Vector2 } from "three";
 
 export class SliceOptions {
   /**

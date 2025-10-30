@@ -1,8 +1,8 @@
+import { Vector3 } from "three";
 import { FractureOptions } from "../entities/FractureOptions";
 import { Fragment } from "../entities/Fragment";
 import { sliceFragment } from "./SliceFragment";
 import { UnionFind } from "../utils/UnionFind";
-import { Vector3 } from "../utils/Vector3";
 import { hash3 } from "../utils/MathUtils";
 
 /**

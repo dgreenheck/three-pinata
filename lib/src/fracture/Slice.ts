@@ -1,6 +1,5 @@
 import * as THREE from "three";
-import { Vector2 } from "../utils/Vector2";
-import { Vector3 } from "../utils/Vector3";
+import { Vector2, Vector3 } from "three";
 import { sliceFragment } from "./SliceFragment";
 import {
   geometryToFragment,

@@ -1,8 +1,7 @@
 import * as THREE from "three";
+import { Vector2, Vector3 } from "three";
 import { geometryToFragment, fragmentToGeometry } from "../GeometryConversion";
 import { Fragment } from "../../entities/Fragment";
-import { Vector2 } from "../Vector2";
-import { Vector3 } from "../Vector3";
 import MeshVertex from "../../entities/MeshVertex";
 
 describe("GeometryConversion", () => {

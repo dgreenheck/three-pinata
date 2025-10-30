@@ -1,4 +1,4 @@
-import { Vector2 } from "../utils/Vector2";
+import { Vector2 } from "three";
 
 /**
  * Options for the fracture operation

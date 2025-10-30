@@ -1,6 +1,4 @@
-import { Vector2 } from "../utils/Vector2";
-import { Vector3 } from "../utils/Vector3";
-import { Box3 } from "../utils/Box3";
+import { Vector2, Vector3, Box3 } from "three";
 import { hash3 } from "../utils/MathUtils";
 import MeshVertex from "./MeshVertex";
 import EdgeConstraint from "./EdgeConstraint";

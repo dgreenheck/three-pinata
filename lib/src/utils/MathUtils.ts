@@ -1,5 +1,4 @@
-import { Vector2 } from "./Vector2";
-import { Vector3 } from "./Vector3";
+import { Vector2, Vector3 } from "three";
 
 /**
  * Returns true if the quad specified by the two diagonals a1->a2 and b1->b2 is convex
