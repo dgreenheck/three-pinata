@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { FractureOptions } from "./entities/FractureOptions";
+import { VoronoiFractureOptions } from "./entities/VoronoiFractureOptions";
 import { SliceOptions } from "./entities/SliceOptions";
-import { fracture } from "./fracture/Fracture";
+import { voronoiFracture } from "./fracture/VoronoiFracture";
 import { slice } from "./fracture/Slice";
 
 /**
@@ -30,15 +30,15 @@ export class DestructibleMesh extends THREE.Group {
   }
 
   /**
-   * Fractures the mesh into fragments
-   * @param options Fracture options controlling the fracture behavior
+   * Fractures the mesh into fragments using Voronoi tessellation
+   * @param options Voronoi fracture options controlling the fracture behavior
    * @param freeze If true, fragments are created but hidden until unfreeze() is called
    * @param setup Optional callback called for each fragment for custom setup
    * @param onComplete Optional callback called once after all fragments are created
    * @returns The array of created fragment meshes
    */
   fracture(
-    options: FractureOptions,
+    options: VoronoiFractureOptions,
     freeze: boolean = false,
     setup?: (fragment: THREE.Mesh, index: number) => void,
     onComplete?: () => void,
@@ -52,8 +52,8 @@ export class DestructibleMesh extends THREE.Group {
       this._isFrozen = true;
     }
 
-    // Perform the fracture operation
-    const fragmentGeometries = fracture(this.mesh.geometry, options);
+    // Perform the fracture operation using Voronoi tessellation
+    const fragmentGeometries = voronoiFracture(this.mesh.geometry, options);
 
     // Create mesh objects for each fragment
     this.fragments = fragmentGeometries.map((fragmentGeometry, index) => {

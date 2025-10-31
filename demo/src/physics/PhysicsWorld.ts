@@ -97,10 +97,30 @@ export class PhysicsWorld {
 
         if (!colliderDesc) {
           console.warn("Failed to create convex hull collider, falling back to ball");
-          colliderDesc = this.RAPIER.ColliderDesc.ball(1);
+          // Calculate fallback ball radius from bounding sphere
+          if (!object.geometry.boundingSphere) {
+            object.geometry.computeBoundingSphere();
+          }
+          const radius = object.geometry.boundingSphere?.radius || 1;
+          const scale = object.getWorldScale(new THREE.Vector3());
+          const scaledRadius = radius * Math.max(scale.x, scale.y, scale.z);
+          colliderDesc = this.RAPIER.ColliderDesc.ball(scaledRadius);
         }
       } else if (collider === "ball") {
-        colliderDesc = this.RAPIER.ColliderDesc.ball(1);
+        // Calculate ball radius from mesh bounding sphere
+        let radius = 1;
+        if (object instanceof THREE.Mesh) {
+          if (!object.geometry.boundingSphere) {
+            object.geometry.computeBoundingSphere();
+          }
+          if (object.geometry.boundingSphere) {
+            radius = object.geometry.boundingSphere.radius;
+            // Account for object scale (use the largest scale component)
+            const scale = object.getWorldScale(new THREE.Vector3());
+            radius *= Math.max(scale.x, scale.y, scale.z);
+          }
+        }
+        colliderDesc = this.RAPIER.ColliderDesc.ball(radius);
       } else if (collider === "cuboid") {
         colliderDesc = this.RAPIER.ColliderDesc.cuboid(1, 1, 1);
       }

@@ -94,7 +94,7 @@ export function fractureFragment(
  * are identified and split into separate fragments.
  * @returns An array of fragments
  */
-function findIsolatedGeometry(fragment: Fragment): Fragment[] {
+export function findIsolatedGeometry(fragment: Fragment): Fragment[] {
   // Initialize the union-find data structure
   const uf = new UnionFind(fragment.vertexCount);
   // Triangles for each submesh are stored separately

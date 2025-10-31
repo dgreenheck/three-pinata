@@ -5,6 +5,7 @@ import { SeedPointGenerator } from "../utils/SeedPointGenerator";
 import { computeVoronoiCell, findKNearestNeighbors } from "./VoronoiCell";
 import { geometryToFragment, fragmentToGeometry } from "../utils/GeometryConversion";
 import { Fragment } from "../entities/Fragment";
+import { findIsolatedGeometry } from "./FractureFragment";
 
 /**
  * Fractures a mesh using Voronoi tessellation.
@@ -89,7 +90,13 @@ function voronoiFracture3D(
 
     // Only add non-empty cells
     if (cell && cell.vertexCount > 0) {
-      fragments.push(cell);
+      // Detect isolated fragments within this cell if enabled
+      if (options.detectIsolatedFragments && !convex) {
+        const isolatedFragments = findIsolatedGeometry(cell);
+        fragments.push(...isolatedFragments);
+      } else {
+        fragments.push(cell);
+      }
     }
   }
 
@@ -206,7 +213,13 @@ function voronoiFracture2D(
     );
 
     if (cell && cell.vertexCount > 0) {
-      fragments.push(cell);
+      // Detect isolated fragments within this cell if enabled
+      if (options.detectIsolatedFragments && !convex) {
+        const isolatedFragments = findIsolatedGeometry(cell);
+        fragments.push(...isolatedFragments);
+      } else {
+        fragments.push(cell);
+      }
     }
   }
 

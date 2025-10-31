@@ -3,15 +3,13 @@ import { Pane } from "tweakpane";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { PhysicsWorld } from "./physics/PhysicsWorld";
-import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
+import {
+  DestructibleMesh,
+  VoronoiFractureOptions,
+} from "@dgreenheck/three-pinata";
 
 // Add imports for postprocessing
-import {
-  BloomEffect,
-  EffectComposer,
-  EffectPass,
-  RenderPass,
-} from "postprocessing";
+import { EffectComposer, RenderPass } from "postprocessing";
 
 import lionUrl from "./assets/lion.glb";
 import stoneColorUrl from "./assets/stone_color.jpg";
@@ -22,6 +20,8 @@ const RAPIER = await import("@dimforge/rapier3d");
 
 // Scene setup
 const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x707070, 50, 80);
+
 const clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(
   70,
@@ -33,7 +33,7 @@ const camera = new THREE.PerspectiveCamera(
 // Renderer setup
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setClearColor(0x808080);
+renderer.setClearColor(0x707070);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true;
@@ -44,19 +44,6 @@ document.body.appendChild(renderer.domElement);
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
-
-// Create and configure the bloom effect
-const bloomEffect = new BloomEffect({
-  intensity: 1.5,
-  luminanceThreshold: 0.4,
-  luminanceSmoothing: 0.9,
-  height: 480,
-});
-
-// Add the effects to the composer
-const effectPass = new EffectPass(camera, bloomEffect);
-composer.addPass(effectPass);
-export { bloomEffect };
 
 // Controls setup
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -69,13 +56,16 @@ controls.enablePan = true;
 
 // Physics and scene objects
 const gltfLoader = new GLTFLoader();
-const fractureOptions = new FractureOptions();
+const fractureOptions = new VoronoiFractureOptions();
 let physics: PhysicsWorld;
 let lion: DestructibleMesh;
 let lionMesh: THREE.Mesh;
 let insideMaterial: THREE.Material;
 let metalBall: THREE.Mesh;
 let collisionOccurred = false;
+
+// Get fragment count display element
+const fragmentCountElement = document.getElementById("fragment-count")!;
 
 // Create GUI
 const pane = new Pane();
@@ -96,10 +86,27 @@ demoFolder.addBinding(fractureOptions, "fractureMode", {
   label: "Fracture Mode",
 });
 
-demoFolder.addBinding(fractureOptions, "fragmentCount", {
-  min: 2,
-  max: 500,
-  step: 1,
+demoFolder
+  .addBinding(fractureOptions, "fragmentCount", {
+    min: 2,
+    max: 1024,
+    step: 1,
+  })
+  .on("change", () => {
+    fragmentCountElement.textContent =
+      fractureOptions.fragmentCount.toString() + " FRAGMENTS";
+  });
+
+demoFolder.addBinding(fractureOptions, "mode", {
+  options: {
+    "3D": "3D",
+    "2.5D": "2.5D",
+  },
+  label: "Mode",
+});
+
+demoFolder.addBinding(fractureOptions, "detectIsolatedFragments", {
+  label: "Detect Isolated Fragments",
 });
 
 demoFolder
@@ -111,22 +118,6 @@ demoFolder
     resetScene();
   });
 
-const fracturePlanesFolder = demoFolder.addFolder({
-  title: "Fracture Planes",
-});
-
-fracturePlanesFolder.addBinding(fractureOptions.fracturePlanes, "x", {
-  label: "X",
-});
-
-fracturePlanesFolder.addBinding(fractureOptions.fracturePlanes, "y", {
-  label: "Y",
-});
-
-fracturePlanesFolder.addBinding(fractureOptions.fracturePlanes, "z", {
-  label: "Z",
-});
-
 // Add a separator to the GUI
 pane.addBlade({ view: "separator" });
 
@@ -137,7 +128,8 @@ async function init() {
   physics.onCollision = onCollision;
 
   // Load lion model
-  lionMesh = (await gltfLoader.loadAsync(lionUrl)).scene.children[0] as THREE.Mesh;
+  lionMesh = (await gltfLoader.loadAsync(lionUrl)).scene
+    .children[0] as THREE.Mesh;
 
   // Load materials
   const map = new THREE.TextureLoader().load(stoneColorUrl);
@@ -151,9 +143,9 @@ async function init() {
   });
 
   // Setup camera
-  camera.position.set(10, 3, 10);
+  camera.position.set(5, 3, 7);
   camera.updateProjectionMatrix();
-  controls.target.set(0, 2, 0);
+  controls.target.set(2, 2, 0);
 
   // Setup scene
   setupLion();
@@ -172,7 +164,7 @@ function setupLion(): void {
   // Set material properties
   if (lion.mesh.material instanceof THREE.MeshStandardMaterial) {
     lion.mesh.material.roughness = 0.3;
-    lion.mesh.material.metalness = 0.2;
+    lion.mesh.material.metalness = 0.1;
   }
 
   lion.mesh.castShadow = true;
@@ -190,10 +182,7 @@ function setupLion(): void {
     true, // freeze
     (fragment) => {
       // Set materials for each fragment
-      fragment.material = [
-        lionMesh.material as THREE.Material,
-        insideMaterial,
-      ];
+      fragment.material = [lionMesh.material as THREE.Material, insideMaterial];
       fragment.castShadow = true;
 
       // Add physics to fragment (sleeping)
@@ -240,17 +229,24 @@ function setupGround(): void {
 
 function setupLighting(): void {
   // Add key light
-  const keyLight = new THREE.AmbientLight(0xffffff, 0.1);
-  scene.add(keyLight);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+  scene.add(ambient);
 
   // Add fill light
-  const fillLight = new THREE.DirectionalLight(0xffffff, 1);
-  fillLight.position.set(5, 8, 5);
-  fillLight.target.position.set(0, 0, 0);
-  fillLight.castShadow = true;
-  fillLight.shadow.mapSize.set(1024, 1024);
-  scene.add(fillLight);
-  scene.add(fillLight.target);
+  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  sun.position.set(5, 8, 5);
+  sun.target.position.set(0, 0, 0);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.camera.left = -25;
+  sun.shadow.camera.right = 25;
+  sun.shadow.camera.top = 25;
+  sun.shadow.camera.bottom = -25;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 50;
+  sun.shadow.bias = -0.0001;
+  scene.add(sun);
+  scene.add(sun.target);
 }
 
 function setupMetalBall(): void {
@@ -297,7 +293,7 @@ function resetScene(): void {
   physics.update();
 }
 
-async function onCollision(body1: any, body2: any, started: any) {
+async function onCollision(body1: any, body2: any) {
   if (!collisionOccurred) {
     // Check if collision involves lion fragments and ball
     const ballBody = physics.getBody(metalBall);
