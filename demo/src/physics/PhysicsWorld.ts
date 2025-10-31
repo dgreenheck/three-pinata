@@ -33,7 +33,11 @@ export class PhysicsWorld {
   private handleToBodies: Map<number, PhysicsBody>;
 
   /** Collision callback */
-  onCollision?: (body1: PhysicsBody, body2: PhysicsBody, started: boolean) => void;
+  onCollision?: (
+    body1: PhysicsBody,
+    body2: PhysicsBody,
+    started: boolean,
+  ) => void;
 
   constructor(
     RAPIER: RAPIER_API,
@@ -41,7 +45,6 @@ export class PhysicsWorld {
   ) {
     this.RAPIER = RAPIER;
     this.world = new RAPIER.World(gravity);
-    this.world.integrationParameters.lengthUnit = 0.1;
     this.eventQueue = new RAPIER.EventQueue(true);
     this.bodies = new WeakMap();
     this.handleToBodies = new Map();
@@ -92,11 +95,14 @@ export class PhysicsWorld {
 
     if (!colliderDesc) {
       if (collider === "convexHull" && object instanceof THREE.Mesh) {
-        const vertices = object.geometry.getAttribute("position").array as Float32Array;
+        const vertices = object.geometry.getAttribute("position")
+          .array as Float32Array;
         colliderDesc = this.RAPIER.ColliderDesc.convexHull(vertices);
 
         if (!colliderDesc) {
-          console.warn("Failed to create convex hull collider, falling back to ball");
+          console.warn(
+            "Failed to create convex hull collider, falling back to ball",
+          );
           // Calculate fallback ball radius from bounding sphere
           if (!object.geometry.boundingSphere) {
             object.geometry.computeBoundingSphere();

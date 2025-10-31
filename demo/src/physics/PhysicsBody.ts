@@ -64,6 +64,13 @@ export class PhysicsBody {
   }
 
   /**
+   * Gets the linear velocity of the rigid body
+   */
+  getLinearVelocity(): RAPIER.Vector3 {
+    return this.rigidBody.linvel();
+  }
+
+  /**
    * Sets the angular velocity of the rigid body
    */
   setAngularVelocity(velocity: RAPIER.Vector3): void {

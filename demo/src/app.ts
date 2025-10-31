@@ -1,26 +1,39 @@
 import * as THREE from "three";
 import { Pane } from "tweakpane";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { ThreePerf } from "three-perf";
 import { PhysicsWorld } from "./physics/PhysicsWorld";
-import {
-  DestructibleMesh,
-  VoronoiFractureOptions,
-} from "@dgreenheck/three-pinata";
+
+// Import scenes
+import { BaseScene } from "./scenes/BaseScene";
+import { GlassShatterScene } from "./scenes/GlassShatterScene";
+import { SmashingScene } from "./scenes/SmashingScene";
+import { ProgressiveDestructionScene } from "./scenes/ProgressiveDestructionScene";
+import { SlicingScene } from "./scenes/SlicingScene";
 
 // Add imports for postprocessing
-import { EffectComposer, RenderPass } from "postprocessing";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { VignetteShader } from "three/examples/jsm/shaders/VignetteShader.js";
+import { FilmShader } from "three/examples/jsm/shaders/FilmShader.js";
 
-import lionUrl from "./assets/lion.glb";
-import stoneColorUrl from "./assets/stone_color.jpg";
-import stoneDispUrl from "./assets/stone_disp.jpg";
 import gridUrl from "./assets/grid.png";
+import envMapUrl from "./assets/autumn_field_puresky_4k.jpg";
 
 const RAPIER = await import("@dimforge/rapier3d");
 
 // Scene setup
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x707070, 50, 80);
+
+// Load environment map
+const textureLoader = new THREE.TextureLoader();
+const envMap = textureLoader.load(envMapUrl);
+envMap.mapping = THREE.EquirectangularReflectionMapping;
+envMap.colorSpace = THREE.SRGBColorSpace;
+scene.environment = envMap;
+scene.background = envMap;
 
 const clock = new THREE.Clock();
 const camera = new THREE.PerspectiveCamera(
@@ -33,17 +46,45 @@ const camera = new THREE.PerspectiveCamera(
 // Renderer setup
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setClearColor(0x707070);
+renderer.setClearColor(0xa0a0a0);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.5;
 document.body.appendChild(renderer.domElement);
+
+// Add performance monitor
+const perf = new ThreePerf({
+  anchorX: "right",
+  anchorY: "bottom",
+  domElement: document.body,
+  renderer,
+});
 
 // Set up post-processing
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 composer.addPass(renderPass);
+
+// Bloom pass
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.3, // strength
+  0.4, // radius
+  0.9, // threshold
+);
+composer.addPass(bloomPass);
+
+// Vignette pass
+const vignettePass = new ShaderPass(VignetteShader);
+vignettePass.uniforms["offset"].value = 1.0;
+vignettePass.uniforms["darkness"].value = 1.0;
+composer.addPass(vignettePass);
+
+// Film/noise pass
+const filmPass = new ShaderPass(FilmShader);
+composer.addPass(filmPass);
 
 // Controls setup
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -54,18 +95,11 @@ controls.enableZoom = true;
 controls.dampingFactor = 0.25;
 controls.enablePan = true;
 
-// Physics and scene objects
-const gltfLoader = new GLTFLoader();
-const fractureOptions = new VoronoiFractureOptions();
+// Physics world (will be recreated per scene)
 let physics: PhysicsWorld;
-let lion: DestructibleMesh;
-let lionMesh: THREE.Mesh;
-let insideMaterial: THREE.Material;
-let metalBall: THREE.Mesh;
-let collisionOccurred = false;
 
-// Get fragment count display element
-const fragmentCountElement = document.getElementById("fragment-count")!;
+// Current scene
+let currentScene: BaseScene | null = null;
 
 // Create GUI
 const pane = new Pane();
@@ -75,129 +109,34 @@ pane.title = "three-pinata";
 const tweakpaneElement = pane.element;
 tweakpaneElement.parentElement!.style.width = "300px";
 
-// Setup GUI controls
-const demoFolder = pane.addFolder({ title: "Demo Settings" });
+// App settings
+const appSettings = {
+  scene: "glass" as "glass" | "smashing" | "progressive" | "slicing",
+  postProcessing: true,
+};
 
-demoFolder.addBinding(fractureOptions, "fractureMode", {
-  options: {
-    Convex: "Convex",
-    "Non-Convex": "Non-Convex",
-  },
-  label: "Fracture Mode",
-});
+// Setup GUI controls - Scene Selection
+const appFolder = pane.addFolder({ title: "Scene Selection", expanded: true });
 
-demoFolder
-  .addBinding(fractureOptions, "fragmentCount", {
-    min: 2,
-    max: 1024,
-    step: 1,
+appFolder
+  .addBinding(appSettings, "scene", {
+    options: {
+      "Glass Shatter": "glass",
+      "Smashing Object": "smashing",
+      "Progressive Destruction": "progressive",
+      "Slicing Demo": "slicing",
+    },
+    label: "Demo Scene",
   })
   .on("change", () => {
-    fragmentCountElement.textContent =
-      fractureOptions.fragmentCount.toString() + " FRAGMENTS";
+    switchScene(appSettings.scene);
   });
 
-demoFolder.addBinding(fractureOptions, "mode", {
-  options: {
-    "3D": "3D",
-    "2.5D": "2.5D",
-  },
-  label: "Mode",
-});
-
-demoFolder.addBinding(fractureOptions, "detectIsolatedFragments", {
-  label: "Detect Isolated Fragments",
-});
-
-demoFolder
-  .addButton({
-    title: "Reset",
-    label: "Reset",
-  })
-  .on("click", () => {
-    resetScene();
-  });
-
-// Add a separator to the GUI
+// Add separator for scene-specific controls
 pane.addBlade({ view: "separator" });
 
-// Initialize scene
-async function init() {
-  // Create physics world
-  physics = new PhysicsWorld(RAPIER, new RAPIER.Vector3(0, -2, 0));
-  physics.onCollision = onCollision;
-
-  // Load lion model
-  lionMesh = (await gltfLoader.loadAsync(lionUrl)).scene
-    .children[0] as THREE.Mesh;
-
-  // Load materials
-  const map = new THREE.TextureLoader().load(stoneColorUrl);
-  const displacementMap = new THREE.TextureLoader().load(stoneDispUrl);
-
-  insideMaterial = new THREE.MeshStandardMaterial({
-    roughness: 0.3,
-    metalness: 0.0,
-    map,
-    bumpMap: displacementMap,
-  });
-
-  // Setup camera
-  camera.position.set(5, 3, 7);
-  camera.updateProjectionMatrix();
-  controls.target.set(2, 2, 0);
-
-  // Setup scene
-  setupLion();
-  setupGround();
-  setupLighting();
-  setupMetalBall();
-
-  // Start animation loop
-  renderer.setAnimationLoop(animate);
-}
-
-function setupLion(): void {
-  // Create DestructibleMesh from lion model
-  lion = new DestructibleMesh(lionMesh.geometry, lionMesh.material);
-
-  // Set material properties
-  if (lion.mesh.material instanceof THREE.MeshStandardMaterial) {
-    lion.mesh.material.roughness = 0.3;
-    lion.mesh.material.metalness = 0.1;
-  }
-
-  lion.mesh.castShadow = true;
-
-  // Add physics to the mesh (not the group)
-  const lionBody = physics.add(lion.mesh, {
-    type: "dynamic",
-    collider: "convexHull",
-  });
-  lionBody.sleep();
-
-  // Pre-fracture with freeze
-  lion.fracture(
-    fractureOptions,
-    true, // freeze
-    (fragment) => {
-      // Set materials for each fragment
-      fragment.material = [lionMesh.material as THREE.Material, insideMaterial];
-      fragment.castShadow = true;
-
-      // Add physics to fragment (sleeping)
-      const fragmentBody = physics.add(fragment, {
-        type: "dynamic",
-        collider: "convexHull",
-        restitution: 0.2,
-      });
-      fragmentBody.sleep();
-    },
-  );
-
-  // Add to scene
-  scene.add(lion);
-}
+// Track scene-specific folders
+let sceneFolder: any = null;
 
 function setupGround(): void {
   // Load grid texture
@@ -210,7 +149,9 @@ function setupGround(): void {
   const planeGeometry = new THREE.PlaneGeometry(200, 200);
   const planeMaterial = new THREE.MeshStandardMaterial({
     map: gridTexture,
-    roughness: 0.8,
+    roughness: 0.1,
+    metalness: 0.2,
+    envMapIntensity: 0.8,
   });
   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
   plane.rotation.x = -Math.PI / 2;
@@ -218,30 +159,28 @@ function setupGround(): void {
   scene.add(plane);
 
   // Add physics to ground
-  // Create a fixed body at Y=0 with no rotation
   const groundBody = RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0);
   const rigidBody = physics.world.createRigidBody(groundBody);
 
-  // Create a thin cuboid in the XZ plane (200 wide in X, 0.01 tall in Y, 200 deep in Z)
   const groundCollider = RAPIER.ColliderDesc.cuboid(100, 0.01, 100);
   physics.world.createCollider(groundCollider, rigidBody);
 }
 
 function setupLighting(): void {
-  // Add key light
-  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+  // Add ambient light
+  const ambient = new THREE.AmbientLight(0xffffff, 0.3);
   scene.add(ambient);
 
-  // Add fill light
+  // Add directional light
   const sun = new THREE.DirectionalLight(0xffffff, 2);
-  sun.position.set(5, 8, 5);
+  sun.position.set(1, 8, 1);
   sun.target.position.set(0, 0, 0);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -25;
-  sun.shadow.camera.right = 25;
-  sun.shadow.camera.top = 25;
-  sun.shadow.camera.bottom = -25;
+  sun.shadow.camera.left = -100;
+  sun.shadow.camera.right = 100;
+  sun.shadow.camera.top = 100;
+  sun.shadow.camera.bottom = -100;
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 50;
   sun.shadow.bias = -0.0001;
@@ -249,81 +188,92 @@ function setupLighting(): void {
   scene.add(sun.target);
 }
 
-function setupMetalBall(): void {
-  // Create metal ball
-  const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-  const ballMaterial = new THREE.MeshStandardMaterial({
-    color: 0x0000ff,
-    roughness: 0.0,
-    metalness: 0.95,
-  });
+async function switchScene(sceneType: string): Promise<void> {
+  // Dispose current scene
+  if (currentScene) {
+    currentScene.dispose();
+    currentScene = null;
+  }
 
-  metalBall = new THREE.Mesh(ballGeometry, ballMaterial);
-  metalBall.castShadow = true;
-  metalBall.position.set(-20, 5, 10);
+  // Remove scene-specific UI folder
+  if (sceneFolder) {
+    pane.remove(sceneFolder);
+    sceneFolder = null;
+  }
 
-  // Add to scene
-  scene.add(metalBall);
-
-  // Add physics to ball
-  const ballBody = physics.add(metalBall, {
-    type: "dynamic",
-    collider: "ball",
-    mass: 3.0,
-    restitution: 0.5,
-  });
-
-  // Give it initial velocity
-  ballBody.setLinearVelocity(new RAPIER.Vector3(7, 1.5, -3.5));
-}
-
-function resetScene(): void {
-  collisionOccurred = false;
-  physics.destroy();
-  scene.clear();
-
-  physics = new PhysicsWorld(RAPIER, new RAPIER.Vector3(0, -2, 0));
-  physics.onCollision = onCollision;
-
-  setupLion();
-  setupGround();
-  setupLighting();
-  setupMetalBall();
-
-  physics.update();
-}
-
-async function onCollision(body1: any, body2: any) {
-  if (!collisionOccurred) {
-    // Check if collision involves lion fragments and ball
-    const ballBody = physics.getBody(metalBall);
-
-    // Check if one of the bodies is the ball and the other is a lion fragment
-    const isLionFragmentCollision =
-      (body2 === ballBody && body1.object.parent === lion) ||
-      (body1 === ballBody && body2.object.parent === lion);
-
-    if (isLionFragmentCollision) {
-      console.log("Ball hit lion! Unfreezing...");
-
-      // Remove physics from original lion mesh (if it still has one)
-      physics.remove(lion.mesh);
-
-      // Unfreeze fragments and wake them up
-      lion.unfreeze(
-        (fragment) => {
-          const fragmentBody = physics.getBody(fragment);
-          if (fragmentBody) {
-            fragmentBody.wakeUp();
-          }
-        },
-        () => {
-          console.log("Lion shattered!");
-        },
-      );
-
-      collisionOccurred = true;
+  // Clear the scene (but keep environment and lights)
+  const objectsToRemove: THREE.Object3D[] = [];
+  scene.traverse((obj) => {
+    if (
+      obj !== scene &&
+      obj.type !== "AmbientLight" &&
+      obj.type !== "DirectionalLight" &&
+      !(
+        obj instanceof THREE.Mesh && obj.geometry instanceof THREE.PlaneGeometry
+      )
+    ) {
+      objectsToRemove.push(obj);
     }
+  });
+  objectsToRemove.forEach((obj) => scene.remove(obj));
+
+  // Destroy and recreate physics
+  if (physics) {
+    physics.destroy();
+  }
+  physics = new PhysicsWorld(RAPIER, new RAPIER.Vector3(0, -9.81, 0));
+
+  // Re-setup ground
+  setupGround();
+
+  // Create new scene
+  switch (sceneType) {
+    case "glass":
+      currentScene = new GlassShatterScene(
+        scene,
+        camera,
+        physics,
+        pane,
+        controls,
+        clock,
+      );
+      break;
+    case "smashing":
+      currentScene = new SmashingScene(
+        scene,
+        camera,
+        physics,
+        pane,
+        controls,
+        clock,
+      );
+      break;
+    case "progressive":
+      currentScene = new ProgressiveDestructionScene(
+        scene,
+        camera,
+        physics,
+        pane,
+        controls,
+        clock,
+      );
+      break;
+    case "slicing":
+      currentScene = new SlicingScene(
+        scene,
+        camera,
+        physics,
+        pane,
+        controls,
+        clock,
+      );
+      break;
+  }
+
+  // Initialize the new scene
+  if (currentScene) {
+    await currentScene.init();
+    currentScene.setupUI();
   }
 }
 
@@ -331,14 +281,33 @@ async function onCollision(body1: any, body2: any) {
 function animate() {
   const dt = clock.getDelta();
 
+  // Update performance monitor
+  perf.begin();
+
   // Update physics
-  physics.update();
+  if (physics) {
+    physics.update();
+  }
+
+  // Update current scene
+  if (currentScene) {
+    currentScene.update(dt);
+  }
 
   // Update controls
   controls.update();
 
-  // Use the composer instead of directly rendering
-  composer.render(dt);
+  // Update film shader time for animated grain
+  filmPass.uniforms["time"].value = performance.now() * 0.001;
+
+  // Render with or without post-processing
+  if (appSettings.postProcessing) {
+    composer.render(dt);
+  } else {
+    renderer.render(scene, camera);
+  }
+
+  perf.end();
 }
 
 // Handle window resize
@@ -349,7 +318,26 @@ window.addEventListener("resize", () => {
 
   // Update composer size when window is resized
   composer.setSize(window.innerWidth, window.innerHeight);
+
+  // Update bloom pass resolution
+  bloomPass.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Initialize the scene
+// Initialize the app
+async function init() {
+  // Create initial physics world
+  physics = new PhysicsWorld(RAPIER, new RAPIER.Vector3(0, -9.81, 0));
+
+  // Setup shared scene elements
+  setupGround();
+  setupLighting();
+
+  // Load initial scene
+  await switchScene(appSettings.scene);
+
+  // Start animation loop
+  renderer.setAnimationLoop(animate);
+}
+
+// Start the app
 init();
