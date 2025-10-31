@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BaseScene } from "./BaseScene";
+import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
   VoronoiFractureOptions,
@@ -15,13 +15,17 @@ export class ProgressiveDestructionScene extends BaseScene {
   private object: DestructibleMesh | null = null;
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private balls: THREE.Mesh[] = [];
+  private currentBall: THREE.Mesh | null = null;
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
   private fractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
   });
+
+  private settings = {
+    primitiveType: "cube" as PrimitiveType,
+  };
 
   private collisionHandled = new WeakSet<THREE.Mesh>();
 
@@ -46,9 +50,13 @@ export class ProgressiveDestructionScene extends BaseScene {
   }
 
   private createObject(): void {
-    // Create a cube
-    const geometry = new THREE.BoxGeometry(3, 3, 3, 1, 1, 1);
-    this.object = new DestructibleMesh(geometry, this.objectMaterial);
+    // Create the primitive
+    const mesh = this.createPrimitive(
+      this.settings.primitiveType,
+      this.objectMaterial,
+    );
+
+    this.object = new DestructibleMesh(mesh.geometry, this.objectMaterial);
     this.object.mesh.castShadow = true;
     this.object.position.set(0, 3, 0);
     this.scene.add(this.object);
@@ -61,15 +69,24 @@ export class ProgressiveDestructionScene extends BaseScene {
         fragment.material = [this.objectMaterial, this.insideMaterial];
         fragment.castShadow = true;
 
+        // Make fragment visible (they're hidden by default when frozen)
+        fragment.visible = true;
+
         // Add physics (sleeping)
         const body = this.physics.add(fragment, {
           type: "dynamic",
           collider: "convexHull",
           restitution: 0.2,
         });
-        body.sleep();
+        if (body) {
+          body.rigidBody.lockTranslations(true, false);
+          body.rigidBody.lockRotations(true, false);
+        }
       },
     );
+
+    // Hide the original mesh immediately (fragments are now visible)
+    this.object.mesh.visible = false;
   }
 
   private onMouseClick = (event: MouseEvent): void => {
@@ -82,6 +99,15 @@ export class ProgressiveDestructionScene extends BaseScene {
   };
 
   private shootBall(): void {
+    // Remove previous ball if it exists
+    if (this.currentBall) {
+      this.scene.remove(this.currentBall);
+      this.physics.remove(this.currentBall);
+      this.currentBall.geometry.dispose();
+      (this.currentBall.material as THREE.Material).dispose();
+      this.currentBall = null;
+    }
+
     // Create ball
     const ballGeometry = new THREE.SphereGeometry(0.3, 16, 16);
     const ballMaterial = new THREE.MeshStandardMaterial({
@@ -91,18 +117,17 @@ export class ProgressiveDestructionScene extends BaseScene {
       envMapIntensity: 1.0,
     });
 
-    const ball = new THREE.Mesh(ballGeometry, ballMaterial);
-    ball.castShadow = true;
+    this.currentBall = new THREE.Mesh(ballGeometry, ballMaterial);
+    this.currentBall.castShadow = true;
 
     // Position ball at camera
-    ball.position.copy(this.camera.position);
+    this.currentBall.position.copy(this.camera.position);
 
     // Add to scene
-    this.scene.add(ball);
-    this.balls.push(ball);
+    this.scene.add(this.currentBall);
 
     // Add physics
-    const ballBody = this.physics.add(ball, {
+    const ballBody = this.physics.add(this.currentBall, {
       type: "dynamic",
       collider: "ball",
       mass: 5.0,
@@ -117,76 +142,38 @@ export class ProgressiveDestructionScene extends BaseScene {
     // Apply velocity
     const speed = 20;
     const velocity = direction.multiplyScalar(speed);
-    ballBody.setLinearVelocity({ x: velocity.x, y: velocity.y, z: velocity.z });
-
-    // Remove balls that fall too far
-    setTimeout(() => {
-      if (ball.position.y < -20) {
-        this.scene.remove(ball);
-        this.physics.remove(ball);
-        const index = this.balls.indexOf(ball);
-        if (index > -1) {
-          this.balls.splice(index, 1);
-        }
-        ball.geometry.dispose();
-        (ball.material as THREE.Material).dispose();
-      }
-    }, 10000);
+    if (ballBody) {
+      ballBody.setLinearVelocity({
+        x: velocity.x,
+        y: velocity.y,
+        z: velocity.z,
+      });
+    }
   }
 
   private onCollision = (body1: any, body2: any, started: boolean): void => {
-    if (!started || !this.object) return;
+    if (!started || !this.object || !this.currentBall) return;
 
-    // Check if one of the bodies is a ball and the other is a fragment
-    const ball = this.balls.find(
-      (b) => this.physics.getBody(b) === body1 || this.physics.getBody(b) === body2,
-    );
+    const obj1 = body1.object as THREE.Mesh;
+    const obj2 = body2.object as THREE.Mesh;
 
-    if (!ball) return;
+    // Check if either object is the current ball
+    const ball1 = obj1 === this.currentBall;
+    const ball2 = obj2 === this.currentBall;
 
-    // Find the fragment
-    const fragmentBody = body1 === this.physics.getBody(ball) ? body2 : body1;
-    const fragment = fragmentBody.object as THREE.Mesh;
+    // Check if either object is a fragment of our object
+    const isFragment1 = obj1.parent === this.object;
+    const isFragment2 = obj2.parent === this.object;
 
-    // Check if it's a fragment of our object and hasn't been handled yet
-    if (
-      fragment.parent === this.object &&
-      !this.collisionHandled.has(fragment)
-    ) {
-      this.collisionHandled.add(fragment);
-
-      // Unfreeze just this fragment
-      fragment.visible = true;
-      const body = this.physics.getBody(fragment);
-      if (body) {
-        body.wakeUp();
-
-        // Apply impulse based on ball velocity
-        const ballBody = this.physics.getBody(ball);
-        if (ballBody) {
-          const ballVelocity = ballBody.getLinearVelocity();
-          const impulse = new THREE.Vector3(
-            ballVelocity.x * 0.5,
-            ballVelocity.y * 0.5,
-            ballVelocity.z * 0.5,
-          );
-          body.rigidBody.applyImpulse(
-            { x: impulse.x, y: impulse.y, z: impulse.z },
-            true,
-          );
-        }
-      }
-
-      // Check if we should remove the original mesh
-      if (this.object.isFrozen()) {
-        // Count visible fragments
-        const visibleCount = this.object.fragments.filter((f) => f.visible).length;
-        if (visibleCount > 0) {
-          // Remove original mesh on first fragment activation
-          this.scene.remove(this.object.mesh);
-          this.physics.remove(this.object.mesh);
-        }
-      }
+    // Only wake up fragment if hit by ball (not by other fragments)
+    if (ball1 && isFragment2 && !this.collisionHandled.has(obj2)) {
+      this.collisionHandled.add(obj2);
+      body2.rigidBody.lockTranslations(false, false);
+      body2.rigidBody.lockRotations(false, false);
+    } else if (ball2 && isFragment1 && !this.collisionHandled.has(obj1)) {
+      this.collisionHandled.add(obj1);
+      body1.rigidBody.lockTranslations(false, false);
+      body1.rigidBody.lockRotations(false, false);
     }
   };
 
@@ -194,11 +181,37 @@ export class ProgressiveDestructionScene extends BaseScene {
     // No per-frame updates needed
   }
 
-  setupUI(): void {
+  getInstructions(): string {
+    return `PROGRESSIVE DESTRUCTION
+
+• Object is pre-fractured with sleeping fragments
+• Click to shoot balls
+• Fragments wake up only when hit
+• Watch physics propagate through structure
+• Adjust fragment count and reset`;
+  }
+
+  setupUI(): any {
     const folder = this.pane.addFolder({
       title: "Progressive Destruction",
       expanded: true,
     });
+
+    folder
+      .addBinding(this.settings, "primitiveType", {
+        options: {
+          Cube: "cube",
+          Sphere: "sphere",
+          Icosahedron: "icosahedron",
+          Cylinder: "cylinder",
+          Torus: "torus",
+          "Torus Knot": "torusKnot",
+        },
+        label: "Primitive",
+      })
+      .on("change", () => {
+        this.reset();
+      });
 
     folder.addBinding(this.fractureOptions, "fragmentCount", {
       min: 10,
@@ -211,34 +224,32 @@ export class ProgressiveDestructionScene extends BaseScene {
       this.reset();
     });
 
-    // Add instructions
-    const instructions = folder.addBlade({
-      view: "text",
-      label: "Instructions",
-      parse: (v: any) => String(v),
-      value: "Click to shoot balls",
-    }) as any;
-    instructions.disabled = true;
+    return folder;
   }
 
   reset(): void {
+    // Clear all physics first
+    this.clearPhysics();
+
     // Remove old object
     if (this.object) {
       this.scene.remove(this.object);
       this.object.dispose();
     }
 
-    // Remove all balls
-    this.balls.forEach((ball) => {
-      this.scene.remove(ball);
-      this.physics.remove(ball);
-      ball.geometry.dispose();
-      (ball.material as THREE.Material).dispose();
-    });
-    this.balls = [];
+    // Remove current ball
+    if (this.currentBall) {
+      this.scene.remove(this.currentBall);
+      this.currentBall.geometry.dispose();
+      (this.currentBall.material as THREE.Material).dispose();
+      this.currentBall = null;
+    }
 
     // Clear collision tracking
     this.collisionHandled = new WeakSet<THREE.Mesh>();
+
+    // Re-add ground physics
+    this.setupGroundPhysics();
 
     // Recreate object
     this.createObject();
@@ -254,14 +265,14 @@ export class ProgressiveDestructionScene extends BaseScene {
       this.object.dispose();
     }
 
-    // Remove all balls
-    this.balls.forEach((ball) => {
-      this.scene.remove(ball);
-      this.physics.remove(ball);
-      ball.geometry.dispose();
-      (ball.material as THREE.Material).dispose();
-    });
-    this.balls = [];
+    // Remove current ball
+    if (this.currentBall) {
+      this.scene.remove(this.currentBall);
+      this.physics.remove(this.currentBall);
+      this.currentBall.geometry.dispose();
+      (this.currentBall.material as THREE.Material).dispose();
+      this.currentBall = null;
+    }
 
     // Clear collision callback
     this.physics.onCollision = undefined;

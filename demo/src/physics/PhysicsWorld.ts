@@ -95,9 +95,44 @@ export class PhysicsWorld {
 
     if (!colliderDesc) {
       if (collider === "convexHull" && object instanceof THREE.Mesh) {
-        const vertices = object.geometry.getAttribute("position")
-          .array as Float32Array;
-        colliderDesc = this.RAPIER.ColliderDesc.convexHull(vertices);
+        // Validate geometry before creating convex hull
+        const geometry = object.geometry;
+        const positionAttribute = geometry.getAttribute("position");
+
+        // Check if geometry has enough vertices
+        if (!positionAttribute || positionAttribute.count < 4) {
+          console.warn(
+            "Geometry has insufficient vertices for convex hull, skipping physics",
+          );
+          this.world.removeRigidBody(rigidBody);
+          return null as any; // Return null instead of throwing
+        }
+
+        // Check geometry size to avoid degenerate shapes
+        if (!geometry.boundingBox) {
+          geometry.computeBoundingBox();
+        }
+        const bbox = geometry.boundingBox;
+        if (bbox) {
+          const size = new THREE.Vector3();
+          bbox.getSize(size);
+          if (size.x < 0.01 || size.y < 0.01 || size.z < 0.01) {
+            console.warn(
+              "Geometry too small for physics (degenerate), skipping physics",
+            );
+            this.world.removeRigidBody(rigidBody);
+            return null as any;
+          }
+        }
+
+        // Try to create convex hull with error handling
+        try {
+          const vertices = positionAttribute.array as Float32Array;
+          colliderDesc = this.RAPIER.ColliderDesc.convexHull(vertices);
+        } catch (error) {
+          console.warn("Error creating convex hull:", error);
+          colliderDesc = null;
+        }
 
         if (!colliderDesc) {
           console.warn(
@@ -197,6 +232,26 @@ export class PhysicsWorld {
     // Sync all bodies
     this.handleToBodies.forEach((body) => {
       body.sync();
+    });
+  }
+
+  /**
+   * Clears all rigid bodies and colliders from the physics world
+   * This is useful for resetting a scene without destroying the world
+   */
+  clear(): void {
+    this.eventQueue.clear();
+    this.handleToBodies.clear();
+    this.bodies = new WeakMap();
+
+    // Remove all rigid bodies
+    this.world.bodies.forEach((body) => {
+      this.world.removeRigidBody(body);
+    });
+
+    // Remove all colliders
+    this.world.colliders.forEach((collider) => {
+      this.world.removeCollider(collider, false);
     });
   }
 

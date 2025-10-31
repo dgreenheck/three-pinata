@@ -1,8 +1,6 @@
 import * as THREE from "three";
-import { BaseScene } from "./BaseScene";
+import { BaseScene, PrimitiveType } from "./BaseScene";
 import { DestructibleMesh, SliceOptions } from "@dgreenheck/three-pinata";
-
-type PrimitiveType = "cube" | "sphere" | "cylinder" | "torus" | "torusKnot";
 
 /**
  * Slicing Demo
@@ -20,10 +18,9 @@ export class SlicingScene extends BaseScene {
   private sliceGroup!: THREE.Group;
 
   private settings = {
-    primitiveType: "cube" as PrimitiveType,
+    primitiveType: "icosahedron" as PrimitiveType,
   };
 
-  private sliceNormal = new THREE.Vector3(0, 1, 0);
   private slicePosition = new THREE.Vector3(0, 3, 0);
   private moveSpeed = 2.0;
   private rotateSpeed = 1.0;
@@ -68,7 +65,12 @@ export class SlicingScene extends BaseScene {
     // Add grid helper for better visualization
     const gridSize = 6;
     const divisions = 12;
-    this.sliceHelper = new THREE.GridHelper(gridSize, divisions, 0xff0000, 0xff6666);
+    this.sliceHelper = new THREE.GridHelper(
+      gridSize,
+      divisions,
+      0xff0000,
+      0xff6666,
+    );
     this.sliceHelper.rotation.x = Math.PI / 2;
     this.sliceGroup.add(this.sliceHelper);
 
@@ -111,6 +113,10 @@ export class SlicingScene extends BaseScene {
     // Slice all objects that intersect the plane
     const objectsToSlice = [...this.objects];
 
+    // Get the current slice normal from the slice group's orientation
+    const sliceNormal = new THREE.Vector3(0, 1, 0);
+    sliceNormal.applyQuaternion(this.sliceGroup.quaternion).normalize();
+
     objectsToSlice.forEach((obj) => {
       // Check if object intersects with the slice plane
       // For simplicity, we'll slice all objects
@@ -123,7 +129,7 @@ export class SlicingScene extends BaseScene {
         const worldToLocal = new THREE.Matrix4();
         worldToLocal.copy(obj.matrixWorld).invert();
 
-        const localNormal = this.sliceNormal
+        const localNormal = sliceNormal
           .clone()
           .transformDirection(worldToLocal)
           .normalize();
@@ -199,27 +205,38 @@ export class SlicingScene extends BaseScene {
     }
 
     if (rotation !== 0) {
-      // Rotate around the camera's up vector
+      // Rotate around the Y axis
       const axis = new THREE.Vector3(0, 1, 0);
       const quaternion = new THREE.Quaternion();
       quaternion.setFromAxisAngle(axis, rotation);
 
-      this.sliceNormal.applyQuaternion(quaternion);
-      this.sliceGroup.quaternion.multiplyQuaternions(
-        quaternion,
-        this.sliceGroup.quaternion,
-      );
+      // Apply rotation to the slice group
+      this.sliceGroup.quaternion.premultiply(quaternion);
     }
   }
 
-  setupUI(): void {
-    const folder = this.pane.addFolder({ title: "Slicing Demo", expanded: true });
+  getInstructions(): string {
+    return `SLICING DEMO
+
+• WASD - Move slicing plane
+• Q/E - Rotate plane
+• SPACE - Execute slice
+• Slice objects multiple times
+• Choose different primitives`;
+  }
+
+  setupUI(): any {
+    const folder = this.pane.addFolder({
+      title: "Slicing Demo",
+      expanded: true,
+    });
 
     folder
       .addBinding(this.settings, "primitiveType", {
         options: {
           Cube: "cube",
           Sphere: "sphere",
+          Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
           "Torus Knot": "torusKnot",
@@ -238,34 +255,27 @@ export class SlicingScene extends BaseScene {
       this.reset();
     });
 
-    // Add instructions
-    folder.addBlade({
-      view: "separator",
-    });
-
-    const instructions = folder.addBlade({
-      view: "text",
-      label: "Controls",
-      parse: (v: any) => String(v),
-      value: "WASD: Move plane\nQ/E: Rotate\nSpace: Slice",
-    }) as any;
-    instructions.disabled = true;
+    return folder;
   }
 
   reset(): void {
+    // Clear all physics first
+    this.clearPhysics();
+
     // Remove all objects
     this.objects.forEach((obj) => {
       this.scene.remove(obj);
-      this.physics.remove(obj.mesh);
       obj.dispose();
     });
     this.objects = [];
 
-    // Reset slice plane
+    // Reset slice plane position and rotation
     this.slicePosition.set(0, 3, 0);
-    this.sliceNormal.set(0, 1, 0);
     this.sliceGroup.position.copy(this.slicePosition);
-    this.sliceGroup.quaternion.set(0, 0, 0, 1);
+    this.sliceGroup.quaternion.identity();
+
+    // Re-add ground physics
+    this.setupGroundPhysics();
 
     // Create new object
     this.createObject();

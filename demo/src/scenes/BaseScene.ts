@@ -3,6 +3,14 @@ import { Pane } from "tweakpane";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
+export type PrimitiveType =
+  | "cube"
+  | "sphere"
+  | "icosahedron"
+  | "cylinder"
+  | "torus"
+  | "torusKnot";
+
 /**
  * Base class for all demo scenes
  * Provides common functionality and interface for scene management
@@ -44,8 +52,14 @@ export abstract class BaseScene {
 
   /**
    * Setup UI controls specific to this scene
+   * @returns The folder containing scene-specific UI controls
    */
-  abstract setupUI(): void;
+  abstract setupUI(): any;
+
+  /**
+   * Get instructions text for this scene
+   */
+  abstract getInstructions(): string;
 
   /**
    * Clean up resources when switching scenes
@@ -61,7 +75,7 @@ export abstract class BaseScene {
    * Create a primitive mesh with given type
    */
   protected createPrimitive(
-    type: "cube" | "sphere" | "cylinder" | "torus" | "torusKnot",
+    type: PrimitiveType,
     material: THREE.Material,
   ): THREE.Mesh {
     let geometry: THREE.BufferGeometry;
@@ -72,6 +86,9 @@ export abstract class BaseScene {
         break;
       case "sphere":
         geometry = new THREE.SphereGeometry(1.2, 32, 32);
+        break;
+      case "icosahedron":
+        geometry = new THREE.IcosahedronGeometry(1.2, 0);
         break;
       case "cylinder":
         geometry = new THREE.CylinderGeometry(1, 1, 2.5, 32);
@@ -94,7 +111,9 @@ export abstract class BaseScene {
   /**
    * Create a standard material with given color
    */
-  protected createMaterial(color: number = 0x4488ff): THREE.MeshStandardMaterial {
+  protected createMaterial(
+    color: number = 0x4488ff,
+  ): THREE.MeshStandardMaterial {
     return new THREE.MeshStandardMaterial({
       color,
       roughness: 0.4,
@@ -106,11 +125,33 @@ export abstract class BaseScene {
   /**
    * Create an inside material for fractured faces
    */
-  protected createInsideMaterial(color: number = 0xcccccc): THREE.MeshStandardMaterial {
+  protected createInsideMaterial(
+    color: number = 0xcccccc,
+  ): THREE.MeshStandardMaterial {
     return new THREE.MeshStandardMaterial({
       color,
       roughness: 0.5,
       metalness: 0.0,
     });
+  }
+
+  /**
+   * Clears the physics world completely - removes all bodies, colliders, and events
+   * Should be called at the beginning of reset() to ensure clean state
+   */
+  protected clearPhysics(): void {
+    this.physics.clear();
+  }
+
+  /**
+   * Re-adds ground collider to physics world
+   * Should be called after clearPhysics() to restore ground
+   */
+  protected setupGroundPhysics(): void {
+    const RAPIER = this.physics.RAPIER;
+    const groundBody = RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0);
+    const rigidBody = this.physics.world.createRigidBody(groundBody);
+    const groundCollider = RAPIER.ColliderDesc.cuboid(100, 0.01, 100);
+    this.physics.world.createCollider(groundCollider, rigidBody);
   }
 }

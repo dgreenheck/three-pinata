@@ -12,8 +12,8 @@ export enum SlicedMeshSubmesh {
 type FragmentArgs = {
   positions: Float32Array;
   normals: Float32Array;
-  uvs: Float32Array;
-  indices: Uint32Array;
+  uvs?: Float32Array;
+  indices?: Uint32Array;
 };
 
 // The class definition is translated into TypeScript
@@ -86,12 +86,21 @@ export class Fragment {
         normals[3 * i + 2],
       );
 
-      const uv = new Vector2(uvs[2 * i], uvs[2 * i + 1]);
+      const uv = uvs
+        ? new Vector2(uvs[2 * i], uvs[2 * i + 1])
+        : new Vector2(0, 0);
 
       this.vertices.push(new MeshVertex(position, normal, uv));
     }
 
-    this.triangles = [Array.from(indices), []];
+    // Generate index if it doesn't exist
+    if (indices) {
+      this.triangles = [Array.from(indices), []];
+    } else {
+      // Create sequential indices for non-indexed geometry
+      const vertexCount = positions.length / 3;
+      this.triangles = [Array.from({ length: vertexCount }, (_, i) => i), []];
+    }
     this.calculateBounds();
   }
 

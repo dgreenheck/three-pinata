@@ -21,6 +21,7 @@ import { FilmShader } from "three/examples/jsm/shaders/FilmShader.js";
 
 import gridUrl from "./assets/grid.png";
 import envMapUrl from "./assets/autumn_field_puresky_4k.jpg";
+import { film } from "three/examples/jsm/tsl/display/FilmNode.js";
 
 const RAPIER = await import("@dimforge/rapier3d");
 
@@ -84,6 +85,7 @@ composer.addPass(vignettePass);
 
 // Film/noise pass
 const filmPass = new ShaderPass(FilmShader);
+filmPass.uniforms["intensity"].value = 0.1;
 composer.addPass(filmPass);
 
 // Controls setup
@@ -273,7 +275,13 @@ async function switchScene(sceneType: string): Promise<void> {
   // Initialize the new scene
   if (currentScene) {
     await currentScene.init();
-    currentScene.setupUI();
+    sceneFolder = currentScene.setupUI();
+
+    // Update instructions
+    const instructionsElement = document.getElementById("instructions");
+    if (instructionsElement) {
+      instructionsElement.textContent = currentScene.getInstructions();
+    }
   }
 }
 

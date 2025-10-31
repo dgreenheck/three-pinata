@@ -1,16 +1,14 @@
 import * as THREE from "three";
-import { BaseScene } from "./BaseScene";
+import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
   VoronoiFractureOptions,
 } from "@dgreenheck/three-pinata";
 
-type PrimitiveType = "cube" | "sphere" | "cylinder" | "torus" | "torusKnot";
-
 /**
  * Smashing Object Demo
- * - Pick a primitive shape
- * - Object hovers and rotates
+ * - Pick a primitive shape on the floor
+ * - Hover to preview impact area
  * - Click to fracture
  * - Configurable fracture options
  */
@@ -28,27 +26,52 @@ export class SmashingScene extends BaseScene {
   private settings = {
     primitiveType: "cube" as PrimitiveType,
     useImpactPoint: true,
+    impactRadius: 1.0,
     preFracture: false,
   };
 
+  private impactMarker: THREE.Mesh | null = null;
+  private radiusMarker: THREE.Mesh | null = null;
   private hasSmashed = false;
-  private hoverHeight = 3;
-  private rotationSpeed = 0.5;
 
   async init(): Promise<void> {
     // Setup camera
     this.camera.position.set(5, 4, 8);
-    this.controls.target.set(0, 3, 0);
+    this.controls.target.set(0, 1, 0);
     this.controls.update();
 
     // Create materials
     this.objectMaterial = this.createMaterial(0xff6644);
     this.insideMaterial = this.createInsideMaterial(0xdddddd);
 
+    // Create impact marker (hidden initially)
+    const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+    const markerMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff0000,
+      transparent: true,
+      opacity: 0.7,
+    });
+    this.impactMarker = new THREE.Mesh(markerGeometry, markerMaterial);
+    this.impactMarker.visible = false;
+    this.scene.add(this.impactMarker);
+
+    // Create radius marker (wireframe sphere)
+    const radiusGeometry = new THREE.SphereGeometry(1, 16, 16);
+    const radiusMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff0000,
+      transparent: true,
+      opacity: 0.3,
+      wireframe: true,
+    });
+    this.radiusMarker = new THREE.Mesh(radiusGeometry, radiusMaterial);
+    this.radiusMarker.visible = false;
+    this.scene.add(this.radiusMarker);
+
     // Create initial object
     this.createObject();
 
-    // Add click listener
+    // Add event listeners
+    window.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("click", this.onMouseClick);
   }
 
@@ -60,11 +83,19 @@ export class SmashingScene extends BaseScene {
     }
 
     // Create the primitive
-    const mesh = this.createPrimitive(this.settings.primitiveType, this.objectMaterial);
+    const mesh = this.createPrimitive(
+      this.settings.primitiveType,
+      this.objectMaterial,
+    );
 
     this.object = new DestructibleMesh(mesh.geometry, this.objectMaterial);
     this.object.mesh.castShadow = true;
-    this.object.position.set(0, this.hoverHeight, 0);
+
+    // Position on floor - calculate height based on bounding box
+    const bbox = new THREE.Box3().setFromObject(mesh);
+    const height = (bbox.max.y - bbox.min.y) / 2;
+    this.object.position.set(0, height, 0);
+
     this.scene.add(this.object);
 
     this.hasSmashed = false;
@@ -91,10 +122,47 @@ export class SmashingScene extends BaseScene {
           collider: "convexHull",
           restitution: 0.3,
         });
-        body.sleep();
+        if (body) {
+          body.sleep();
+        }
       },
     );
   }
+
+  private onMouseMove = (event: MouseEvent): void => {
+    if (this.hasSmashed || !this.object) return;
+
+    // Calculate mouse position in normalized device coordinates
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Raycast to find intersection with object
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const intersects = this.raycaster.intersectObject(this.object.mesh, false);
+
+    if (intersects.length > 0) {
+      const intersectionPoint = intersects[0].point;
+
+      // Show impact marker and radius visualization
+      if (
+        this.settings.useImpactPoint &&
+        this.impactMarker &&
+        this.radiusMarker
+      ) {
+        this.impactMarker.position.copy(intersectionPoint);
+        this.impactMarker.visible = true;
+
+        // Position and scale the radius marker
+        this.radiusMarker.position.copy(intersectionPoint);
+        this.radiusMarker.scale.setScalar(this.settings.impactRadius);
+        this.radiusMarker.visible = true;
+      }
+    } else {
+      // Hide markers when not hovering over object
+      if (this.impactMarker) this.impactMarker.visible = false;
+      if (this.radiusMarker) this.radiusMarker.visible = false;
+    }
+  };
 
   private onMouseClick = (event: MouseEvent): void => {
     if (this.hasSmashed || !this.object) return;
@@ -105,10 +173,7 @@ export class SmashingScene extends BaseScene {
 
     // Raycast to find intersection
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObject(
-      this.object.mesh,
-      false,
-    );
+    const intersects = this.raycaster.intersectObject(this.object.mesh, false);
 
     if (intersects.length > 0) {
       const intersectionPoint = intersects[0].point;
@@ -120,17 +185,6 @@ export class SmashingScene extends BaseScene {
           const body = this.physics.getBody(fragment);
           if (body) {
             body.wakeUp();
-
-            // Add impulse away from impact point
-            if (this.settings.useImpactPoint) {
-              const fragmentPos = fragment.position.clone();
-              const direction = fragmentPos.sub(localPoint).normalize();
-              const impulse = direction.multiplyScalar(2);
-              body.rigidBody.applyImpulse(
-                { x: impulse.x, y: impulse.y, z: impulse.z },
-                true,
-              );
-            }
           }
         });
       } else {
@@ -138,58 +192,58 @@ export class SmashingScene extends BaseScene {
         this.fractureOptions.impactPoint = this.settings.useImpactPoint
           ? localPoint
           : undefined;
+        this.fractureOptions.impactRadius = this.settings.useImpactPoint
+          ? this.settings.impactRadius
+          : undefined;
 
-        this.object.fracture(
-          this.fractureOptions,
-          false,
-          (fragment) => {
-            fragment.material = [this.objectMaterial, this.insideMaterial];
-            fragment.castShadow = true;
+        this.object.fracture(this.fractureOptions, false, (fragment) => {
+          fragment.material = [this.objectMaterial, this.insideMaterial];
+          fragment.castShadow = true;
 
-            // Add physics
-            const body = this.physics.add(fragment, {
-              type: "dynamic",
-              collider: "convexHull",
-              restitution: 0.3,
-            });
-
-            // Add small random impulse
-            const impulse = new THREE.Vector3(
-              (Math.random() - 0.5) * 1,
-              Math.random() * 0.5,
-              (Math.random() - 0.5) * 1,
-            );
-            body.rigidBody.applyImpulse(
-              { x: impulse.x, y: impulse.y, z: impulse.z },
-              true,
-            );
-          },
-        );
+          // Add physics
+          this.physics.add(fragment, {
+            type: "dynamic",
+            collider: "convexHull",
+            restitution: 0.3,
+          });
+        });
       }
 
       this.hasSmashed = true;
+
+      // Hide markers after smashing
+      if (this.impactMarker) this.impactMarker.visible = false;
+      if (this.radiusMarker) this.radiusMarker.visible = false;
     }
   };
 
   update(deltaTime: number): void {
-    // Rotate object if not smashed
-    if (!this.hasSmashed && this.object) {
-      this.object.rotation.y += deltaTime * this.rotationSpeed;
-
-      // Add subtle hover animation
-      const time = this.clock.getElapsedTime();
-      this.object.position.y = this.hoverHeight + Math.sin(time * 2) * 0.1;
-    }
+    // No per-frame updates needed
   }
 
-  setupUI(): void {
-    const folder = this.pane.addFolder({ title: "Smashing Object", expanded: true });
+  getInstructions(): string {
+    return `SMASHING OBJECT
+
+• Choose a primitive shape
+• Hover to preview impact area
+• Click on object to fracture it
+• Toggle 2.5D vs 3D fracturing
+• Pre-fracture for frozen fragments
+• Adjust fragment count and impact radius`;
+  }
+
+  setupUI(): any {
+    const folder = this.pane.addFolder({
+      title: "Smashing Object",
+      expanded: true,
+    });
 
     folder
       .addBinding(this.settings, "primitiveType", {
         options: {
           Cube: "cube",
           Sphere: "sphere",
+          Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
           "Torus Knot": "torusKnot",
@@ -219,6 +273,13 @@ export class SmashingScene extends BaseScene {
       label: "Impact Point",
     });
 
+    folder.addBinding(this.settings, "impactRadius", {
+      min: 0.5,
+      max: 3.0,
+      step: 0.1,
+      label: "Impact Radius",
+    });
+
     folder
       .addBinding(this.settings, "preFracture", {
         label: "Pre-Fracture",
@@ -230,20 +291,52 @@ export class SmashingScene extends BaseScene {
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
+
+    return folder;
   }
 
   reset(): void {
+    // Clear all physics first
+    this.clearPhysics();
+
+    // Hide markers
+    if (this.impactMarker) {
+      this.impactMarker.visible = false;
+    }
+    if (this.radiusMarker) {
+      this.radiusMarker.visible = false;
+    }
+
+    // Re-add ground physics
+    this.setupGroundPhysics();
+
+    // Recreate object
     this.createObject();
   }
 
   dispose(): void {
-    // Remove click listener
+    // Remove event listeners
+    window.removeEventListener("mousemove", this.onMouseMove);
     window.removeEventListener("click", this.onMouseClick);
 
     // Remove object
     if (this.object) {
       this.scene.remove(this.object);
       this.object.dispose();
+    }
+
+    // Remove impact marker
+    if (this.impactMarker) {
+      this.scene.remove(this.impactMarker);
+      this.impactMarker.geometry.dispose();
+      (this.impactMarker.material as THREE.Material).dispose();
+    }
+
+    // Remove radius marker
+    if (this.radiusMarker) {
+      this.scene.remove(this.radiusMarker);
+      this.radiusMarker.geometry.dispose();
+      (this.radiusMarker.material as THREE.Material).dispose();
     }
   }
 }
