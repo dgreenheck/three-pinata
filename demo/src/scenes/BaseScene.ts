@@ -112,13 +112,13 @@ export abstract class BaseScene {
    * Create a standard material with given color
    */
   protected createMaterial(
-    color: number = 0x4488ff,
-  ): THREE.MeshStandardMaterial {
-    return new THREE.MeshStandardMaterial({
+    color: number = 0xa0ffff,
+  ): THREE.MeshPhysicalMaterial {
+    return new THREE.MeshPhysicalMaterial({
       color,
-      roughness: 0.4,
-      metalness: 0.1,
-      envMapIntensity: 1.0,
+      roughness: 0.1,
+      metalness: 0.8,
+      envMapIntensity: 2.0,
     });
   }
 
@@ -128,10 +128,11 @@ export abstract class BaseScene {
   protected createInsideMaterial(
     color: number = 0xcccccc,
   ): THREE.MeshStandardMaterial {
-    return new THREE.MeshStandardMaterial({
+    return new THREE.MeshPhysicalMaterial({
       color,
-      roughness: 0.5,
-      metalness: 0.0,
+      roughness: 0.1,
+      metalness: 0.8,
+      envMapIntensity: 2.0,
     });
   }
 

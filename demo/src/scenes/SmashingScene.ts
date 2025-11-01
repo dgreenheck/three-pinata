@@ -36,7 +36,7 @@ export class SmashingScene extends BaseScene {
 
   async init(): Promise<void> {
     // Setup camera
-    this.camera.position.set(5, 4, 8);
+    this.camera.position.set(7, 3, -4);
     this.controls.target.set(0, 1, 0);
     this.controls.update();
 
