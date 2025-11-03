@@ -59,7 +59,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     await this.loadTorusModel();
 
     // Create and pre-fracture object
-    await this.createObject();
+    this.createObject();
 
     // Setup collision detection
     this.physics.onCollision = this.onCollision;
@@ -86,8 +86,10 @@ export class ProgressiveDestructionScene extends BaseScene {
               // Ensure geometry has UVs (required for fracturing)
               if (!geometry.attributes.uv) {
                 // Create simple planar UV mapping as fallback
-                const uvs = new Float32Array(geometry.attributes.position.count * 2);
-                geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+                const uvs = new Float32Array(
+                  geometry.attributes.position.count * 2,
+                );
+                geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
               }
 
               // Compute bounding sphere/box
@@ -95,7 +97,7 @@ export class ProgressiveDestructionScene extends BaseScene {
               geometry.computeBoundingSphere();
 
               this.torusGeometry = geometry;
-              console.log('Loaded torus geometry:', geometry);
+              console.log("Loaded torus geometry:", geometry);
             }
           });
           resolve();
@@ -106,7 +108,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     });
   }
 
-  private async createObject(): Promise<void> {
+  private createObject(): void {
     // Create the primitive or use loaded torus geometry
     let geometry: THREE.BufferGeometry;
 
@@ -133,6 +135,8 @@ export class ProgressiveDestructionScene extends BaseScene {
     this.object.mesh.castShadow = true;
     this.object.position.set(0, 3, 0);
     this.scene.add(this.object);
+
+    console.log("Created new DestructibleMesh, starting fracture...");
 
     // Pre-fracture and freeze
     if (this.settings.fractureMethod === "Voronoi") {
@@ -235,7 +239,11 @@ export class ProgressiveDestructionScene extends BaseScene {
     this.object.mesh.visible = false;
 
     console.log(
-      `Created ${this.object.fragments.length} fragments successfully`,
+      `Fracture complete! Created ${this.object.fragments.length} fragments`,
+    );
+    console.log(
+      "Fragments are children of object:",
+      this.object.children.length,
     );
   }
 
@@ -413,13 +421,21 @@ export class ProgressiveDestructionScene extends BaseScene {
   }
 
   async reset(): Promise<void> {
+    console.log("=== RESET STARTED ===");
+
     // Clear all physics first
     this.clearPhysics();
 
     // Remove old object
     if (this.object) {
+      console.log(
+        "Removing old object with",
+        this.object.fragments.length,
+        "fragments",
+      );
       this.scene.remove(this.object);
       this.object.dispose();
+      this.object = null;
     }
 
     // Remove current ball
@@ -437,7 +453,9 @@ export class ProgressiveDestructionScene extends BaseScene {
     this.setupGroundPhysics();
 
     // Recreate object
-    await this.createObject();
+    console.log("Creating new object...");
+    this.createObject();
+    console.log("=== RESET COMPLETE ===");
   }
 
   dispose(): void {

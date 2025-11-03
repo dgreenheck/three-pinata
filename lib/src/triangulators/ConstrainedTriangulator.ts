@@ -513,7 +513,7 @@ export class ConstrainedTriangulator extends Triangulator {
       while (frontier.length > 0) {
         const k = frontier.shift();
 
-        if (!k || k === OUT_OF_BOUNDS || visited[k]) {
+        if (k === undefined || k === OUT_OF_BOUNDS || visited[k]) {
           continue;
         }
 

@@ -113,17 +113,6 @@ export class PhysicsWorld {
           geometry.computeBoundingBox();
         }
         const bbox = geometry.boundingBox;
-        if (bbox) {
-          const size = new THREE.Vector3();
-          bbox.getSize(size);
-          if (size.x < 0.01 || size.y < 0.01 || size.z < 0.01) {
-            console.warn(
-              "Geometry too small for physics (degenerate), skipping physics",
-            );
-            this.world.removeRigidBody(rigidBody);
-            return null as any;
-          }
-        }
 
         // Try to create convex hull with error handling
         try {
