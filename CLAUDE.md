@@ -51,3 +51,69 @@ boundaries.add(hashi2(constraint.v2, constraint.v1)); // ❌ WRONG
 - Breaks the "two separate triangles" test
 - The algorithm relies on directional edge matching - the direction determines which side is "inside"
 - Adding both directions defeats the purpose of winding order
+
+---
+
+## CRITICAL: Do NOT Use Static Storage for Data Collection ❌
+
+### Issue #3: Static Accumulators Lose Data
+
+**Problem**: Using static class properties to accumulate data across multiple instances does NOT work reliably. Data gets saved to the accumulator but is lost before it can be retrieved.
+
+**Examples of what NOT to do**:
+```typescript
+// ❌ WRONG - Static storage
+class MyClass {
+  private static dataAccumulator: SomeData[] = [];
+
+  static getAndClearData(): SomeData[] {
+    const result = [...this.dataAccumulator];
+    this.dataAccumulator = [];
+    return result;
+  }
+
+  constructor() {
+    // Add data to static accumulator
+    MyClass.dataAccumulator.push(someData);
+  }
+}
+```
+
+**Why this fails**:
+- Data gets cleared at unexpected times
+- Multiple fracturing operations may interfere with each other
+- Timing issues between when data is accumulated and when it's retrieved
+- No guaranteed execution order
+
+**Correct approaches**:
+1. **Instance properties**: Store data as instance properties and return it directly
+2. **Callbacks**: Pass a callback function to collect data as it's generated
+3. **Return values**: Return data structures that include the collected information
+4. **Event emitters**: Use an event system to emit data as it's collected
+
+**Example - Correct approach using instance property**:
+```typescript
+class MyClass {
+  // ✅ CORRECT - Instance property
+  invalidVertices: SomeData[] = [];
+
+  constructor() {
+    // Store in instance property
+    this.invalidVertices.push(someData);
+  }
+}
+
+// Retrieve from instance
+const instance = new MyClass();
+const data = instance.invalidVertices;
+```
+
+**Example - Correct approach using callback**:
+```typescript
+function processData(onDataFound?: (data: SomeData) => void) {
+  // When data is found, call callback immediately
+  if (onDataFound) {
+    onDataFound(someData);
+  }
+}
+```

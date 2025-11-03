@@ -36,12 +36,19 @@ export class FractureOptions {
    */
   public textureOffset: Vector2 = new Vector2();
 
+  /**
+   * Seed value for random number generation. If not specified, a random seed will be generated.
+   * Using the same seed will produce the same fracture pattern for reproducibility.
+   */
+  public seed?: number;
+
   constructor({
     fragmentCount,
     fracturePlanes,
     fractureMode,
     textureScale,
     textureOffset,
+    seed,
   }: {
     fragmentCount?: number;
     fracturePlanes?: {
@@ -52,6 +59,7 @@ export class FractureOptions {
     fractureMode?: "Convex" | "Non-Convex";
     textureScale?: Vector2;
     textureOffset?: Vector2;
+    seed?: number;
   } = {}) {
     if (fragmentCount) {
       this.fragmentCount = fragmentCount;
@@ -71,6 +79,10 @@ export class FractureOptions {
 
     if (textureOffset) {
       this.textureOffset = textureOffset;
+    }
+
+    if (seed !== undefined) {
+      this.seed = seed;
     }
   }
 }

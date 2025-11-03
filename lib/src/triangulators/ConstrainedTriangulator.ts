@@ -14,6 +14,45 @@ const E12 = 3; // Adjacency data for edge (V1 -> V2)
 const E23 = 4; // Adjacency data for edge (V2 -> V3)
 const E31 = 5; // Adjacency data for edge (V3 -> V1)
 
+// Torus parameters for debugging
+// Torus lies in X-Y plane (horizontal), with Z-axis going through the center
+const TORUS_MAJOR_RADIUS = 1.0; // Distance from center to tube center
+const TORUS_MINOR_RADIUS = 0.35; // Tube radius
+const TORUS_TOLERANCE = 0.001; // Tolerance for detecting torus vertices
+
+/**
+ * Checks if a vertex is inside or on the torus volume
+ * For a torus in the X-Y plane:
+ * - Distance from Z-axis: d = sqrt(x^2 + y^2)
+ * - Distance from torus center circle: torusDistance = sqrt((d - R)^2 + z^2)
+ *
+ * A vertex is valid if:
+ * 1. It's within the tube: torusDistance <= r
+ * 2. It's not in the hole: d >= (R - r)
+ */
+function isInsideTorusVolume(vertex: Vector3): boolean {
+  const x = vertex.x;
+  const y = vertex.y;
+  const z = vertex.z;
+
+  // Calculate distance from Z-axis (in X-Y plane)
+  const distanceFromAxis = Math.sqrt(x * x + y * y);
+
+  // Check if vertex is in the hole (inside the inner ring)
+  const innerRadius = TORUS_MAJOR_RADIUS - TORUS_MINOR_RADIUS;
+  if (distanceFromAxis < innerRadius - TORUS_TOLERANCE) {
+    return false; // In the hole
+  }
+
+  // Calculate distance from the torus center circle
+  const torusDistance = Math.sqrt(
+    Math.pow(distanceFromAxis - TORUS_MAJOR_RADIUS, 2) + z * z,
+  );
+
+  // Check if vertex is within the tube (with tolerance)
+  return torusDistance <= TORUS_MINOR_RADIUS + TORUS_TOLERANCE;
+}
+
 /**
  * Index for out of bounds triangle (boundary edge)
  */
@@ -24,6 +63,18 @@ const OUT_OF_BOUNDS = -1;
  * Supports convex and non-convex polygons as well as polygons with holes.
  */
 export class ConstrainedTriangulator extends Triangulator {
+  /**
+   * Instance storage for invalid vertices found during this triangulation
+   */
+  invalidVertices: Array<{
+    index: number;
+    position: Vector3;
+    location: string;
+    distFromAxis: number;
+    torusDistance: number;
+    planeNormal: Vector3;
+  }> = [];
+
   /**
    * Given an edge E12, E23, E31, this returns the first vertex for that edge (V1, V2, V3, respectively)
    */
@@ -75,6 +126,39 @@ export class ConstrainedTriangulator extends Triangulator {
     super(inputPoints, normal);
     this.constraints = constraints;
     this.vertexTriangles = [];
+
+    // Debug: Check for vertices outside the torus volume and accumulate them
+    // NOTE: This check happens BEFORE coordinate normalization, on the original 3D positions
+    // Vertices are in the fragment's local coordinate space (NOT world space)
+    // The torus is assumed to be centered at origin in X-Y plane (Z-axis vertical)
+
+    for (let i = 0; i < inputPoints.length; i++) {
+      if (!isInsideTorusVolume(inputPoints[i].position)) {
+        const pos = inputPoints[i].position;
+        const distanceFromAxis = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+        const innerRadius = TORUS_MAJOR_RADIUS - TORUS_MINOR_RADIUS;
+        const torusDistance = Math.sqrt(
+          Math.pow(distanceFromAxis - TORUS_MAJOR_RADIUS, 2) + pos.z * pos.z,
+        );
+
+        let location = "";
+        if (distanceFromAxis < innerRadius - TORUS_TOLERANCE) {
+          location = "IN HOLE";
+        } else if (torusDistance > TORUS_MINOR_RADIUS + TORUS_TOLERANCE) {
+          location = "OUTSIDE TUBE";
+        }
+
+        // Store in instance property
+        this.invalidVertices.push({
+          index: i,
+          position: pos.clone(),
+          location,
+          distFromAxis: distanceFromAxis,
+          torusDistance,
+          planeNormal: normal.clone(),
+        });
+      }
+    }
   }
 
   /**

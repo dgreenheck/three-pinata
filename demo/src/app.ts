@@ -21,7 +21,6 @@ import { FilmShader } from "three/examples/jsm/shaders/FilmShader.js";
 
 import gridUrl from "./assets/grid.png";
 import envMapUrl from "./assets/autumn_field_puresky_4k.jpg";
-import { film } from "three/examples/jsm/tsl/display/FilmNode.js";
 
 const RAPIER = await import("@dimforge/rapier3d");
 
@@ -113,7 +112,7 @@ tweakpaneElement.parentElement!.style.width = "300px";
 
 // App settings
 const appSettings = {
-  scene: "glass" as "glass" | "smashing" | "progressive" | "slicing",
+  scene: "progressive" as "glass" | "smashing" | "progressive" | "slicing",
   postProcessing: true,
 };
 

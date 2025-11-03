@@ -4,6 +4,7 @@ import { Fragment } from "../entities/Fragment";
 import { sliceFragment } from "./SliceFragment";
 import { UnionFind } from "../utils/UnionFind";
 import { hash3 } from "../utils/MathUtils";
+import { SeededRandom } from "../utils/SeededRandom";
 
 /**
  * Takes in raw geometry data and fractures it into multiple fragments
@@ -39,6 +40,16 @@ export function fractureFragment(
   fragment: Fragment,
   options: FractureOptions,
 ): Fragment[] {
+  // Create seeded random number generator
+  const rng = new SeededRandom(options.seed);
+  const seed = rng.getSeed();
+  console.log(`[Fracture] Using seed: ${seed}`);
+
+  // Store the seed back in options if it was auto-generated
+  if (options.seed === undefined) {
+    options.seed = seed;
+  }
+
   const fragments: Fragment[] = [fragment];
 
   // Subdivide the mesh into multiple fragments until we reach the fragment limit
@@ -49,9 +60,9 @@ export function fractureFragment(
 
     // Select an arbitrary fracture plane normal
     const normal = new Vector3(
-      options.fracturePlanes.x ? 2.0 * Math.random() - 1 : 0,
-      options.fracturePlanes.y ? 2.0 * Math.random() - 1 : 0,
-      options.fracturePlanes.z ? 2.0 * Math.random() - 1 : 0,
+      options.fracturePlanes.x ? 2.0 * rng.random() - 1 : 0,
+      options.fracturePlanes.y ? 2.0 * rng.random() - 1 : 0,
+      options.fracturePlanes.z ? 2.0 * rng.random() - 1 : 0,
     ).normalize();
 
     const center = new Vector3();

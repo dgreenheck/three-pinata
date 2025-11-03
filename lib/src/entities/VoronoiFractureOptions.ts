@@ -88,6 +88,33 @@ export class VoronoiFractureOptions {
    */
   public textureOffset: Vector2 = new Vector2();
 
+  /**
+   * Seed value for random number generation. If not specified, a random seed will be generated.
+   * Using the same seed will produce the same fracture pattern for reproducibility.
+   */
+  public seed?: number;
+
+  /**
+   * Remove degenerate edge constraints (edges where both vertices are the same after welding).
+   * When enabled, degenerate edges are filtered out while preserving edge graph connectivity.
+   * This can help prevent triangulation issues caused by zero-length constraints.
+   * Default: false
+   */
+  public removeDegenerateEdges: boolean = false;
+
+  /**
+   * Callback function to receive invalid vertices found during triangulation.
+   * This is useful for debugging and visualization of vertices that fall outside the expected geometry.
+   */
+  public onInvalidVertex?: (data: {
+    index: number;
+    position: Vector3;
+    location: string;
+    distFromAxis: number;
+    torusDistance: number;
+    planeNormal: Vector3;
+  }) => void;
+
   constructor({
     fragmentCount,
     mode,
@@ -102,6 +129,9 @@ export class VoronoiFractureOptions {
     detectIsolatedFragments,
     textureScale,
     textureOffset,
+    seed,
+    removeDegenerateEdges,
+    onInvalidVertex,
   }: {
     fragmentCount?: number;
     mode?: "3D" | "2.5D";
@@ -116,6 +146,16 @@ export class VoronoiFractureOptions {
     detectIsolatedFragments?: boolean;
     textureScale?: Vector2;
     textureOffset?: Vector2;
+    seed?: number;
+    removeDegenerateEdges?: boolean;
+    onInvalidVertex?: (data: {
+      index: number;
+      position: Vector3;
+      location: string;
+      distFromAxis: number;
+      torusDistance: number;
+      planeNormal: Vector3;
+    }) => void;
   } = {}) {
     if (fragmentCount !== undefined) {
       this.fragmentCount = fragmentCount;
@@ -167,6 +207,18 @@ export class VoronoiFractureOptions {
 
     if (textureOffset !== undefined) {
       this.textureOffset = textureOffset;
+    }
+
+    if (seed !== undefined) {
+      this.seed = seed;
+    }
+
+    if (removeDegenerateEdges !== undefined) {
+      this.removeDegenerateEdges = removeDegenerateEdges;
+    }
+
+    if (onInvalidVertex !== undefined) {
+      this.onInvalidVertex = onInvalidVertex;
     }
   }
 }

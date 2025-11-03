@@ -1,6 +1,6 @@
 import { Vector2, Vector3 } from "three";
 import { Fragment } from "../entities/Fragment";
-import { sliceFragment } from "./SliceFragment";
+import { sliceFragment, InvalidVertexCallback } from "./SliceFragment";
 
 /**
  * Represents a bisecting plane between two Voronoi seed points
@@ -53,6 +53,7 @@ export function computeBisectingPlane(
  * @param textureScale Texture scale for cut faces
  * @param textureOffset Texture offset for cut faces
  * @param convex Whether to use convex triangulation mode
+ * @param removeDegenerateEdges If true, removes edge constraints where v1 === v2 after welding
  * @returns The computed Voronoi cell fragment, or null if the cell is empty
  */
 export function computeVoronoiCell(
@@ -63,6 +64,8 @@ export function computeVoronoiCell(
   textureScale: Vector2,
   textureOffset: Vector2,
   convex: boolean,
+  removeDegenerateEdges: boolean = false,
+  onInvalidVertex?: InvalidVertexCallback,
 ): Fragment | null {
   let cell = fragment;
   const thisSeed = seeds[seedIndex];
@@ -86,6 +89,8 @@ export function computeVoronoiCell(
       textureScale,
       textureOffset,
       convex,
+      removeDegenerateEdges,
+      onInvalidVertex,
     );
 
     // Keep the half-space closer to our seed (opposite direction of normal)

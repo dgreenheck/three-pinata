@@ -6,6 +6,7 @@ import { computeVoronoiCell, findKNearestNeighbors } from "./VoronoiCell";
 import { geometryToFragment, fragmentToGeometry } from "../utils/GeometryConversion";
 import { Fragment } from "../entities/Fragment";
 import { findIsolatedGeometry } from "./FractureFragment";
+import { SeededRandom } from "../utils/SeededRandom";
 
 /**
  * Fractures a mesh using Voronoi tessellation.
@@ -19,6 +20,16 @@ export function voronoiFracture(
   geometry: THREE.BufferGeometry,
   options: VoronoiFractureOptions,
 ): THREE.BufferGeometry[] {
+  // Create seeded random number generator
+  const rng = new SeededRandom(options.seed);
+  const seed = rng.getSeed();
+  console.log(`[Voronoi Fracture] Using seed: ${seed}`);
+
+  // Store the seed back in options if it was auto-generated
+  if (options.seed === undefined) {
+    options.seed = seed;
+  }
+
   // Convert input geometry to internal fragment representation
   const sourceFragment = geometryToFragment(geometry);
 
@@ -26,9 +37,9 @@ export function voronoiFracture(
   let fragments: Fragment[];
 
   if (options.mode === "3D") {
-    fragments = voronoiFracture3D(sourceFragment, options);
+    fragments = voronoiFracture3D(sourceFragment, options, rng);
   } else {
-    fragments = voronoiFracture2D(sourceFragment, options);
+    fragments = voronoiFracture2D(sourceFragment, options, rng);
   }
 
   // Convert fragments back to THREE.BufferGeometry
@@ -45,9 +56,10 @@ export function voronoiFracture(
 function voronoiFracture3D(
   sourceFragment: Fragment,
   options: VoronoiFractureOptions,
+  rng: SeededRandom,
 ): Fragment[] {
   // Step 1: Generate or use provided seed points
-  const seeds = generateSeeds(sourceFragment, options);
+  const seeds = generateSeeds(sourceFragment, options, rng);
 
   // Step 2: Compute Voronoi cells for each seed
   const fragments: Fragment[] = [];
@@ -86,6 +98,8 @@ function voronoiFracture3D(
       options.textureScale,
       options.textureOffset,
       convex,
+      options.removeDegenerateEdges,
+      options.onInvalidVertex,
     );
 
     // Only add non-empty cells
@@ -100,6 +114,7 @@ function voronoiFracture3D(
     }
   }
 
+
   return fragments;
 }
 
@@ -113,6 +128,7 @@ function voronoiFracture3D(
 function voronoiFracture2D(
   sourceFragment: Fragment,
   options: VoronoiFractureOptions,
+  rng: SeededRandom,
 ): Fragment[] {
   // Calculate bounds
   sourceFragment.calculateBounds();
@@ -165,12 +181,14 @@ function voronoiFracture2D(
       options.impactPoint,
       radius,
       axis as "x" | "y" | "z",
+      rng,
     );
   } else {
     seeds = SeedPointGenerator.generate2D(
       sourceFragment.bounds,
       options.fragmentCount,
       axis as "x" | "y" | "z",
+      rng,
     );
   }
 
@@ -210,6 +228,8 @@ function voronoiFracture2D(
       options.textureScale,
       options.textureOffset,
       convex,
+      options.removeDegenerateEdges,
+      options.onInvalidVertex,
     );
 
     if (cell && cell.vertexCount > 0) {
@@ -222,6 +242,7 @@ function voronoiFracture2D(
       }
     }
   }
+
 
   return fragments;
 }
@@ -236,6 +257,7 @@ function voronoiFracture2D(
 function generateSeeds(
   fragment: Fragment,
   options: VoronoiFractureOptions,
+  rng: SeededRandom,
 ): Vector3[] {
   // Use provided seeds if available
   if (options.seedPoints && options.seedPoints.length > 0) {
@@ -261,11 +283,13 @@ function generateSeeds(
       options.fragmentCount,
       options.impactPoint,
       radius,
+      rng,
     );
   } else {
     return SeedPointGenerator.generateUniform(
       fragment.bounds,
       options.fragmentCount,
+      rng,
     );
   }
 }

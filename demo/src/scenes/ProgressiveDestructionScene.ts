@@ -23,9 +23,20 @@ export class ProgressiveDestructionScene extends BaseScene {
   private currentBall: THREE.Mesh | null = null;
   private gltfLoader = new GLTFLoader();
   private torusGeometry: THREE.BufferGeometry | null = null;
+  private axesHelper!: THREE.AxesHelper;
+  private invalidVertices: THREE.Group | null = null;
+  private invalidVertexData: Array<{
+    index: number;
+    position: THREE.Vector3;
+    location: string;
+    distFromAxis: number;
+    torusDistance: number;
+    planeNormal: THREE.Vector3;
+  }> = [];
   private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
+    detectIsolatedFragments: false,
   });
   private radialFractureOptions = new FractureOptions({
     fragmentCount: 50,
@@ -33,10 +44,15 @@ export class ProgressiveDestructionScene extends BaseScene {
   });
 
   private settings = {
-    primitiveType: "cube" as PrimitiveType,
-    wireframe: false,
+    primitiveType: "torus" as PrimitiveType,
+    wireframe: true,
     fractureMethod: "Voronoi" as "Voronoi" | "Radial",
-    fragmentCount: 50,
+    fragmentCount: 13,
+    useSeed: true,
+    seedValue: 500971097,
+    lastUsedSeed: 0, // Will be set after fracturing
+    showAxes: true,
+    showInvalidVertices: true,
   };
 
   private collisionHandled = new WeakSet<THREE.Mesh>();
@@ -46,6 +62,11 @@ export class ProgressiveDestructionScene extends BaseScene {
     this.camera.position.set(4, 5, 7);
     this.controls.target.set(0, 3, 0);
     this.controls.update();
+
+    // Create axes helper (X: red, Y: green, Z: blue)
+    this.axesHelper = new THREE.AxesHelper(5);
+    this.axesHelper.visible = this.settings.showAxes;
+    this.scene.add(this.axesHelper);
 
     // Create materials
     this.objectMaterial = this.createMaterial(0x44aaff);
@@ -128,6 +149,19 @@ export class ProgressiveDestructionScene extends BaseScene {
 
     // Pre-fracture and freeze
     if (this.settings.fractureMethod === "Voronoi") {
+      // Set seed if using custom seed
+      if (this.settings.useSeed) {
+        this.voronoiFractureOptions.seed = this.settings.seedValue;
+      } else {
+        this.voronoiFractureOptions.seed = undefined;
+      }
+
+      // Clear previous invalid vertex data and set up callback
+      this.invalidVertexData = [];
+      this.voronoiFractureOptions.onInvalidVertex = (data) => {
+        this.invalidVertexData.push(data);
+      };
+
       this.object.fracture(
         this.voronoiFractureOptions,
         true, // freeze
@@ -158,8 +192,17 @@ export class ProgressiveDestructionScene extends BaseScene {
           }
         },
       );
+      // Capture the seed value after fracturing
+      this.settings.lastUsedSeed = this.voronoiFractureOptions.seed || 0;
     } else {
       // Radial fracture method
+      // Set seed if using custom seed
+      if (this.settings.useSeed) {
+        this.radialFractureOptions.seed = this.settings.seedValue;
+      } else {
+        this.radialFractureOptions.seed = undefined;
+      }
+
       const fragmentGeometries = fracture(
         this.object.mesh.geometry,
         this.radialFractureOptions,
@@ -211,10 +254,67 @@ export class ProgressiveDestructionScene extends BaseScene {
           console.error("Error adding physics to fragment:", error);
         }
       });
+      // Capture the seed value after fracturing
+      this.settings.lastUsedSeed = this.radialFractureOptions.seed || 0;
     }
 
     // Hide the original mesh immediately (fragments are now visible)
     this.object.mesh.visible = false;
+
+    // Visualize invalid vertices detected during triangulation
+    this.createInvalidVertexVisualization();
+  }
+
+  private createInvalidVertexVisualization(): void {
+    // Remove old invalid vertex markers if they exist
+    if (this.invalidVertices) {
+      this.scene.remove(this.invalidVertices);
+      this.invalidVertices.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          (child.material as THREE.Material).dispose();
+        }
+      });
+      this.invalidVertices = null;
+    }
+
+    // Use the invalid vertices collected via callback
+    if (this.invalidVertexData.length === 0 || !this.object) {
+      console.log("[Invalid Vertices] No invalid vertices detected");
+      return;
+    }
+
+    console.log(
+      `[Invalid Vertices] Detected ${this.invalidVertexData.length} vertices outside torus volume`,
+    );
+
+    // Create visual markers for invalid vertices
+    this.invalidVertices = new THREE.Group();
+    const markerGeometry = new THREE.SphereGeometry(0.01, 12, 12);
+    const markerMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff0000, // Red color for invalid vertices
+      transparent: true,
+      opacity: 0.9,
+    });
+
+    this.invalidVertexData.forEach((data, index) => {
+      const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+      marker.position.copy(data.position);
+      this.invalidVertices!.add(marker);
+
+      // Log detailed information
+      console.log(
+        `  [${index}] Position: (${data.position.x.toFixed(3)}, ${data.position.y.toFixed(3)}, ${data.position.z.toFixed(3)}) ` +
+          `Location: ${data.location}, ` +
+          `Distance from axis: ${data.distFromAxis.toFixed(3)}, ` +
+          `Torus distance: ${data.torusDistance.toFixed(3)}`,
+      );
+    });
+
+    // Position markers group at the same location as the object
+    this.invalidVertices.position.copy(this.object.position);
+    this.invalidVertices.visible = this.settings.showInvalidVertices;
+    this.scene.add(this.invalidVertices);
   }
 
   private onMouseClick = (event: MouseEvent): void => {
@@ -383,6 +483,48 @@ export class ProgressiveDestructionScene extends BaseScene {
         this.updateWireframe();
       });
 
+    folder
+      .addBinding(this.settings, "showAxes", {
+        label: "Show Axes",
+      })
+      .on("change", () => {
+        this.axesHelper.visible = this.settings.showAxes;
+      });
+
+    folder
+      .addBinding(this.settings, "showInvalidVertices", {
+        label: "Show Invalid Vertices",
+      })
+      .on("change", () => {
+        if (this.invalidVertices) {
+          this.invalidVertices.visible = this.settings.showInvalidVertices;
+        }
+      });
+
+    // Checkbox to enable custom seed
+    const useSeedBinding = folder.addBinding(this.settings, "useSeed", {
+      label: "Use Custom Seed",
+    });
+
+    // Input for custom seed value
+    const seedValueBinding = folder.addBinding(this.settings, "seedValue", {
+      label: "Seed Value",
+    });
+
+    // Set initial disabled state
+    seedValueBinding.disabled = !this.settings.useSeed;
+
+    // Update seed value binding when useSeed checkbox changes
+    useSeedBinding.on("change", () => {
+      seedValueBinding.disabled = !this.settings.useSeed;
+    });
+
+    // Display the last used seed (readonly)
+    folder.addBinding(this.settings, "lastUsedSeed", {
+      label: "Last Used Seed",
+      readonly: true,
+    });
+
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
@@ -422,6 +564,24 @@ export class ProgressiveDestructionScene extends BaseScene {
   dispose(): void {
     // Remove click listener
     window.removeEventListener("click", this.onMouseClick);
+
+    // Remove axes helper
+    if (this.axesHelper) {
+      this.scene.remove(this.axesHelper);
+      this.axesHelper.dispose();
+    }
+
+    // Remove invalid vertex markers
+    if (this.invalidVertices) {
+      this.scene.remove(this.invalidVertices);
+      this.invalidVertices.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          (child.material as THREE.Material).dispose();
+        }
+      });
+      this.invalidVertices = null;
+    }
 
     // Remove object
     if (this.object) {
