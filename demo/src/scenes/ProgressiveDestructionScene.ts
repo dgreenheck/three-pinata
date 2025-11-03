@@ -15,9 +15,8 @@ export class ProgressiveDestructionScene extends BaseScene {
   private object: DestructibleMesh | null = null;
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
+  private wireframeMaterial!: THREE.MeshBasicMaterial;
   private currentBall: THREE.Mesh | null = null;
-  private raycaster = new THREE.Raycaster();
-  private mouse = new THREE.Vector2();
   private fractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
@@ -25,19 +24,24 @@ export class ProgressiveDestructionScene extends BaseScene {
 
   private settings = {
     primitiveType: "cube" as PrimitiveType,
+    wireframe: false,
   };
 
   private collisionHandled = new WeakSet<THREE.Mesh>();
 
   async init(): Promise<void> {
     // Setup camera
-    this.camera.position.set(0, 3, 10);
+    this.camera.position.set(4, 5, 7);
     this.controls.target.set(0, 3, 0);
     this.controls.update();
 
     // Create materials
     this.objectMaterial = this.createMaterial(0x44aaff);
     this.insideMaterial = this.createInsideMaterial(0xcccccc);
+    this.wireframeMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      wireframe: true,
+    });
 
     // Create and pre-fracture object
     this.createObject();
@@ -66,7 +70,9 @@ export class ProgressiveDestructionScene extends BaseScene {
       this.fractureOptions,
       true, // freeze
       (fragment) => {
-        fragment.material = [this.objectMaterial, this.insideMaterial];
+        fragment.material = this.settings.wireframe
+          ? this.wireframeMaterial
+          : [this.objectMaterial, this.insideMaterial];
         fragment.castShadow = true;
 
         // Make fragment visible (they're hidden by default when frozen)
@@ -90,9 +96,7 @@ export class ProgressiveDestructionScene extends BaseScene {
   }
 
   private onMouseClick = (event: MouseEvent): void => {
-    // Calculate mouse position in normalized device coordinates
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    this.updateMouseCoordinates(event);
 
     // Shoot a ball from camera toward mouse position
     this.shootBall();
@@ -111,7 +115,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     // Create ball
     const ballGeometry = new THREE.SphereGeometry(0.3, 16, 16);
     const ballMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffff00,
+      color: 0x0000ff,
       roughness: 0.2,
       metalness: 0.8,
       envMapIntensity: 1.0,
@@ -177,6 +181,19 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
   };
 
+  private updateWireframe(): void {
+    if (!this.object) return;
+
+    const material = this.settings.wireframe
+      ? this.wireframeMaterial
+      : [this.objectMaterial, this.insideMaterial];
+
+    // Update all fragments
+    this.object.fragments.forEach((fragment) => {
+      fragment.material = material;
+    });
+  }
+
   update(deltaTime: number): void {
     // No per-frame updates needed
   }
@@ -219,6 +236,14 @@ export class ProgressiveDestructionScene extends BaseScene {
       step: 1,
       label: "Fragment Count",
     });
+
+    folder
+      .addBinding(this.settings, "wireframe", {
+        label: "Wireframe",
+      })
+      .on("change", () => {
+        this.updateWireframe();
+      });
 
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();

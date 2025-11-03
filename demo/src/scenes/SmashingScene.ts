@@ -16,8 +16,7 @@ export class SmashingScene extends BaseScene {
   private object: DestructibleMesh | null = null;
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private raycaster = new THREE.Raycaster();
-  private mouse = new THREE.Vector2();
+  private wireframeMaterial!: THREE.MeshBasicMaterial;
   private fractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
@@ -28,6 +27,7 @@ export class SmashingScene extends BaseScene {
     useImpactPoint: true,
     impactRadius: 1.0,
     preFracture: false,
+    wireframe: false,
   };
 
   private impactMarker: THREE.Mesh | null = null;
@@ -43,11 +43,15 @@ export class SmashingScene extends BaseScene {
     // Create materials
     this.objectMaterial = this.createMaterial(0xff6644);
     this.insideMaterial = this.createInsideMaterial(0xdddddd);
+    this.wireframeMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      wireframe: true,
+    });
 
     // Create impact marker (hidden initially)
     const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
     const markerMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
+      color: 0xffffff,
       transparent: true,
       opacity: 0.7,
     });
@@ -58,7 +62,7 @@ export class SmashingScene extends BaseScene {
     // Create radius marker (wireframe sphere)
     const radiusGeometry = new THREE.SphereGeometry(1, 16, 16);
     const radiusMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
+      color: 0xffffff,
       transparent: true,
       opacity: 0.3,
       wireframe: true,
@@ -113,7 +117,9 @@ export class SmashingScene extends BaseScene {
       this.fractureOptions,
       true, // freeze
       (fragment) => {
-        fragment.material = [this.objectMaterial, this.insideMaterial];
+        fragment.material = this.settings.wireframe
+          ? this.wireframeMaterial
+          : [this.objectMaterial, this.insideMaterial];
         fragment.castShadow = true;
 
         // Add physics (sleeping)
@@ -127,6 +133,26 @@ export class SmashingScene extends BaseScene {
         }
       },
     );
+  }
+
+  private updateWireframe(): void {
+    if (!this.object) return;
+
+    const material = this.settings.wireframe
+      ? this.wireframeMaterial
+      : [this.objectMaterial, this.insideMaterial];
+
+    // Update main mesh if not yet fractured
+    if (!this.hasSmashed && this.object.mesh) {
+      this.object.mesh.material = this.settings.wireframe
+        ? this.wireframeMaterial
+        : this.objectMaterial;
+    }
+
+    // Update all fragments
+    this.object.fragments.forEach((fragment) => {
+      fragment.material = material;
+    });
   }
 
   private onMouseMove = (event: MouseEvent): void => {
@@ -165,57 +191,79 @@ export class SmashingScene extends BaseScene {
   };
 
   private onMouseClick = (event: MouseEvent): void => {
-    if (this.hasSmashed || !this.object) return;
-
-    // Calculate mouse position in normalized device coordinates
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    // Raycast to find intersection
+    this.updateMouseCoordinates(event);
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObject(this.object.mesh, false);
 
-    if (intersects.length > 0) {
-      const intersectionPoint = intersects[0].point;
-      const localPoint = this.object.worldToLocal(intersectionPoint.clone());
-
-      if (this.settings.preFracture) {
-        // Unfreeze the pre-fractured object
-        this.object.unfreeze((fragment) => {
-          const body = this.physics.getBody(fragment);
-          if (body) {
-            body.wakeUp();
-          }
-        });
-      } else {
-        // Real-time fracture
-        this.fractureOptions.impactPoint = this.settings.useImpactPoint
-          ? localPoint
-          : undefined;
-        this.fractureOptions.impactRadius = this.settings.useImpactPoint
-          ? this.settings.impactRadius
-          : undefined;
-
-        this.object.fracture(this.fractureOptions, false, (fragment) => {
-          fragment.material = [this.objectMaterial, this.insideMaterial];
-          fragment.castShadow = true;
-
-          // Add physics
-          this.physics.add(fragment, {
-            type: "dynamic",
-            collider: "convexHull",
-            restitution: 0.3,
-          });
-        });
-      }
-
-      this.hasSmashed = true;
-
-      // Hide markers after smashing
-      if (this.impactMarker) this.impactMarker.visible = false;
-      if (this.radiusMarker) this.radiusMarker.visible = false;
+    if (this.hasSmashed) {
+      this.handleFragmentClick();
+    } else {
+      this.handleFractureClick();
     }
   };
+
+  private handleFragmentClick(): void {
+    if (!this.object) return;
+    this.handleExplosiveClick(this.object.fragments, 2.0, 10.0);
+  }
+
+  private handleFractureClick(): void {
+    if (!this.object) return;
+
+    const intersects = this.raycaster.intersectObject(this.object.mesh, false);
+    if (intersects.length === 0) return;
+
+    const intersectionPoint = intersects[0].point;
+    const localPoint = this.object.worldToLocal(intersectionPoint.clone());
+
+    if (this.settings.preFracture) {
+      this.unfreezeObject();
+    } else {
+      this.performRealTimeFracture(localPoint);
+    }
+
+    this.hasSmashed = true;
+    this.hideMarkers();
+  }
+
+  private unfreezeObject(): void {
+    if (!this.object) return;
+
+    this.object.unfreeze((fragment) => {
+      const body = this.physics.getBody(fragment);
+      if (body) {
+        body.wakeUp();
+      }
+    });
+  }
+
+  private performRealTimeFracture(localPoint: THREE.Vector3): void {
+    if (!this.object) return;
+
+    this.fractureOptions.impactPoint = this.settings.useImpactPoint
+      ? localPoint
+      : undefined;
+    this.fractureOptions.impactRadius = this.settings.useImpactPoint
+      ? this.settings.impactRadius
+      : undefined;
+
+    this.object.fracture(this.fractureOptions, false, (fragment) => {
+      fragment.material = this.settings.wireframe
+        ? this.wireframeMaterial
+        : [this.objectMaterial, this.insideMaterial];
+      fragment.castShadow = true;
+
+      this.physics.add(fragment, {
+        type: "dynamic",
+        collider: "convexHull",
+        restitution: 0.3,
+      });
+    });
+  }
+
+  private hideMarkers(): void {
+    if (this.impactMarker) this.impactMarker.visible = false;
+    if (this.radiusMarker) this.radiusMarker.visible = false;
+  }
 
   update(deltaTime: number): void {
     // No per-frame updates needed
@@ -227,6 +275,7 @@ export class SmashingScene extends BaseScene {
 • Choose a primitive shape
 • Hover to preview impact area
 • Click on object to fracture it
+• Click fragments to apply explosive force
 • Toggle 2.5D vs 3D fracturing
 • Pre-fracture for frozen fragments
 • Adjust fragment count and impact radius`;
@@ -286,6 +335,14 @@ export class SmashingScene extends BaseScene {
       })
       .on("change", () => {
         this.reset();
+      });
+
+    folder
+      .addBinding(this.settings, "wireframe", {
+        label: "Wireframe",
+      })
+      .on("change", () => {
+        this.updateWireframe();
       });
 
     folder.addButton({ title: "Reset" }).on("click", () => {

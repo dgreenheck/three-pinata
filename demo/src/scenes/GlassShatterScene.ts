@@ -15,8 +15,7 @@ export class GlassShatterScene extends BaseScene {
   private glassPane: DestructibleMesh | null = null;
   private glassMaterial!: THREE.MeshPhysicalMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private raycaster = new THREE.Raycaster();
-  private mouse = new THREE.Vector2();
+  private wireframeMaterial!: THREE.MeshBasicMaterial;
   private fractureOptions = new VoronoiFractureOptions({
     mode: "2.5D",
     fragmentCount: 50,
@@ -24,6 +23,7 @@ export class GlassShatterScene extends BaseScene {
   private settings = {
     useImpactPoint: true,
     impactRadius: 1.0,
+    wireframe: false,
   };
   private impactMarker: THREE.Mesh | null = null;
   private radiusMarker: THREE.Mesh | null = null;
@@ -50,10 +50,15 @@ export class GlassShatterScene extends BaseScene {
     this.insideMaterial = this.glassMaterial.clone();
     this.insideMaterial.color = new THREE.Color(0x88ffee);
 
+    this.wireframeMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      wireframe: true,
+    });
+
     // Create impact marker (hidden initially)
     const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
     const markerMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
+      color: 0xffffff,
       transparent: true,
       opacity: 0.7,
     });
@@ -64,7 +69,7 @@ export class GlassShatterScene extends BaseScene {
     // Create radius marker (wireframe sphere)
     const radiusGeometry = new THREE.SphereGeometry(1, 16, 16);
     const radiusMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
+      color: 0xffffff,
       transparent: true,
       opacity: 0.3,
       wireframe: true,
@@ -94,9 +99,7 @@ export class GlassShatterScene extends BaseScene {
   private onMouseMove = (event: MouseEvent): void => {
     if (this.hasShattered || !this.glassPane) return;
 
-    // Calculate mouse position in normalized device coordinates
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    this.updateMouseCoordinates(event);
 
     // Raycast to find intersection with glass pane
     this.raycaster.setFromCamera(this.mouse, this.camera);
@@ -130,50 +133,76 @@ export class GlassShatterScene extends BaseScene {
   };
 
   private onMouseClick = (event: MouseEvent): void => {
-    if (this.hasShattered || !this.glassPane) return;
+    if (!this.glassPane) return;
 
-    // Calculate mouse position in normalized device coordinates
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    // Raycast to find intersection with glass pane
+    this.updateMouseCoordinates(event);
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObject(
-      this.glassPane.mesh,
-      false,
-    );
 
-    if (intersects.length > 0) {
-      const intersectionPoint = intersects[0].point;
+    if (this.hasShattered) {
+      // Click fragments to apply explosive force
+      this.handleExplosiveClick(this.glassPane.fragments, 1.5, 20.0);
+    } else {
+      // Initial click to shatter
+      const intersects = this.raycaster.intersectObject(
+        this.glassPane.mesh,
+        false,
+      );
 
-      // Convert to local space
-      const localPoint = this.glassPane.worldToLocal(intersectionPoint.clone());
+      if (intersects.length > 0) {
+        const intersectionPoint = intersects[0].point;
+        const localPoint = this.glassPane.worldToLocal(
+          intersectionPoint.clone(),
+        );
 
-      // Fracture the glass
-      this.fractureOptions.impactPoint = this.settings.useImpactPoint
-        ? localPoint
-        : undefined;
-      this.fractureOptions.impactRadius = this.settings.useImpactPoint
-        ? this.settings.impactRadius
-        : undefined;
-      this.fractureOptions.projectionAxis = "z"; // Project along the thin axis
+        // Fracture the glass
+        this.fractureOptions.impactPoint = this.settings.useImpactPoint
+          ? localPoint
+          : undefined;
+        this.fractureOptions.impactRadius = this.settings.useImpactPoint
+          ? this.settings.impactRadius
+          : undefined;
+        this.fractureOptions.projectionAxis = "z"; // Project along the thin axis
 
-      this.glassPane.fracture(this.fractureOptions, false, (fragment) => {
-        // Setup fragment with dual materials
-        fragment.material = [this.glassMaterial, this.insideMaterial];
-        fragment.castShadow = true;
+        this.glassPane.fracture(this.fractureOptions, false, (fragment) => {
+          fragment.material = this.settings.wireframe
+            ? this.wireframeMaterial
+            : [this.glassMaterial, this.insideMaterial];
+          fragment.castShadow = true;
 
-        // Add physics (validation now happens in PhysicsWorld.add)
-        this.physics.add(fragment, {
-          type: "dynamic",
-          collider: "convexHull",
-          restitution: 0.2,
+          this.physics.add(fragment, {
+            type: "dynamic",
+            collider: "convexHull",
+            restitution: 0.2,
+          });
         });
-      });
 
-      this.hasShattered = true;
+        this.impactMarker.visible = false;
+        this.radiusMarker.visible = false;
+
+        this.hasShattered = true;
+      }
     }
   };
+
+  private updateWireframe(): void {
+    if (!this.glassPane) return;
+
+    const material = this.settings.wireframe
+      ? this.wireframeMaterial
+      : [this.glassMaterial, this.insideMaterial];
+
+    // Update main mesh if not yet shattered
+    if (!this.hasShattered && this.glassPane.mesh) {
+      this.glassPane.mesh.material = this.settings.wireframe
+        ? this.wireframeMaterial
+        : this.glassMaterial;
+    }
+
+    // Update all fragments
+    this.glassPane.fragments.forEach((fragment) => {
+      fragment.material = material;
+    });
+  }
 
   update(deltaTime: number): void {
     // No per-frame updates needed
@@ -184,6 +213,7 @@ export class GlassShatterScene extends BaseScene {
 
 • Hover over glass to preview impact area
 • Click to shatter at impact point
+• Click fragments to apply explosive force
 • Adjust fragment count and impact radius
 • Toggle impact point clustering`;
   }
@@ -211,6 +241,14 @@ export class GlassShatterScene extends BaseScene {
       step: 0.1,
       label: "Impact Radius",
     });
+
+    folder
+      .addBinding(this.settings, "wireframe", {
+        label: "Wireframe",
+      })
+      .on("change", () => {
+        this.updateWireframe();
+      });
 
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();

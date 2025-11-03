@@ -13,12 +13,14 @@ export class SlicingScene extends BaseScene {
   private objects: DestructibleMesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
+  private wireframeMaterial!: THREE.MeshBasicMaterial;
   private slicePlane!: THREE.Mesh;
   private sliceHelper!: THREE.GridHelper;
   private sliceGroup!: THREE.Group;
 
   private settings = {
     primitiveType: "icosahedron" as PrimitiveType,
+    wireframe: false,
   };
 
   private slicePosition = new THREE.Vector3(0, 3, 0);
@@ -36,6 +38,10 @@ export class SlicingScene extends BaseScene {
     // Create materials
     this.objectMaterial = this.createMaterial(0x9944ff);
     this.insideMaterial = this.createInsideMaterial(0xdddddd);
+    this.wireframeMaterial = new THREE.MeshBasicMaterial({
+      color: 0x80ffa0,
+      wireframe: true,
+    });
 
     // Create slice plane visualization
     this.createSlicePlane();
@@ -46,6 +52,7 @@ export class SlicingScene extends BaseScene {
     // Add keyboard listeners
     window.addEventListener("keydown", this.onKeyDown);
     window.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("click", this.onMouseClick);
   }
 
   private createSlicePlane(): void {
@@ -109,6 +116,15 @@ export class SlicingScene extends BaseScene {
     this.keysPressed.delete(event.key.toLowerCase());
   };
 
+  private onMouseClick = (event: MouseEvent): void => {
+    this.updateMouseCoordinates(event);
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+    // Click on meshes to apply explosive force
+    const allMeshes = this.objects.map((obj) => obj.mesh);
+    this.handleExplosiveClick(allMeshes, 2.0, 15.0);
+  };
+
   private executeSlice(): void {
     // Slice all objects that intersect the plane
     const objectsToSlice = [...this.objects];
@@ -144,7 +160,9 @@ export class SlicingScene extends BaseScene {
           (top, bottom) => {
             // Setup materials for both pieces
             [top, bottom].forEach((piece) => {
-              piece.mesh.material = [this.objectMaterial, this.insideMaterial];
+              piece.mesh.material = this.settings.wireframe
+                ? this.wireframeMaterial
+                : [this.objectMaterial, this.insideMaterial];
               piece.mesh.castShadow = true;
 
               // Add to scene and tracking
@@ -171,6 +189,19 @@ export class SlicingScene extends BaseScene {
       } catch (error) {
         console.warn("Could not slice object:", error);
       }
+    });
+  }
+
+  private updateWireframe(): void {
+    const material = this.settings.wireframe
+      ? this.wireframeMaterial
+      : [this.objectMaterial, this.insideMaterial];
+
+    // Update all object meshes
+    this.objects.forEach((obj) => {
+      obj.mesh.material = this.settings.wireframe
+        ? this.wireframeMaterial
+        : material;
     });
   }
 
@@ -221,6 +252,7 @@ export class SlicingScene extends BaseScene {
 • WASD - Move slicing plane
 • Q/E - Rotate plane
 • SPACE - Execute slice
+• Click objects to apply explosive force
 • Slice objects multiple times
 • Choose different primitives`;
   }
@@ -245,6 +277,14 @@ export class SlicingScene extends BaseScene {
       })
       .on("change", () => {
         this.reset();
+      });
+
+    folder
+      .addBinding(this.settings, "wireframe", {
+        label: "Wireframe",
+      })
+      .on("change", () => {
+        this.updateWireframe();
       });
 
     folder.addButton({ title: "Slice (Space)" }).on("click", () => {
@@ -282,9 +322,10 @@ export class SlicingScene extends BaseScene {
   }
 
   dispose(): void {
-    // Remove keyboard listeners
+    // Remove event listeners
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
+    window.removeEventListener("click", this.onMouseClick);
 
     // Remove all objects
     this.objects.forEach((obj) => {

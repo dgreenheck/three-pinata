@@ -22,6 +22,8 @@ export abstract class BaseScene {
   protected pane: Pane;
   protected controls: OrbitControls;
   protected clock: THREE.Clock;
+  protected raycaster: THREE.Raycaster;
+  protected mouse: THREE.Vector2;
 
   constructor(
     scene: THREE.Scene,
@@ -37,6 +39,8 @@ export abstract class BaseScene {
     this.pane = pane;
     this.controls = controls;
     this.clock = clock;
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
   }
 
   /**
@@ -154,5 +158,139 @@ export abstract class BaseScene {
     const rigidBody = this.physics.world.createRigidBody(groundBody);
     const groundCollider = RAPIER.ColliderDesc.cuboid(100, 0.01, 100);
     this.physics.world.createCollider(groundCollider, rigidBody);
+  }
+
+  /**
+   * Updates mouse coordinates from a MouseEvent to normalized device coordinates
+   */
+  protected updateMouseCoordinates(event: MouseEvent): void {
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  }
+
+  /**
+   * Applies a random impulse to a mesh that has physics
+   * @param mesh The mesh to apply impulse to
+   * @param impulseStrength Base strength of the impulse (default: 5.0)
+   */
+  protected applyRandomImpulseToMesh(
+    mesh: THREE.Mesh,
+    impulseStrength: number,
+  ): void {
+    const body = this.physics.getBody(mesh);
+    if (!body) return;
+
+    const mass = body.rigidBody.mass();
+    const strength = impulseStrength * mass;
+    const randomX = (Math.random() - 0.5) * strength;
+    const randomY = strength;
+    const randomZ = (Math.random() - 0.5) * strength;
+
+    body.applyImpulse({ x: randomX, y: randomY, z: randomZ });
+    body.wakeUp();
+  }
+
+  /**
+   * Applies an explosive force at a point, affecting all physics bodies within a radius
+   * @param center World position of the explosion center
+   * @param radius Radius of effect
+   * @param strength Base strength of the explosion
+   * @param falloff How the force falls off with distance (default: 'linear')
+   */
+  protected applyExplosiveForce(
+    center: THREE.Vector3,
+    radius: number,
+    strength: number,
+    falloff: "linear" | "quadratic" = "linear",
+  ): void {
+    // Iterate through all rigid bodies in the physics world
+    this.physics.world.forEachRigidBody((rigidBody) => {
+      const bodyPos = rigidBody.translation();
+      const bodyPosition = new THREE.Vector3(bodyPos.x, bodyPos.y, bodyPos.z);
+
+      // Calculate distance from explosion center
+      const direction = bodyPosition.clone().sub(center);
+      const distance = direction.length();
+
+      // Skip if outside radius
+      if (distance > radius || distance < 0.001) return;
+
+      // Calculate force based on distance and falloff
+      let forceMagnitude: number;
+      if (falloff === "quadratic") {
+        // Inverse square falloff
+        forceMagnitude =
+          strength * (1 - (distance * distance) / (radius * radius));
+      } else {
+        // Linear falloff
+        forceMagnitude = strength * (1 - distance / radius);
+      }
+
+      // Scale by mass for consistent effect
+      const mass = rigidBody.mass();
+      forceMagnitude *= mass;
+
+      // Normalize direction and scale by force magnitude
+      direction.normalize().multiplyScalar(forceMagnitude);
+
+      direction.y = Math.sqrt(
+        direction.x * direction.x + direction.z * direction.z,
+      );
+
+      // Apply impulse
+      rigidBody.applyImpulse(
+        { x: direction.x, y: direction.y, z: direction.z },
+        true,
+      );
+      rigidBody.wakeUp();
+    });
+  }
+
+  /**
+   * Handles clicking on meshes to apply explosive force at intersection point
+   * @param meshes Array of meshes to raycast against
+   * @param explosionRadius Radius of the explosion effect
+   * @param explosionStrength Base strength of the explosion
+   * @returns The intersection point, or null if no hit
+   */
+  protected handleExplosiveClick(
+    meshes: THREE.Mesh[],
+    explosionRadius: number = 2.0,
+    explosionStrength: number = 10.0,
+  ): THREE.Vector3 | null {
+    const intersects = this.raycaster.intersectObjects(meshes, false);
+
+    if (intersects.length > 0) {
+      const intersectionPoint = intersects[0].point;
+      this.applyExplosiveForce(
+        intersectionPoint,
+        explosionRadius,
+        explosionStrength,
+      );
+      return intersectionPoint;
+    }
+
+    return null;
+  }
+
+  /**
+   * Handles clicking on meshes to apply random impulse
+   * @param meshes Array of meshes to raycast against
+   * @param impulseStrength Base strength of the impulse (default: 5.0)
+   * @returns The mesh that was clicked, or null if none
+   */
+  protected handleMeshClick(
+    meshes: THREE.Mesh[],
+    impulseStrength: number = 10.0,
+  ): THREE.Mesh | null {
+    const intersects = this.raycaster.intersectObjects(meshes, false);
+
+    if (intersects.length > 0) {
+      const mesh = intersects[0].object as THREE.Mesh;
+      this.applyRandomImpulseToMesh(mesh, impulseStrength);
+      return mesh;
+    }
+
+    return null;
   }
 }
