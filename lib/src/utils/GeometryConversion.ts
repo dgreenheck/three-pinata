@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Vector2, Vector3 } from "three";
 import { Fragment } from "../entities/Fragment";
-import MeshVertex from "../entities/MeshVertex";
+import { MeshVertex } from "../entities/MeshVertex";
 
 /**
  * Converts a THREE.BufferGeometry to our internal Fragment representation

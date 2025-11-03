@@ -1,8 +1,8 @@
 import { Vector2, Vector3 } from "three";
 import { Fragment, SlicedMeshSubmesh } from "../entities/Fragment";
 import { isPointAbovePlane, linePlaneIntersection } from "../utils/MathUtils";
-import MeshVertex from "../entities/MeshVertex";
-import EdgeConstraint from "../entities/EdgeConstraint";
+import { MeshVertex } from "../entities/MeshVertex";
+import { EdgeConstraint } from "../entities/EdgeConstraint";
 import { Triangulator } from "../triangulators/Triangulator";
 import { ConstrainedTriangulator } from "../triangulators/ConstrainedTriangulator";
 

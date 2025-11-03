@@ -4,7 +4,7 @@ import { hash3 } from "../utils/MathUtils";
 /**
  * Data structure containing position/normal/UV data for a single vertex
  */
-export default class MeshVertex {
+export class MeshVertex {
   position: Vector3;
   normal: Vector3;
   uv: Vector2;

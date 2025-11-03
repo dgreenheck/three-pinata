@@ -1,7 +1,7 @@
 import { Vector2, Vector3, Box3 } from "three";
 import { hash3 } from "../utils/MathUtils";
-import MeshVertex from "./MeshVertex";
-import EdgeConstraint from "./EdgeConstraint";
+import { MeshVertex } from "./MeshVertex";
+import { EdgeConstraint } from "./EdgeConstraint";
 
 // The enum can be directly translated
 export enum SlicedMeshSubmesh {

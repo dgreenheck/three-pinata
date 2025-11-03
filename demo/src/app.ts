@@ -79,8 +79,8 @@ composer.addPass(bloomPass);
 
 // Vignette pass
 const vignettePass = new ShaderPass(VignetteShader);
-vignettePass.uniforms["offset"].value = 1.0;
-vignettePass.uniforms["darkness"].value = 1.0;
+vignettePass.uniforms["offset"].value = 0.5;
+vignettePass.uniforms["darkness"].value = 1;
 composer.addPass(vignettePass);
 
 // Film/noise pass

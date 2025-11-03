@@ -1,6 +1,6 @@
 import { Vector3 } from "three";
-import EdgeConstraint from "../entities/EdgeConstraint";
-import MeshVertex from "../entities/MeshVertex";
+import { EdgeConstraint } from "../entities/EdgeConstraint";
+import { MeshVertex } from "../entities/MeshVertex";
 import { Triangulator } from "./Triangulator";
 import { linesIntersect } from "../utils/MathUtils";
 import { hashi2 } from "../utils/MathUtils";

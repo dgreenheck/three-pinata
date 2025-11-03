@@ -3,3 +3,7 @@ export { FractureOptions } from "./entities/FractureOptions";
 export { SliceOptions } from "./entities/SliceOptions";
 export { VoronoiFractureOptions } from "./entities/VoronoiFractureOptions";
 export { fracture } from "./fracture/Fracture";
+export { EdgeConstraint } from "./entities/EdgeConstraint";
+export { MeshVertex } from "./entities/MeshVertex";
+export { Triangulator } from "./triangulators/Triangulator";
+export { ConstrainedTriangulator } from "./triangulators/ConstrainedTriangulator";
