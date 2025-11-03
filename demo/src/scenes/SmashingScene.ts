@@ -295,7 +295,6 @@ export class SmashingScene extends BaseScene {
           Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
-          "Torus Knot": "torusKnot",
         },
         label: "Primitive",
       })

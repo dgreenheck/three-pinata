@@ -1,9 +1,13 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
   VoronoiFractureOptions,
+  FractureOptions,
+  fracture,
 } from "@dgreenheck/three-pinata";
+import torusGLB from "../assets/torus.glb";
 
 /**
  * Progressive Destruction Demo
@@ -17,14 +21,22 @@ export class ProgressiveDestructionScene extends BaseScene {
   private insideMaterial!: THREE.MeshStandardMaterial;
   private wireframeMaterial!: THREE.MeshBasicMaterial;
   private currentBall: THREE.Mesh | null = null;
-  private fractureOptions = new VoronoiFractureOptions({
+  private gltfLoader = new GLTFLoader();
+  private torusGeometry: THREE.BufferGeometry | null = null;
+  private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
+  });
+  private radialFractureOptions = new FractureOptions({
+    fragmentCount: 50,
+    fractureMode: "Non-Convex",
   });
 
   private settings = {
     primitiveType: "cube" as PrimitiveType,
     wireframe: false,
+    fractureMethod: "Voronoi" as "Voronoi" | "Radial",
+    fragmentCount: 50,
   };
 
   private collisionHandled = new WeakSet<THREE.Mesh>();
@@ -43,8 +55,11 @@ export class ProgressiveDestructionScene extends BaseScene {
       wireframe: true,
     });
 
+    // Load torus model
+    await this.loadTorusModel();
+
     // Create and pre-fracture object
-    this.createObject();
+    await this.createObject();
 
     // Setup collision detection
     this.physics.onCollision = this.onCollision;
@@ -53,46 +68,175 @@ export class ProgressiveDestructionScene extends BaseScene {
     window.addEventListener("click", this.onMouseClick);
   }
 
-  private createObject(): void {
-    // Create the primitive
-    const mesh = this.createPrimitive(
-      this.settings.primitiveType,
-      this.objectMaterial,
-    );
+  private async loadTorusModel(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.gltfLoader.load(
+        torusGLB,
+        (gltf) => {
+          // Get the geometry from the first mesh in the scene
+          gltf.scene.traverse((child) => {
+            if (child instanceof THREE.Mesh && !this.torusGeometry) {
+              const geometry = child.geometry.clone();
 
-    this.object = new DestructibleMesh(mesh.geometry, this.objectMaterial);
+              // Ensure geometry has normals
+              if (!geometry.attributes.normal) {
+                geometry.computeVertexNormals();
+              }
+
+              // Ensure geometry has UVs (required for fracturing)
+              if (!geometry.attributes.uv) {
+                // Create simple planar UV mapping as fallback
+                const uvs = new Float32Array(geometry.attributes.position.count * 2);
+                geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+              }
+
+              // Compute bounding sphere/box
+              geometry.computeBoundingBox();
+              geometry.computeBoundingSphere();
+
+              this.torusGeometry = geometry;
+              console.log('Loaded torus geometry:', geometry);
+            }
+          });
+          resolve();
+        },
+        undefined,
+        reject,
+      );
+    });
+  }
+
+  private async createObject(): Promise<void> {
+    // Create the primitive or use loaded torus geometry
+    let geometry: THREE.BufferGeometry;
+
+    if (this.settings.primitiveType === "torus" && this.torusGeometry) {
+      geometry = this.torusGeometry.clone();
+      console.log("Using loaded torus geometry:", {
+        hasNormals: !!geometry.attributes.normal,
+        hasUVs: !!geometry.attributes.uv,
+        hasIndex: !!geometry.index,
+        vertexCount: geometry.attributes.position.count,
+        triangleCount: geometry.index
+          ? geometry.index.count / 3
+          : geometry.attributes.position.count / 3,
+      });
+    } else {
+      const mesh = this.createPrimitive(
+        this.settings.primitiveType,
+        this.objectMaterial,
+      );
+      geometry = mesh.geometry;
+    }
+
+    this.object = new DestructibleMesh(geometry, this.objectMaterial);
     this.object.mesh.castShadow = true;
     this.object.position.set(0, 3, 0);
     this.scene.add(this.object);
 
     // Pre-fracture and freeze
-    this.object.fracture(
-      this.fractureOptions,
-      true, // freeze
-      (fragment) => {
-        fragment.material = this.settings.wireframe
-          ? this.wireframeMaterial
-          : [this.objectMaterial, this.insideMaterial];
-        fragment.castShadow = true;
+    if (this.settings.fractureMethod === "Voronoi") {
+      console.log("Starting Voronoi fracture...");
+      this.object.fracture(
+        this.voronoiFractureOptions,
+        true, // freeze
+        (fragment) => {
+          console.log("Processing fragment:", {
+            vertexCount: fragment.geometry.attributes.position.count,
+            hasNormals: !!fragment.geometry.attributes.normal,
+            hasUVs: !!fragment.geometry.attributes.uv,
+          });
+          fragment.material = this.settings.wireframe
+            ? this.wireframeMaterial
+            : [this.objectMaterial, this.insideMaterial];
+          fragment.castShadow = true;
 
-        // Make fragment visible (they're hidden by default when frozen)
+          // Make fragment visible (they're hidden by default when frozen)
+          fragment.visible = true;
+
+          // Add physics (sleeping)
+          try {
+            const body = this.physics.add(fragment, {
+              type: "dynamic",
+              collider: "convexHull",
+              restitution: 0.2,
+            });
+            if (body) {
+              body.rigidBody.lockTranslations(true, false);
+              body.rigidBody.lockRotations(true, false);
+            } else {
+              console.warn("Failed to create physics body for fragment");
+            }
+          } catch (error) {
+            console.error("Error adding physics to fragment:", error);
+          }
+        },
+      );
+    } else {
+      // Radial fracture method
+      console.log("Starting Radial fracture...");
+      const fragmentGeometries = fracture(
+        this.object.mesh.geometry,
+        this.radialFractureOptions,
+      );
+      console.log(
+        `Radial fracture created ${fragmentGeometries.length} fragments`,
+      );
+
+      // Create mesh objects for each fragment
+      fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
+        // Compute bounding box to get the center of this fragment
+        fragmentGeometry.computeBoundingBox();
+        const center = new THREE.Vector3();
+        fragmentGeometry.boundingBox!.getCenter(center);
+
+        // Translate the geometry so its center is at the origin
+        fragmentGeometry.translate(-center.x, -center.y, -center.z);
+
+        // Recompute bounding sphere after translation
+        fragmentGeometry.computeBoundingSphere();
+
+        const fragment = new THREE.Mesh(
+          fragmentGeometry,
+          this.settings.wireframe
+            ? this.wireframeMaterial
+            : [this.objectMaterial, this.insideMaterial],
+        );
+
+        // Position the fragment at its original center within the group
+        fragment.position.copy(center);
+        fragment.castShadow = true;
         fragment.visible = true;
 
+        // Add as child to the DestructibleMesh group
+        this.object!.add(fragment);
+        this.object!.fragments.push(fragment);
+
         // Add physics (sleeping)
-        const body = this.physics.add(fragment, {
-          type: "dynamic",
-          collider: "convexHull",
-          restitution: 0.2,
-        });
-        if (body) {
-          body.rigidBody.lockTranslations(true, false);
-          body.rigidBody.lockRotations(true, false);
+        try {
+          const body = this.physics.add(fragment, {
+            type: "dynamic",
+            collider: "convexHull",
+            restitution: 0.2,
+          });
+          if (body) {
+            body.rigidBody.lockTranslations(true, false);
+            body.rigidBody.lockRotations(true, false);
+          } else {
+            console.warn("Failed to create physics body for fragment");
+          }
+        } catch (error) {
+          console.error("Error adding physics to fragment:", error);
         }
-      },
-    );
+      });
+    }
 
     // Hide the original mesh immediately (fragments are now visible)
     this.object.mesh.visible = false;
+
+    console.log(
+      `Created ${this.object.fragments.length} fragments successfully`,
+    );
   }
 
   private onMouseClick = (event: MouseEvent): void => {
@@ -194,7 +338,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     });
   }
 
-  update(deltaTime: number): void {
+  update(): void {
     // No per-frame updates needed
   }
 
@@ -222,7 +366,6 @@ export class ProgressiveDestructionScene extends BaseScene {
           Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
-          "Torus Knot": "torusKnot",
         },
         label: "Primitive",
       })
@@ -230,12 +373,29 @@ export class ProgressiveDestructionScene extends BaseScene {
         this.reset();
       });
 
-    folder.addBinding(this.fractureOptions, "fragmentCount", {
-      min: 10,
-      max: 150,
-      step: 1,
-      label: "Fragment Count",
-    });
+    folder
+      .addBinding(this.settings, "fractureMethod", {
+        options: {
+          Voronoi: "Voronoi",
+          Radial: "Radial",
+        },
+        label: "Fracture Method",
+      })
+      .on("change", () => {
+        this.reset();
+      });
+
+    folder
+      .addBinding(this.settings, "fragmentCount", {
+        min: 10,
+        max: 150,
+        step: 1,
+        label: "Fragment Count",
+      })
+      .on("change", () => {
+        this.voronoiFractureOptions.fragmentCount = this.settings.fragmentCount;
+        this.radialFractureOptions.fragmentCount = this.settings.fragmentCount;
+      });
 
     folder
       .addBinding(this.settings, "wireframe", {
@@ -252,7 +412,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     return folder;
   }
 
-  reset(): void {
+  async reset(): Promise<void> {
     // Clear all physics first
     this.clearPhysics();
 
@@ -277,7 +437,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     this.setupGroundPhysics();
 
     // Recreate object
-    this.createObject();
+    await this.createObject();
   }
 
   dispose(): void {

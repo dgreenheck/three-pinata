@@ -8,8 +8,7 @@ export type PrimitiveType =
   | "sphere"
   | "icosahedron"
   | "cylinder"
-  | "torus"
-  | "torusKnot";
+  | "torus";
 
 /**
  * Base class for all demo scenes
@@ -99,9 +98,6 @@ export abstract class BaseScene {
         break;
       case "torus":
         geometry = new THREE.TorusGeometry(1, 0.4, 16, 32);
-        break;
-      case "torusKnot":
-        geometry = new THREE.TorusKnotGeometry(0.8, 0.3, 100, 16);
         break;
     }
 
