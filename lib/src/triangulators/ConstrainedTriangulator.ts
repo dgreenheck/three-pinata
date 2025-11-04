@@ -553,7 +553,7 @@ export class ConstrainedTriangulator extends Triangulator {
     // Initialize to all triangles being skipped
     this.skipTriangle.fill(true);
 
-    // Identify the boundary edges
+    // Identify the boundary edges (directional)
     let boundaries = new Set<number>();
     for (let i = 0; i < this.constraints.length; i++) {
       const constraint = this.constraints[i];
@@ -565,6 +565,7 @@ export class ConstrainedTriangulator extends Triangulator {
 
     let v1: number, v2: number, v3: number;
     let boundaryE12: boolean, boundaryE23: boolean, boundaryE31: boolean;
+    let reverseE12: boolean, reverseE23: boolean, reverseE31: boolean;
     const visited = new Array<boolean>(this.triangulation.length);
     for (let i = 0; i < this.triangleCount; i++) {
       if (visited[i]) continue;
@@ -572,11 +573,23 @@ export class ConstrainedTriangulator extends Triangulator {
       v1 = this.triangulation[i][V1];
       v2 = this.triangulation[i][V2];
       v3 = this.triangulation[i][V3];
+
+      // Check if edges match constraint direction (forward)
       boundaryE12 = boundaries.has(hashi2(v1, v2));
       boundaryE23 = boundaries.has(hashi2(v2, v3));
       boundaryE31 = boundaries.has(hashi2(v3, v1));
 
-      // If this triangle has a boundary edge, start searching for adjacent triangles
+      // Check if edges match reverse of constraint direction
+      reverseE12 = boundaries.has(hashi2(v2, v1));
+      reverseE23 = boundaries.has(hashi2(v3, v2));
+      reverseE31 = boundaries.has(hashi2(v1, v3));
+
+      // If this triangle has a reverse edge, it's outside the valid region - skip it
+      if (reverseE12 || reverseE23 || reverseE31) {
+        continue;
+      }
+
+      // If this triangle has a forward boundary edge, start searching for adjacent triangles
       if (!(boundaryE12 || boundaryE23 || boundaryE31)) continue;
       this.skipTriangle[i] = false;
 
@@ -601,12 +614,22 @@ export class ConstrainedTriangulator extends Triangulator {
           continue;
         }
 
-        this.skipTriangle[k] = false;
-        visited[k] = true;
-
         v1 = this.triangulation[k][V1];
         v2 = this.triangulation[k][V2];
         v3 = this.triangulation[k][V3];
+
+        // Check for reverse edges - if found, this triangle is outside
+        reverseE12 = boundaries.has(hashi2(v2, v1));
+        reverseE23 = boundaries.has(hashi2(v3, v2));
+        reverseE31 = boundaries.has(hashi2(v1, v3));
+
+        if (reverseE12 || reverseE23 || reverseE31) {
+          visited[k] = true;
+          continue;
+        }
+
+        this.skipTriangle[k] = false;
+        visited[k] = true;
 
         // Continue searching along non-boundary edges
         if (!boundaries.has(hashi2(v1, v2))) {

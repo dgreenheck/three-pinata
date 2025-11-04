@@ -36,7 +36,7 @@ export class ProgressiveDestructionScene extends BaseScene {
   private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
-    detectIsolatedFragments: false,
+    detectIsolatedFragments: true,
   });
   private radialFractureOptions = new FractureOptions({
     fragmentCount: 50,
@@ -47,9 +47,9 @@ export class ProgressiveDestructionScene extends BaseScene {
     primitiveType: "torus" as PrimitiveType,
     wireframe: true,
     fractureMethod: "Voronoi" as "Voronoi" | "Radial",
-    fragmentCount: 13,
+    fragmentCount: 10,
     useSeed: true,
-    seedValue: 500971097,
+    seedValue: 1832439633,
     lastUsedSeed: 0, // Will be set after fracturing
     showAxes: true,
     showInvalidVertices: true,
