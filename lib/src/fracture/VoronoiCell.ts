@@ -1,6 +1,6 @@
 import { Vector2, Vector3 } from "three";
 import { Fragment } from "../entities/Fragment";
-import { sliceFragment, InvalidVertexCallback } from "./SliceFragment";
+import { sliceFragment } from "./SliceFragment";
 
 /**
  * Represents a bisecting plane between two Voronoi seed points
@@ -65,7 +65,6 @@ export function computeVoronoiCell(
   textureOffset: Vector2,
   convex: boolean,
   removeDegenerateEdges: boolean = false,
-  onInvalidVertex?: InvalidVertexCallback,
 ): Fragment | null {
   let cell = fragment;
   const thisSeed = seeds[seedIndex];
@@ -90,7 +89,6 @@ export function computeVoronoiCell(
       textureOffset,
       convex,
       removeDegenerateEdges,
-      onInvalidVertex,
     );
 
     // Keep the half-space closer to our seed (opposite direction of normal)

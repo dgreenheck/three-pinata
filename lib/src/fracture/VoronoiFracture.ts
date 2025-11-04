@@ -99,7 +99,6 @@ function voronoiFracture3D(
       options.textureOffset,
       convex,
       options.removeDegenerateEdges,
-      options.onInvalidVertex,
     );
 
     // Only add non-empty cells
@@ -229,7 +228,6 @@ function voronoiFracture2D(
       options.textureOffset,
       convex,
       options.removeDegenerateEdges,
-      options.onInvalidVertex,
     );
 
     if (cell && cell.vertexCount > 0) {

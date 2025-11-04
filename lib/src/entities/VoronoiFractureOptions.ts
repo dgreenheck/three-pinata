@@ -102,19 +102,6 @@ export class VoronoiFractureOptions {
    */
   public removeDegenerateEdges: boolean = false;
 
-  /**
-   * Callback function to receive invalid vertices found during triangulation.
-   * This is useful for debugging and visualization of vertices that fall outside the expected geometry.
-   */
-  public onInvalidVertex?: (data: {
-    index: number;
-    position: Vector3;
-    location: string;
-    distFromAxis: number;
-    torusDistance: number;
-    planeNormal: Vector3;
-  }) => void;
-
   constructor({
     fragmentCount,
     mode,
@@ -131,7 +118,6 @@ export class VoronoiFractureOptions {
     textureOffset,
     seed,
     removeDegenerateEdges,
-    onInvalidVertex,
   }: {
     fragmentCount?: number;
     mode?: "3D" | "2.5D";
@@ -148,14 +134,6 @@ export class VoronoiFractureOptions {
     textureOffset?: Vector2;
     seed?: number;
     removeDegenerateEdges?: boolean;
-    onInvalidVertex?: (data: {
-      index: number;
-      position: Vector3;
-      location: string;
-      distFromAxis: number;
-      torusDistance: number;
-      planeNormal: Vector3;
-    }) => void;
   } = {}) {
     if (fragmentCount !== undefined) {
       this.fragmentCount = fragmentCount;
@@ -215,10 +193,6 @@ export class VoronoiFractureOptions {
 
     if (removeDegenerateEdges !== undefined) {
       this.removeDegenerateEdges = removeDegenerateEdges;
-    }
-
-    if (onInvalidVertex !== undefined) {
-      this.onInvalidVertex = onInvalidVertex;
     }
   }
 }
