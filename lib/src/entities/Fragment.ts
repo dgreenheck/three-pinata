@@ -182,10 +182,9 @@ export class Fragment {
   }
 
   /**
-   * Finds coincident vertices on the cut face and welds them together.
-   * @param removeDegenerateEdges If true, removes edge constraints where v1 === v2 after welding
+   * Finds coincident vertices on the cut face and welds them together
    */
-  weldCutFaceVertices(removeDegenerateEdges: boolean = false): void {
+  weldCutFaceVertices(): void {
     // Temporary array containing the unique (welded) vertices
     // Initialize capacity to current number of cut vertices to prevent
     // unnecessary reallocations
@@ -226,10 +225,7 @@ export class Fragment {
 
       // Check for degenerate constraint (edge from vertex to itself)
       if (Math.abs(edge.v1 - edge.v2) < 1e-9) {
-        // Skip this edge if removal is enabled
-        if (removeDegenerateEdges) {
-          continue;
-        }
+        continue;
       }
 
       filteredConstraints.push(edge);

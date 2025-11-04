@@ -53,7 +53,6 @@ export function computeBisectingPlane(
  * @param textureScale Texture scale for cut faces
  * @param textureOffset Texture offset for cut faces
  * @param convex Whether to use convex triangulation mode
- * @param removeDegenerateEdges If true, removes edge constraints where v1 === v2 after welding
  * @returns The computed Voronoi cell fragment, or null if the cell is empty
  */
 export function computeVoronoiCell(
@@ -64,7 +63,6 @@ export function computeVoronoiCell(
   textureScale: Vector2,
   textureOffset: Vector2,
   convex: boolean,
-  removeDegenerateEdges: boolean = false,
 ): Fragment | null {
   let cell = fragment;
   const thisSeed = seeds[seedIndex];
@@ -88,7 +86,6 @@ export function computeVoronoiCell(
       textureScale,
       textureOffset,
       convex,
-      removeDegenerateEdges,
     );
 
     // Keep the half-space closer to our seed (opposite direction of normal)

@@ -24,7 +24,6 @@ export function sliceRawData(
   textureScale: Vector2,
   textureOffset: Vector2,
   convex: boolean,
-  removeDegenerateEdges: boolean = false,
 ): { topSlice: Fragment; bottomSlice: Fragment } {
   const fragment = new Fragment({
     positions,
@@ -40,7 +39,6 @@ export function sliceRawData(
     textureScale,
     textureOffset,
     convex,
-    removeDegenerateEdges,
   );
 }
 
@@ -54,8 +52,7 @@ export function sliceRawData(
  * @param textureOffset Offset to apply to UV coordinates
  * @param convex Set to true if `fragment` is convex geometry. Setting this to
  * true will use a faster triangulation algorithm. Setting this to false will
- * allow non-convex geometry triangulated correctly at the expense of performance.
- * @param removeDegenerateEdges If true, removes edge constraints where v1 === v2 after welding
+ * allow non-convex geometry triangulated correctly at the expense of performance
  * @returns An object containing the fragments above and below the slice plane
  */
 export function sliceFragment(
@@ -65,7 +62,6 @@ export function sliceFragment(
   textureScale: Vector2,
   textureOffset: Vector2,
   convex: boolean,
-  removeDegenerateEdges: boolean = false,
 ): { topSlice: Fragment; bottomSlice: Fragment } {
   const topSlice = new Fragment();
   const bottomSlice = new Fragment();
@@ -125,7 +121,6 @@ export function sliceFragment(
     textureScale,
     textureOffset,
     convex,
-    removeDegenerateEdges,
   );
 
   return { topSlice, bottomSlice };
@@ -140,7 +135,6 @@ export function sliceFragment(
  * @param textureScale Scale factor to apply to UV coordinates
  * @param textureOffset Offset to apply to UV coordinates
  * @param convex Set to true if fragments are convex
- * @param removeDegenerateEdges If true, removes edge constraints where v1 === v2 after welding
  * @returns
  */
 function fillCutFaces(
@@ -150,14 +144,13 @@ function fillCutFaces(
   textureScale: Vector2,
   textureOffset: Vector2,
   convex: boolean,
-  removeDegenerateEdges: boolean,
 ): void {
   // Since the topSlice and bottomSlice both share the same cut face, we only need to calculate it
   // once. Then the same vertex/triangle data for the face will be used for both slices, except
   // with the normals reversed.
 
   // First need to weld the coincident vertices for the triangulation to work properly
-  topSlice.weldCutFaceVertices(removeDegenerateEdges);
+  topSlice.weldCutFaceVertices();
 
   // Need at least 3 vertices to triangulate
   if (topSlice.cutVertices.length < 3) return;

@@ -3,7 +3,10 @@ import { Vector3 } from "three";
 import { VoronoiFractureOptions } from "../entities/VoronoiFractureOptions";
 import { SeedPointGenerator } from "../utils/SeedPointGenerator";
 import { computeVoronoiCell, findKNearestNeighbors } from "./VoronoiCell";
-import { geometryToFragment, fragmentToGeometry } from "../utils/GeometryConversion";
+import {
+  geometryToFragment,
+  fragmentToGeometry,
+} from "../utils/GeometryConversion";
 import { Fragment } from "../entities/Fragment";
 import { findIsolatedGeometry } from "./FractureFragment";
 import { SeededRandom } from "../utils/SeededRandom";
@@ -67,10 +70,7 @@ function voronoiFracture3D(
 
   // Use approximation based on user option (not automatic threshold)
   const useKNearest = options.useApproximation;
-  const k = Math.min(
-    options.approximationNeighborCount,
-    seeds.length - 1,
-  );
+  const k = Math.min(options.approximationNeighborCount, seeds.length - 1);
 
   // Warn user if approximation is enabled
   if (useKNearest) {
@@ -98,7 +98,6 @@ function voronoiFracture3D(
       options.textureScale,
       options.textureOffset,
       convex,
-      options.removeDegenerateEdges,
     );
 
     // Only add non-empty cells
@@ -112,7 +111,6 @@ function voronoiFracture3D(
       }
     }
   }
-
 
   return fragments;
 }
@@ -167,7 +165,8 @@ function voronoiFracture2D(
     seeds = options.seedPoints;
   } else if (options.impactPoint) {
     // Use 2D impact-based generation to keep seeds on a plane
-    const radius = options.impactRadius ||
+    const radius =
+      options.impactRadius ||
       Math.min(
         sourceFragment.bounds.max.x - sourceFragment.bounds.min.x,
         sourceFragment.bounds.max.y - sourceFragment.bounds.min.y,
@@ -198,10 +197,7 @@ function voronoiFracture2D(
 
   // Use approximation based on user option (for 2.5D, defaults can be slightly lower)
   const useKNearest = options.useApproximation;
-  const k = Math.min(
-    options.approximationNeighborCount,
-    seeds.length - 1,
-  );
+  const k = Math.min(options.approximationNeighborCount, seeds.length - 1);
 
   // Warn user if approximation is enabled
   if (useKNearest) {
@@ -227,7 +223,6 @@ function voronoiFracture2D(
       options.textureScale,
       options.textureOffset,
       convex,
-      options.removeDegenerateEdges,
     );
 
     if (cell && cell.vertexCount > 0) {
@@ -240,7 +235,6 @@ function voronoiFracture2D(
       }
     }
   }
-
 
   return fragments;
 }
@@ -269,7 +263,8 @@ function generateSeeds(
 
   // Generate seeds based on impact point or uniform distribution
   if (options.impactPoint) {
-    const radius = options.impactRadius ||
+    const radius =
+      options.impactRadius ||
       Math.min(
         fragment.bounds.max.x - fragment.bounds.min.x,
         fragment.bounds.max.y - fragment.bounds.min.y,

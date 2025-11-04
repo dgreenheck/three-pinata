@@ -94,14 +94,6 @@ export class VoronoiFractureOptions {
    */
   public seed?: number;
 
-  /**
-   * Remove degenerate edge constraints (edges where both vertices are the same after welding).
-   * When enabled, degenerate edges are filtered out while preserving edge graph connectivity.
-   * This can help prevent triangulation issues caused by zero-length constraints.
-   * Default: false
-   */
-  public removeDegenerateEdges: boolean = false;
-
   constructor({
     fragmentCount,
     mode,
@@ -117,7 +109,6 @@ export class VoronoiFractureOptions {
     textureScale,
     textureOffset,
     seed,
-    removeDegenerateEdges,
   }: {
     fragmentCount?: number;
     mode?: "3D" | "2.5D";
@@ -133,7 +124,6 @@ export class VoronoiFractureOptions {
     textureScale?: Vector2;
     textureOffset?: Vector2;
     seed?: number;
-    removeDegenerateEdges?: boolean;
   } = {}) {
     if (fragmentCount !== undefined) {
       this.fragmentCount = fragmentCount;
@@ -189,10 +179,6 @@ export class VoronoiFractureOptions {
 
     if (seed !== undefined) {
       this.seed = seed;
-    }
-
-    if (removeDegenerateEdges !== undefined) {
-      this.removeDegenerateEdges = removeDegenerateEdges;
     }
   }
 }

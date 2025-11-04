@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
@@ -7,7 +6,6 @@ import {
   FractureOptions,
   fracture,
 } from "@dgreenheck/three-pinata";
-import torusGLB from "../assets/torus.glb";
 
 /**
  * Progressive Destruction Demo
@@ -21,8 +19,6 @@ export class ProgressiveDestructionScene extends BaseScene {
   private insideMaterial!: THREE.MeshStandardMaterial;
   private wireframeMaterial!: THREE.MeshBasicMaterial;
   private currentBall: THREE.Mesh | null = null;
-  private gltfLoader = new GLTFLoader();
-  private torusGeometry: THREE.BufferGeometry | null = null;
   private axesHelper!: THREE.AxesHelper;
   private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "3D",
@@ -35,14 +31,10 @@ export class ProgressiveDestructionScene extends BaseScene {
   });
 
   private settings = {
-    primitiveType: "torus" as PrimitiveType,
-    wireframe: true,
+    primitiveType: "torusKnot" as PrimitiveType,
+    wireframe: false,
     fractureMethod: "Voronoi" as "Voronoi" | "Radial",
-    fragmentCount: 10,
-    useSeed: true,
-    seedValue: 1832439633,
-    lastUsedSeed: 0, // Will be set after fracturing
-    showAxes: true,
+    fragmentCount: 30,
   };
 
   private collisionHandled = new WeakSet<THREE.Mesh>();
@@ -53,21 +45,13 @@ export class ProgressiveDestructionScene extends BaseScene {
     this.controls.target.set(0, 3, 0);
     this.controls.update();
 
-    // Create axes helper (X: red, Y: green, Z: blue)
-    this.axesHelper = new THREE.AxesHelper(5);
-    this.axesHelper.visible = this.settings.showAxes;
-    this.scene.add(this.axesHelper);
-
     // Create materials
     this.objectMaterial = this.createMaterial(0x44aaff);
     this.insideMaterial = this.createInsideMaterial(0xcccccc);
-    this.wireframeMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      wireframe: true,
-    });
+    this.wireframeMaterial = this.materialFactory.createWireframeMaterial();
 
-    // Load torus model
-    await this.loadTorusModel();
+    // Load statue geometry if needed
+    await this.loadStatueGeometry();
 
     // Create and pre-fracture object
     this.createObject();
@@ -79,80 +63,42 @@ export class ProgressiveDestructionScene extends BaseScene {
     window.addEventListener("click", this.onMouseClick);
   }
 
-  private async loadTorusModel(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.gltfLoader.load(
-        torusGLB,
-        (gltf) => {
-          // Get the geometry from the first mesh in the scene
-          gltf.scene.traverse((child) => {
-            if (child instanceof THREE.Mesh && !this.torusGeometry) {
-              const geometry = child.geometry.clone();
-
-              // Ensure geometry has normals
-              if (!geometry.attributes.normal) {
-                geometry.computeVertexNormals();
-              }
-
-              // Ensure geometry has UVs (required for fracturing)
-              if (!geometry.attributes.uv) {
-                // Create simple planar UV mapping as fallback
-                const uvs = new Float32Array(
-                  geometry.attributes.position.count * 2,
-                );
-                geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
-              }
-
-              // Compute bounding sphere/box
-              geometry.computeBoundingBox();
-              geometry.computeBoundingSphere();
-
-              this.torusGeometry = geometry;
-            }
-          });
-          resolve();
-        },
-        undefined,
-        reject,
-      );
-    });
-  }
-
   private createObject(): void {
-    // Create the primitive or use loaded torus geometry
-    let geometry: THREE.BufferGeometry;
+    // Create the primitive
+    const mesh = this.createPrimitive(
+      this.settings.primitiveType,
+      this.objectMaterial,
+    );
 
-    if (this.settings.primitiveType === "torus" && this.torusGeometry) {
-      geometry = this.torusGeometry.clone();
-    } else {
-      const mesh = this.createPrimitive(
-        this.settings.primitiveType,
-        this.objectMaterial,
-      );
-      geometry = mesh.geometry;
-    }
+    // Use the mesh's material (which may be the statue's original material)
+    const materialToUse = mesh.material;
 
-    this.object = new DestructibleMesh(geometry, this.objectMaterial);
+    this.object = new DestructibleMesh(mesh.geometry, materialToUse);
     this.object.mesh.castShadow = true;
     this.object.position.set(0, 3, 0);
     this.scene.add(this.object);
 
     // Pre-fracture and freeze
     if (this.settings.fractureMethod === "Voronoi") {
-      // Set seed if using custom seed
-      if (this.settings.useSeed) {
-        this.voronoiFractureOptions.seed = this.settings.seedValue;
-      } else {
-        this.voronoiFractureOptions.seed = undefined;
-      }
-
       this.object.fracture(
         this.voronoiFractureOptions,
         true, // freeze
         (fragment) => {
-          fragment.material = this.settings.wireframe
-            ? this.wireframeMaterial
-            : [this.objectMaterial, this.insideMaterial];
+          // For statue, use original material + rock inside material; for others, use custom materials
+          if (this.settings.wireframe) {
+            fragment.material = this.wireframeMaterial;
+          } else if (this.settings.primitiveType === "statue") {
+            // Handle both single material and material array cases
+            const outerMaterial = Array.isArray(materialToUse)
+              ? materialToUse[0]
+              : materialToUse;
+            fragment.material = [
+              outerMaterial,
+              this.getStatueInsideMaterial()!,
+            ];
+          } else {
+            fragment.material = [this.objectMaterial, this.insideMaterial];
+          }
           fragment.castShadow = true;
 
           // Make fragment visible (they're hidden by default when frozen)
@@ -176,17 +122,7 @@ export class ProgressiveDestructionScene extends BaseScene {
           }
         },
       );
-      // Capture the seed value after fracturing
-      this.settings.lastUsedSeed = this.voronoiFractureOptions.seed || 0;
     } else {
-      // Radial fracture method
-      // Set seed if using custom seed
-      if (this.settings.useSeed) {
-        this.radialFractureOptions.seed = this.settings.seedValue;
-      } else {
-        this.radialFractureOptions.seed = undefined;
-      }
-
       const fragmentGeometries = fracture(
         this.object.mesh.geometry,
         this.radialFractureOptions,
@@ -205,12 +141,20 @@ export class ProgressiveDestructionScene extends BaseScene {
         // Recompute bounding sphere after translation
         fragmentGeometry.computeBoundingSphere();
 
-        const fragment = new THREE.Mesh(
-          fragmentGeometry,
-          this.settings.wireframe
-            ? this.wireframeMaterial
-            : [this.objectMaterial, this.insideMaterial],
-        );
+        let fragmentMaterial: THREE.Material | THREE.Material[];
+        if (this.settings.wireframe) {
+          fragmentMaterial = this.wireframeMaterial;
+        } else if (this.settings.primitiveType === "statue") {
+          // Handle both single material and material array cases
+          const outerMaterial = Array.isArray(materialToUse)
+            ? materialToUse[0]
+            : materialToUse;
+          fragmentMaterial = [outerMaterial, this.getStatueInsideMaterial()!];
+        } else {
+          fragmentMaterial = [this.objectMaterial, this.insideMaterial];
+        }
+
+        const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
 
         // Position the fragment at its original center within the group
         fragment.position.copy(center);
@@ -238,8 +182,6 @@ export class ProgressiveDestructionScene extends BaseScene {
           console.error("Error adding physics to fragment:", error);
         }
       });
-      // Capture the seed value after fracturing
-      this.settings.lastUsedSeed = this.radialFractureOptions.seed || 0;
     }
 
     // Hide the original mesh immediately (fragments are now visible)
@@ -373,6 +315,8 @@ export class ProgressiveDestructionScene extends BaseScene {
           Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
+          "Torus Knot": "torusKnot",
+          Statue: "statue",
         },
         label: "Primitive",
       })
@@ -383,8 +327,8 @@ export class ProgressiveDestructionScene extends BaseScene {
     folder
       .addBinding(this.settings, "fractureMethod", {
         options: {
-          Voronoi: "Voronoi",
-          Radial: "Radial",
+          "Voronoi (High Quality, Slow)": "Voronoi",
+          "Simple (Low Quality, Fast)": "Radial",
         },
         label: "Fracture Method",
       })
@@ -411,38 +355,6 @@ export class ProgressiveDestructionScene extends BaseScene {
       .on("change", () => {
         this.updateWireframe();
       });
-
-    folder
-      .addBinding(this.settings, "showAxes", {
-        label: "Show Axes",
-      })
-      .on("change", () => {
-        this.axesHelper.visible = this.settings.showAxes;
-      });
-
-    // Checkbox to enable custom seed
-    const useSeedBinding = folder.addBinding(this.settings, "useSeed", {
-      label: "Use Custom Seed",
-    });
-
-    // Input for custom seed value
-    const seedValueBinding = folder.addBinding(this.settings, "seedValue", {
-      label: "Seed Value",
-    });
-
-    // Set initial disabled state
-    seedValueBinding.disabled = !this.settings.useSeed;
-
-    // Update seed value binding when useSeed checkbox changes
-    useSeedBinding.on("change", () => {
-      seedValueBinding.disabled = !this.settings.useSeed;
-    });
-
-    // Display the last used seed (readonly)
-    folder.addBinding(this.settings, "lastUsedSeed", {
-      label: "Last Used Seed",
-      readonly: true,
-    });
 
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();

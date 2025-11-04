@@ -50,8 +50,8 @@ renderer.setClearColor(0xa0a0a0);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.5;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 2;
 document.body.appendChild(renderer.domElement);
 
 // Add performance monitor
@@ -112,7 +112,7 @@ tweakpaneElement.parentElement!.style.width = "300px";
 
 // App settings
 const appSettings = {
-  scene: "progressive" as "glass" | "smashing" | "progressive" | "slicing",
+  scene: "glass" as "glass" | "smashing" | "progressive" | "slicing",
   postProcessing: true,
 };
 
@@ -152,7 +152,7 @@ function setupGround(): void {
     map: gridTexture,
     roughness: 0.1,
     metalness: 0.2,
-    envMapIntensity: 0.8,
+    envMapIntensity: 0.9,
   });
   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
   plane.rotation.x = -Math.PI / 2;
@@ -169,12 +169,12 @@ function setupGround(): void {
 
 function setupLighting(): void {
   // Add ambient light
-  const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
   scene.add(ambient);
 
   // Add directional light
-  const sun = new THREE.DirectionalLight(0xffffff, 2);
-  sun.position.set(1, 8, 1);
+  const sun = new THREE.DirectionalLight(0xffffff, 3);
+  sun.position.set(3, 5, 3);
   sun.target.position.set(0, 0, 0);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);

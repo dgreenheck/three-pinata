@@ -3,24 +3,31 @@ import { BaseScene } from "./BaseScene";
 import {
   DestructibleMesh,
   VoronoiFractureOptions,
+  FractureOptions,
+  fracture,
 } from "@dgreenheck/three-pinata";
 
 /**
  * Glass Shattering Demo
  * - Vertical glass pane
  * - Click to shatter at impact point
- * - 2.5D Voronoi fracturing only
+ * - Choose between Voronoi or Simple fracturing
  */
 export class GlassShatterScene extends BaseScene {
   private glassPane: DestructibleMesh | null = null;
   private glassMaterial!: THREE.MeshPhysicalMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
   private wireframeMaterial!: THREE.MeshBasicMaterial;
-  private fractureOptions = new VoronoiFractureOptions({
+  private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "2.5D",
     fragmentCount: 50,
   });
+  private simpleFractureOptions = new FractureOptions({
+    fragmentCount: 50,
+    fractureMode: "Non-Convex",
+  });
   private settings = {
+    fractureMethod: "Voronoi" as "Voronoi" | "Simple",
     useImpactPoint: true,
     impactRadius: 1.0,
     wireframe: false,
@@ -36,24 +43,9 @@ export class GlassShatterScene extends BaseScene {
     this.controls.update();
 
     // Create materials
-    this.glassMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x88ffff,
-      metalness: 0.2,
-      roughness: 0.05,
-      transmission: 0.5,
-      thickness: 0.1,
-      envMapIntensity: 1.0,
-      transparent: true,
-      opacity: 0.8,
-    });
-
-    this.insideMaterial = this.glassMaterial.clone();
-    this.insideMaterial.color = new THREE.Color(0x88ffee);
-
-    this.wireframeMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      wireframe: true,
-    });
+    this.glassMaterial = this.materialFactory.createGlassMaterial();
+    this.insideMaterial = this.materialFactory.createGlassInsideMaterial();
+    this.wireframeMaterial = this.materialFactory.createWireframeMaterial();
 
     // Create impact marker (hidden initially)
     const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
@@ -91,7 +83,7 @@ export class GlassShatterScene extends BaseScene {
     const glassGeometry = new THREE.BoxGeometry(4, 6, 0.2, 1, 1, 1);
     this.glassPane = new DestructibleMesh(glassGeometry, this.glassMaterial);
     this.glassPane.mesh.castShadow = true;
-    this.glassPane.mesh.receiveShadow = true;
+    this.glassPane.mesh.receiveShadow = false;
     this.glassPane.position.set(0, 3, 0);
     this.scene.add(this.glassPane);
   }
@@ -154,27 +146,11 @@ export class GlassShatterScene extends BaseScene {
           intersectionPoint.clone(),
         );
 
-        // Fracture the glass
-        this.fractureOptions.impactPoint = this.settings.useImpactPoint
-          ? localPoint
-          : undefined;
-        this.fractureOptions.impactRadius = this.settings.useImpactPoint
-          ? this.settings.impactRadius
-          : undefined;
-        this.fractureOptions.projectionAxis = "z"; // Project along the thin axis
-
-        this.glassPane.fracture(this.fractureOptions, false, (fragment) => {
-          fragment.material = this.settings.wireframe
-            ? this.wireframeMaterial
-            : [this.glassMaterial, this.insideMaterial];
-          fragment.castShadow = true;
-
-          this.physics.add(fragment, {
-            type: "dynamic",
-            collider: "convexHull",
-            restitution: 0.2,
-          });
-        });
+        if (this.settings.fractureMethod === "Voronoi") {
+          this.fractureWithVoronoi(localPoint);
+        } else {
+          this.fractureWithSimple();
+        }
 
         this.impactMarker.visible = false;
         this.radiusMarker.visible = false;
@@ -183,6 +159,81 @@ export class GlassShatterScene extends BaseScene {
       }
     }
   };
+
+  private fractureWithVoronoi(localPoint: THREE.Vector3): void {
+    if (!this.glassPane) return;
+
+    // Configure Voronoi fracture options
+    this.voronoiFractureOptions.impactPoint = this.settings.useImpactPoint
+      ? localPoint
+      : undefined;
+    this.voronoiFractureOptions.impactRadius = this.settings.useImpactPoint
+      ? this.settings.impactRadius
+      : undefined;
+    this.voronoiFractureOptions.projectionAxis = "z"; // Project along the thin axis
+
+    this.glassPane.fracture(this.voronoiFractureOptions, false, (fragment) => {
+      fragment.material = this.settings.wireframe
+        ? this.wireframeMaterial
+        : [this.glassMaterial, this.insideMaterial];
+      fragment.castShadow = true;
+
+      this.physics.add(fragment, {
+        type: "dynamic",
+        collider: "convexHull",
+        restitution: 0.2,
+      });
+    });
+  }
+
+  private fractureWithSimple(): void {
+    if (!this.glassPane) return;
+
+    const fragmentGeometries = fracture(
+      this.glassPane.mesh.geometry,
+      this.simpleFractureOptions,
+    );
+
+    // Hide the original mesh
+    this.glassPane.mesh.visible = false;
+
+    // Create mesh objects for each fragment
+    fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
+      // Compute bounding box to get the center of this fragment
+      fragmentGeometry.computeBoundingBox();
+      const center = new THREE.Vector3();
+      fragmentGeometry.boundingBox!.getCenter(center);
+
+      // Translate the geometry so its center is at the origin
+      fragmentGeometry.translate(-center.x, -center.y, -center.z);
+
+      // Recompute bounding sphere after translation
+      fragmentGeometry.computeBoundingSphere();
+
+      const fragment = new THREE.Mesh(
+        fragmentGeometry,
+        this.settings.wireframe
+          ? this.wireframeMaterial
+          : [this.glassMaterial, this.insideMaterial],
+      );
+
+      // Position the fragment at its original center within the group
+      fragment.position.copy(center);
+      fragment.castShadow = true;
+      fragment.visible = true;
+
+      // Add as child to the DestructibleMesh group
+      this.glassPane!.add(fragment);
+      this.glassPane!.fragments.push(fragment);
+
+      // Add physics
+      this.physics.add(fragment, {
+        type: "dynamic",
+        collider: "convexHull",
+        restitution: 0.2,
+      });
+    });
+  }
 
   private updateWireframe(): void {
     if (!this.glassPane) return;
@@ -204,7 +255,7 @@ export class GlassShatterScene extends BaseScene {
     });
   }
 
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // No per-frame updates needed
   }
 
@@ -224,12 +275,32 @@ export class GlassShatterScene extends BaseScene {
       expanded: true,
     });
 
-    folder.addBinding(this.fractureOptions, "fragmentCount", {
-      min: 10,
-      max: 200,
-      step: 1,
-      label: "Fragment Count",
-    });
+    folder
+      .addBinding(this.settings, "fractureMethod", {
+        options: {
+          "Voronoi (High Quality, Slow)": "Voronoi",
+          "Simple (Low Quality, Fast)": "Simple",
+        },
+        label: "Fracture Method",
+      })
+      .on("change", () => {
+        // Update fragment count for both options when method changes
+        this.simpleFractureOptions.fragmentCount =
+          this.voronoiFractureOptions.fragmentCount;
+      });
+
+    folder
+      .addBinding(this.voronoiFractureOptions, "fragmentCount", {
+        min: 10,
+        max: 200,
+        step: 1,
+        label: "Fragment Count",
+      })
+      .on("change", () => {
+        // Keep both fracture options in sync
+        this.simpleFractureOptions.fragmentCount =
+          this.voronoiFractureOptions.fragmentCount;
+      });
 
     folder.addBinding(this.settings, "useImpactPoint", {
       label: "Impact Point",

@@ -2,13 +2,10 @@ import * as THREE from "three";
 import { Pane } from "tweakpane";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { MaterialFactory } from "../materials";
+import { ModelFactory, PrimitiveType } from "../models";
 
-export type PrimitiveType =
-  | "cube"
-  | "sphere"
-  | "icosahedron"
-  | "cylinder"
-  | "torus";
+export type { PrimitiveType };
 
 /**
  * Base class for all demo scenes
@@ -23,6 +20,8 @@ export abstract class BaseScene {
   protected clock: THREE.Clock;
   protected raycaster: THREE.Raycaster;
   protected mouse: THREE.Vector2;
+  protected materialFactory: MaterialFactory;
+  protected modelFactory: ModelFactory;
 
   constructor(
     scene: THREE.Scene,
@@ -40,6 +39,8 @@ export abstract class BaseScene {
     this.clock = clock;
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
+    this.materialFactory = new MaterialFactory();
+    this.modelFactory = new ModelFactory();
   }
 
   /**
@@ -75,37 +76,23 @@ export abstract class BaseScene {
   abstract reset(): void;
 
   /**
+   * Load the statue geometry and material
+   */
+  protected async loadStatueGeometry(
+    forceReload: boolean = false,
+  ): Promise<void> {
+    await this.modelFactory.loadStatueGeometry(forceReload);
+    await this.materialFactory.loadStatueInsideMaterial();
+  }
+
+  /**
    * Create a primitive mesh with given type
    */
   protected createPrimitive(
     type: PrimitiveType,
     material: THREE.Material,
   ): THREE.Mesh {
-    let geometry: THREE.BufferGeometry;
-
-    switch (type) {
-      case "cube":
-        geometry = new THREE.BoxGeometry(2, 2, 2, 1, 1, 1);
-        break;
-      case "sphere":
-        geometry = new THREE.SphereGeometry(1.2, 32, 32);
-        break;
-      case "icosahedron":
-        geometry = new THREE.IcosahedronGeometry(1.2, 0);
-        break;
-      case "cylinder":
-        geometry = new THREE.CylinderGeometry(1, 1, 2.5, 32);
-        break;
-      case "torus":
-        geometry = new THREE.TorusGeometry(1, 0.4, 16, 32);
-        break;
-    }
-
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = false;
-
-    return mesh;
+    return this.modelFactory.createPrimitive(type, material);
   }
 
   /**
@@ -114,12 +101,7 @@ export abstract class BaseScene {
   protected createMaterial(
     color: number = 0xa0ffff,
   ): THREE.MeshPhysicalMaterial {
-    return new THREE.MeshPhysicalMaterial({
-      color,
-      roughness: 0.1,
-      metalness: 0.8,
-      envMapIntensity: 2.0,
-    });
+    return this.materialFactory.createStandardMaterial(color);
   }
 
   /**
@@ -128,12 +110,14 @@ export abstract class BaseScene {
   protected createInsideMaterial(
     color: number = 0xcccccc,
   ): THREE.MeshStandardMaterial {
-    return new THREE.MeshPhysicalMaterial({
-      color,
-      roughness: 0.1,
-      metalness: 0.8,
-      envMapIntensity: 2.0,
-    });
+    return this.materialFactory.createInsideMaterial(color);
+  }
+
+  /**
+   * Get the statue inside material (must call loadStatueGeometry first)
+   */
+  protected getStatueInsideMaterial(): THREE.MeshStandardMaterial | null {
+    return this.materialFactory.getStatueInsideMaterial();
   }
 
   /**
@@ -264,27 +248,6 @@ export abstract class BaseScene {
         explosionStrength,
       );
       return intersectionPoint;
-    }
-
-    return null;
-  }
-
-  /**
-   * Handles clicking on meshes to apply random impulse
-   * @param meshes Array of meshes to raycast against
-   * @param impulseStrength Base strength of the impulse (default: 5.0)
-   * @returns The mesh that was clicked, or null if none
-   */
-  protected handleMeshClick(
-    meshes: THREE.Mesh[],
-    impulseStrength: number = 10.0,
-  ): THREE.Mesh | null {
-    const intersects = this.raycaster.intersectObjects(meshes, false);
-
-    if (intersects.length > 0) {
-      const mesh = intersects[0].object as THREE.Mesh;
-      this.applyRandomImpulseToMesh(mesh, impulseStrength);
-      return mesh;
     }
 
     return null;
