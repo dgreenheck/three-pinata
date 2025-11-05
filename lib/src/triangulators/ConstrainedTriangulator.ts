@@ -1,6 +1,6 @@
-import { Vector3 } from "../utils/Vector3";
-import EdgeConstraint from "../entities/EdgeConstraint";
-import MeshVertex from "../entities/MeshVertex";
+import { Vector3 } from "three";
+import { EdgeConstraint } from "../entities/EdgeConstraint";
+import { MeshVertex } from "../entities/MeshVertex";
 import { Triangulator } from "./Triangulator";
 import { linesIntersect } from "../utils/MathUtils";
 import { hashi2 } from "../utils/MathUtils";
@@ -186,40 +186,40 @@ export class ConstrainedTriangulator extends Triangulator {
         linesIntersect(v_i, v_j, v1, v2)
       ) {
         edgeIndex = E12;
-        var edge = new EdgeConstraint(
+        const edge12 = new EdgeConstraint(
           this.triangulation[t][V1],
           this.triangulation[t][V2],
           t,
           this.triangulation[t][E12],
           edgeIndex,
         );
-        intersectingEdges.push(edge);
+        intersectingEdges.push(edge12);
       } else if (
         this.triangulation[t][E23] !== lastTriangle &&
         linesIntersect(v_i, v_j, v2, v3)
       ) {
         edgeIndex = E23;
-        var edge = new EdgeConstraint(
+        const edge23 = new EdgeConstraint(
           this.triangulation[t][V2],
           this.triangulation[t][V3],
           t,
           this.triangulation[t][E23],
           edgeIndex,
         );
-        intersectingEdges.push(edge);
+        intersectingEdges.push(edge23);
       } else if (
         this.triangulation[t][E31] !== lastTriangle &&
         linesIntersect(v_i, v_j, v3, v1)
       ) {
         edgeIndex = E31;
-        var edge = new EdgeConstraint(
+        const edge31 = new EdgeConstraint(
           this.triangulation[t][V3],
           this.triangulation[t][V1],
           t,
           this.triangulation[t][E31],
           edgeIndex,
         );
-        intersectingEdges.push(edge);
+        intersectingEdges.push(edge31);
       } else {
         // Shouldn't reach this point
         console.warn("Failed to find final triangle, exiting early.");
@@ -425,9 +425,7 @@ export class ConstrainedTriangulator extends Triangulator {
     // Iterate over the list of newly created edges and swap
     // non-constraint diagonals until no more swaps take place
     let swapOccurred = true;
-    let counter = 0;
     while (swapOccurred) {
-      counter++;
       swapOccurred = false;
 
       for (let i = 0; i < newEdges.length; i++) {
@@ -469,7 +467,7 @@ export class ConstrainedTriangulator extends Triangulator {
     // Initialize to all triangles being skipped
     this.skipTriangle.fill(true);
 
-    // Identify the boundary edges
+    // Identify the boundary edges (directional)
     let boundaries = new Set<number>();
     for (let i = 0; i < this.constraints.length; i++) {
       const constraint = this.constraints[i];
@@ -481,6 +479,7 @@ export class ConstrainedTriangulator extends Triangulator {
 
     let v1: number, v2: number, v3: number;
     let boundaryE12: boolean, boundaryE23: boolean, boundaryE31: boolean;
+    let reverseE12: boolean, reverseE23: boolean, reverseE31: boolean;
     const visited = new Array<boolean>(this.triangulation.length);
     for (let i = 0; i < this.triangleCount; i++) {
       if (visited[i]) continue;
@@ -488,11 +487,23 @@ export class ConstrainedTriangulator extends Triangulator {
       v1 = this.triangulation[i][V1];
       v2 = this.triangulation[i][V2];
       v3 = this.triangulation[i][V3];
+
+      // Check if edges match constraint direction (forward)
       boundaryE12 = boundaries.has(hashi2(v1, v2));
       boundaryE23 = boundaries.has(hashi2(v2, v3));
       boundaryE31 = boundaries.has(hashi2(v3, v1));
 
-      // If this triangle has a boundary edge, start searching for adjacent triangles
+      // Check if edges match reverse of constraint direction
+      reverseE12 = boundaries.has(hashi2(v2, v1));
+      reverseE23 = boundaries.has(hashi2(v3, v2));
+      reverseE31 = boundaries.has(hashi2(v1, v3));
+
+      // If this triangle has a reverse edge, it's outside the valid region - skip it
+      if (reverseE12 || reverseE23 || reverseE31) {
+        continue;
+      }
+
+      // If this triangle has a forward boundary edge, start searching for adjacent triangles
       if (!(boundaryE12 || boundaryE23 || boundaryE31)) continue;
       this.skipTriangle[i] = false;
 
@@ -513,16 +524,26 @@ export class ConstrainedTriangulator extends Triangulator {
       while (frontier.length > 0) {
         const k = frontier.shift();
 
-        if (!k || k === OUT_OF_BOUNDS || visited[k]) {
+        if (k === undefined || k === OUT_OF_BOUNDS || visited[k]) {
+          continue;
+        }
+
+        v1 = this.triangulation[k][V1];
+        v2 = this.triangulation[k][V2];
+        v3 = this.triangulation[k][V3];
+
+        // Check for reverse edges - if found, this triangle is outside
+        reverseE12 = boundaries.has(hashi2(v2, v1));
+        reverseE23 = boundaries.has(hashi2(v3, v2));
+        reverseE31 = boundaries.has(hashi2(v1, v3));
+
+        if (reverseE12 || reverseE23 || reverseE31) {
+          visited[k] = true;
           continue;
         }
 
         this.skipTriangle[k] = false;
         visited[k] = true;
-
-        v1 = this.triangulation[k][V1];
-        v2 = this.triangulation[k][V2];
-        v3 = this.triangulation[k][V3];
 
         // Continue searching along non-boundary edges
         if (!boundaries.has(hashi2(v1, v2))) {

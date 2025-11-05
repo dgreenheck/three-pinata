@@ -1,4 +1,4 @@
-import { Vector2 } from "../utils/Vector2";
+import { Vector2 } from "three";
 import { IBinSortable } from "../utils/BinSort";
 
 /**

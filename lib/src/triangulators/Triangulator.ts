@@ -1,7 +1,6 @@
-import { Vector2 } from "../utils/Vector2";
-import { Vector3 } from "../utils/Vector3";
+import { Vector2, Vector3 } from "three";
 import TriangulationPoint from "../entities/TriangulationPoint";
-import MeshVertex from "../entities/MeshVertex";
+import { MeshVertex } from "../entities/MeshVertex";
 import { BinSort } from "../utils/BinSort";
 import { isPointOnRightSideOfLine } from "../utils/MathUtils";
 

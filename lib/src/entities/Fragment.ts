@@ -1,9 +1,7 @@
-import { Vector2 } from "../utils/Vector2";
-import { Vector3 } from "../utils/Vector3";
-import { Box3 } from "../utils/Box3";
+import { Vector2, Vector3, Box3 } from "three";
 import { hash3 } from "../utils/MathUtils";
-import MeshVertex from "./MeshVertex";
-import EdgeConstraint from "./EdgeConstraint";
+import { MeshVertex } from "./MeshVertex";
+import { EdgeConstraint } from "./EdgeConstraint";
 
 // The enum can be directly translated
 export enum SlicedMeshSubmesh {
@@ -14,8 +12,8 @@ export enum SlicedMeshSubmesh {
 type FragmentArgs = {
   positions: Float32Array;
   normals: Float32Array;
-  uvs: Float32Array;
-  indices: Uint32Array;
+  uvs?: Float32Array;
+  indices?: Uint32Array;
 };
 
 // The class definition is translated into TypeScript
@@ -88,12 +86,21 @@ export class Fragment {
         normals[3 * i + 2],
       );
 
-      const uv = new Vector2(uvs[2 * i], uvs[2 * i + 1]);
+      const uv = uvs
+        ? new Vector2(uvs[2 * i], uvs[2 * i + 1])
+        : new Vector2(0, 0);
 
       this.vertices.push(new MeshVertex(position, normal, uv));
     }
 
-    this.triangles = [Array.from(indices), []];
+    // Generate index if it doesn't exist
+    if (indices) {
+      this.triangles = [Array.from(indices), []];
+    } else {
+      // Create sequential indices for non-indexed geometry
+      const vertexCount = positions.length / 3;
+      this.triangles = [Array.from({ length: vertexCount }, (_, i) => i), []];
+    }
     this.calculateBounds();
   }
 
@@ -175,7 +182,7 @@ export class Fragment {
   }
 
   /**
-   * Finds coincident vertices on the cut face and welds them together.
+   * Finds coincident vertices on the cut face and welds them together
    */
   weldCutFaceVertices(): void {
     // Temporary array containing the unique (welded) vertices
@@ -208,11 +215,24 @@ export class Fragment {
     });
 
     // Update the edge constraints to point to the new welded vertices
+    // and optionally filter out degenerate edges
+    const filteredConstraints: EdgeConstraint[] = [];
+
     for (let i = 0; i < this.constraints.length; i++) {
       const edge = this.constraints[i];
       edge.v1 = indexMap[edge.v1];
       edge.v2 = indexMap[edge.v2];
+
+      // Check for degenerate constraint (edge from vertex to itself)
+      if (Math.abs(edge.v1 - edge.v2) < 1e-9) {
+        continue;
+      }
+
+      filteredConstraints.push(edge);
     }
+
+    // Update constraints with filtered list
+    this.constraints = filteredConstraints;
 
     // Update the cut vertices
     this.cutVertices = weldedVerts;

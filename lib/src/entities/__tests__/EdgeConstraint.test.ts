@@ -1,4 +1,4 @@
-import EdgeConstraint from "../EdgeConstraint";
+import { EdgeConstraint } from "../EdgeConstraint";
 
 describe("EdgeConstraint", () => {
   test("indentical edges are equal", () => {

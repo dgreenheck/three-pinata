@@ -1,8 +1,4 @@
-export * from "./index.core";
-
-export { fracture } from "./fracture/Fracture";
-
-export {
-  geometryToFragment,
-  fragmentToGeometry,
-} from "./utils/GeometryConversion";
+export { DestructibleMesh } from "./DestructibleMesh";
+export { FractureOptions } from "./entities/FractureOptions";
+export type { VoronoiOptions } from "./entities/FractureOptions";
+export { SliceOptions } from "./entities/SliceOptions";

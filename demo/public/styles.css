@@ -2,3 +2,21 @@ body {
   margin: 0;
   overflow: hidden;
 }
+
+#instructions {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 15px;
+  border-radius: 5px;
+  pointer-events: none;
+  z-index: 100;
+  line-height: 1.6;
+  max-width: 300px;
+  backdrop-filter: blur(5px);
+  white-space: pre-line;
+}

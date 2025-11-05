@@ -1,44 +1,49 @@
 import { Vector2, Vector3 } from "three";
 
 /**
- * Voronoi-specific fracture options
+ * Options for Voronoi fracture operation
  */
-export interface VoronoiOptions {
+export class VoronoiFractureOptions {
+  /**
+   * Number of Voronoi cells (fragments) to generate
+   */
+  public fragmentCount: number = 50;
+
   /**
    * Voronoi fracture mode
    * - '3D': Full 3D Voronoi tessellation (more realistic, slower)
    * - '2.5D': 2D Voronoi pattern projected through mesh (faster, good for flat objects)
    */
-  mode: "3D" | "2.5D";
+  public mode: "3D" | "2.5D" = "3D";
 
   /**
    * Custom seed points for Voronoi cells. If not provided, seeds will be generated automatically.
    */
-  seedPoints?: Vector3[];
+  public seedPoints?: Vector3[];
 
   /**
    * Impact point for fracture. When provided, generates more fragments near this location.
    */
-  impactPoint?: Vector3;
+  public impactPoint?: Vector3;
 
   /**
    * Radius around impact point where fragment density is highest.
    * Only used when impactPoint is specified.
    */
-  impactRadius?: number;
+  public impactRadius?: number;
 
   /**
    * For 2.5D mode: the axis along which to project the 2D Voronoi pattern
    * 'auto' will choose based on mesh dimensions
    */
-  projectionAxis?: "x" | "y" | "z" | "auto";
+  public projectionAxis?: "x" | "y" | "z" | "auto" = "auto";
 
   /**
    * For 2.5D mode with impact: optional normal vector of the collision surface
    * If provided, determines the projection plane perpendicular to this normal
    * This overrides projectionAxis when both are specified
    */
-  projectionNormal?: Vector3;
+  public projectionNormal?: Vector3;
 
   /**
    * Use K-nearest neighbor approximation for performance optimization.
@@ -50,46 +55,14 @@ export interface VoronoiOptions {
    *
    * Recommended: Keep false for <30 seeds, enable for >50 seeds if performance is critical
    */
-  useApproximation?: boolean;
+  public useApproximation: boolean = false;
 
   /**
    * Number of nearest neighbors to consider when useApproximation is enabled.
    * Higher values are more accurate but slower. Ignored if useApproximation is false.
    * Default: 12
    */
-  approximationNeighborCount?: number;
-}
-
-/**
- * Options for the fracture operation
- */
-export class FractureOptions {
-  /**
-   * Fracture method to use
-   * - 'voronoi': Natural-looking fracture using Voronoi tessellation (requires voronoiOptions)
-   * - 'simple': Simple plane-based fracturing (fast, lower quality)
-   */
-  public fractureMethod: "voronoi" | "simple" = "voronoi";
-
-  /**
-   * Number of fragments to generate
-   */
-  public fragmentCount: number = 50;
-
-  /**
-   * Voronoi-specific options (required when fractureMethod is 'voronoi')
-   */
-  public voronoiOptions?: VoronoiOptions;
-
-  /**
-   * Simple fracture: specify which planes to fracture in
-   * Only used when fractureMethod is 'simple'
-   */
-  public fracturePlanes: {
-    x: boolean;
-    y: boolean;
-    z: boolean;
-  } = { x: true, y: true, z: true };
+  public approximationNeighborCount: number = 12;
 
   /**
    * Scale factor to apply to texture coordinates on cut faces
@@ -108,40 +81,66 @@ export class FractureOptions {
   public seed?: number;
 
   constructor({
-    fractureMethod,
     fragmentCount,
-    voronoiOptions,
-    fracturePlanes,
+    mode,
+    seedPoints,
+    impactPoint,
+    impactRadius,
+    projectionAxis,
+    projectionNormal,
+    useApproximation,
+    approximationNeighborCount,
     textureScale,
     textureOffset,
     seed,
   }: {
-    fractureMethod?: "voronoi" | "simple";
     fragmentCount?: number;
-    voronoiOptions?: VoronoiOptions;
-    fracturePlanes?: {
-      x: boolean;
-      y: boolean;
-      z: boolean;
-    };
+    mode?: "3D" | "2.5D";
+    seedPoints?: Vector3[];
+    impactPoint?: Vector3;
+    impactRadius?: number;
+    projectionAxis?: "x" | "y" | "z" | "auto";
+    projectionNormal?: Vector3;
+    useApproximation?: boolean;
+    approximationNeighborCount?: number;
     textureScale?: Vector2;
     textureOffset?: Vector2;
     seed?: number;
   } = {}) {
-    if (fractureMethod !== undefined) {
-      this.fractureMethod = fractureMethod;
-    }
-
     if (fragmentCount !== undefined) {
       this.fragmentCount = fragmentCount;
     }
 
-    if (voronoiOptions !== undefined) {
-      this.voronoiOptions = voronoiOptions;
+    if (mode !== undefined) {
+      this.mode = mode;
     }
 
-    if (fracturePlanes !== undefined) {
-      this.fracturePlanes = fracturePlanes;
+    if (seedPoints !== undefined) {
+      this.seedPoints = seedPoints;
+    }
+
+    if (impactPoint !== undefined) {
+      this.impactPoint = impactPoint;
+    }
+
+    if (impactRadius !== undefined) {
+      this.impactRadius = impactRadius;
+    }
+
+    if (projectionAxis !== undefined) {
+      this.projectionAxis = projectionAxis;
+    }
+
+    if (projectionNormal !== undefined) {
+      this.projectionNormal = projectionNormal;
+    }
+
+    if (useApproximation !== undefined) {
+      this.useApproximation = useApproximation;
+    }
+
+    if (approximationNeighborCount !== undefined) {
+      this.approximationNeighborCount = approximationNeighborCount;
     }
 
     if (textureScale !== undefined) {
@@ -154,14 +153,6 @@ export class FractureOptions {
 
     if (seed !== undefined) {
       this.seed = seed;
-    }
-
-    // Validate that voronoiOptions is provided when fractureMethod is 'voronoi'
-    if (this.fractureMethod === "voronoi" && !this.voronoiOptions) {
-      // Provide default voronoi options
-      this.voronoiOptions = {
-        mode: "3D",
-      };
     }
   }
 }

@@ -1,8 +1,7 @@
 import * as THREE from "three";
+import { Vector2, Vector3 } from "three";
 import { Fragment } from "../entities/Fragment";
-import { Vector2 } from "./Vector2";
-import { Vector3 } from "./Vector3";
-import MeshVertex from "../entities/MeshVertex";
+import { MeshVertex } from "../entities/MeshVertex";
 
 /**
  * Converts a THREE.BufferGeometry to our internal Fragment representation
@@ -10,7 +9,7 @@ import MeshVertex from "../entities/MeshVertex";
 export function geometryToFragment(geometry: THREE.BufferGeometry): Fragment {
   const positions = geometry.attributes.position.array as Float32Array;
   const normals = geometry.attributes.normal.array as Float32Array;
-  const uvs = geometry.attributes.uv.array as Float32Array;
+  const uvs = geometry.attributes.uv?.array as Float32Array;
 
   const fragment = new Fragment();
   for (let i = 0; i < positions.length / 3; i++) {
@@ -26,12 +25,45 @@ export function geometryToFragment(geometry: THREE.BufferGeometry): Fragment {
       normals[3 * i + 2],
     );
 
-    const uv = new Vector2(uvs[2 * i], uvs[2 * i + 1]);
+    const uv = uvs
+      ? new Vector2(uvs[2 * i], uvs[2 * i + 1])
+      : new Vector2(0, 0);
 
     fragment.vertices.push(new MeshVertex(position, normal, uv));
   }
 
-  fragment.triangles = [Array.from(geometry.index?.array as Uint32Array), []];
+  // Generate index if it doesn't exist
+  let indices: number[];
+  if (geometry.index) {
+    indices = Array.from(geometry.index.array as Uint32Array);
+  } else {
+    // Create sequential indices for non-indexed geometry
+    const vertexCount = positions.length / 3;
+    indices = Array.from({ length: vertexCount }, (_, i) => i);
+  }
+
+  // Preserve material groups if geometry has been previously sliced
+  if (geometry.groups && geometry.groups.length === 2) {
+    // Split indices into two groups based on material groups
+    const group0Indices: number[] = [];
+    const group1Indices: number[] = [];
+
+    for (const group of geometry.groups) {
+      const targetArray = group.materialIndex === 0 ? group0Indices : group1Indices;
+      const start = group.start;
+      const end = start + group.count;
+
+      for (let i = start; i < end; i++) {
+        targetArray.push(indices[i]);
+      }
+    }
+
+    fragment.triangles = [group0Indices, group1Indices];
+  } else {
+    // No groups or single group - treat as unsliced geometry
+    fragment.triangles = [indices, []];
+  }
+
   fragment.calculateBounds();
 
   return fragment;

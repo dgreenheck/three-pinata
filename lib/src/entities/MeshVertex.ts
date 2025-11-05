@@ -1,11 +1,10 @@
-import { Vector2 } from "../utils/Vector2";
-import { Vector3 } from "../utils/Vector3";
+import { Vector2, Vector3 } from "three";
 import { hash3 } from "../utils/MathUtils";
 
 /**
  * Data structure containing position/normal/UV data for a single vertex
  */
-export default class MeshVertex {
+export class MeshVertex {
   position: Vector3;
   normal: Vector3;
   uv: Vector2;
@@ -27,6 +26,18 @@ export default class MeshVertex {
    */
   equals(other: MeshVertex): boolean {
     return hash3(this.position) === hash3(other.position);
+  }
+
+  /**
+   * Creates a deep copy of this vertex
+   * @returns A new MeshVertex with cloned position, normal, and UV
+   */
+  clone(): MeshVertex {
+    return new MeshVertex(
+      this.position.clone(),
+      this.normal.clone(),
+      this.uv.clone(),
+    );
   }
 
   toString(): string {

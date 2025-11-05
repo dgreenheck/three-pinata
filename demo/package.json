@@ -7,7 +7,8 @@
     "build": "vite build",
     "dev": "vite",
     "preview": "vite preview",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -25,15 +26,20 @@
   },
   "homepage": "https://github.com/dgreenheck/three-pinata#readme",
   "dependencies": {
-    "@tweakpane/core": "^2.0.5",
+    "@dgreenheck/three-pinata": "*",
     "@dimforge/rapier3d": "^0.13.0",
-    "three": "^0.158.0",
+    "@tweakpane/core": "^2.0.5",
+    "three": "^0.180.0",
     "three-perf": "^1.0.10",
     "tweakpane": "^4.0.5"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",
-    "@types/three": "^0.158.2",
+    "@types/three": "^0.180.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.3",
+    "@typescript-eslint/parser": "^8.46.3",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
     "jest": "^29.7.0",
     "postprocessing": "^6.36.7",
     "prettier": "3.2.5",

@@ -1,9 +1,8 @@
-import { Vector2 } from "../utils/Vector2";
-import { Vector3 } from "../utils/Vector3";
+import { Vector2, Vector3 } from "three";
 import { Fragment, SlicedMeshSubmesh } from "../entities/Fragment";
 import { isPointAbovePlane, linePlaneIntersection } from "../utils/MathUtils";
-import MeshVertex from "../entities/MeshVertex";
-import EdgeConstraint from "../entities/EdgeConstraint";
+import { MeshVertex } from "../entities/MeshVertex";
+import { EdgeConstraint } from "../entities/EdgeConstraint";
 import { Triangulator } from "../triangulators/Triangulator";
 import { ConstrainedTriangulator } from "../triangulators/ConstrainedTriangulator";
 
@@ -53,7 +52,7 @@ export function sliceRawData(
  * @param textureOffset Offset to apply to UV coordinates
  * @param convex Set to true if `fragment` is convex geometry. Setting this to
  * true will use a faster triangulation algorithm. Setting this to false will
- * allow non-convex geometry triangulated correctly at the expense of performance.
+ * allow non-convex geometry triangulated correctly at the expense of performance
  * @returns An object containing the fragments above and below the slice plane
  */
 export function sliceFragment(
@@ -62,7 +61,7 @@ export function sliceFragment(
   sliceOrigin: Vector3,
   textureScale: Vector2,
   textureOffset: Vector2,
-  convex: boolean,
+  convex: boolean = false,
 ): { topSlice: Fragment; bottomSlice: Fragment } {
   const topSlice = new Fragment();
   const bottomSlice = new Fragment();
@@ -74,22 +73,22 @@ export function sliceFragment(
 
   // Go through and identify which vertices are above/below the split plane
   for (let i = 0; i < fragment.vertices.length; i++) {
-    var vertex = fragment.vertices[i];
+    const vertex = fragment.vertices[i];
     side[i] = isPointAbovePlane(vertex.position, sliceNormal, sliceOrigin);
-    var slice = side[i] ? topSlice : bottomSlice;
+    const slice = side[i] ? topSlice : bottomSlice;
     slice.addMappedVertex(vertex, i);
   }
 
   const offset = fragment.vertices.length;
   for (let i = 0; i < fragment.cutVertices.length; i++) {
-    var vertex = fragment.cutVertices[i];
+    const cutVertex = fragment.cutVertices[i];
     side[i + offset] = isPointAbovePlane(
-      vertex.position,
+      cutVertex.position,
       sliceNormal,
       sliceOrigin,
     );
-    var slice = side[i + offset] ? topSlice : bottomSlice;
-    slice.addMappedVertex(vertex, i + offset);
+    const cutSlice = side[i + offset] ? topSlice : bottomSlice;
+    cutSlice.addMappedVertex(cutVertex, i + offset);
   }
 
   splitTriangles(
@@ -152,6 +151,7 @@ function fillCutFaces(
 
   // First need to weld the coincident vertices for the triangulation to work properly
   topSlice.weldCutFaceVertices();
+  bottomSlice.weldCutFaceVertices();
 
   // Need at least 3 vertices to triangulate
   if (topSlice.cutVertices.length < 3) return;

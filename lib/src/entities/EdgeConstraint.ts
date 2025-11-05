@@ -1,7 +1,7 @@
 /**
  * Represents an edge constraint between two vertices in the triangulation
  */
-export default class EdgeConstraint {
+export class EdgeConstraint {
   /**
    * Index of the first end point of the constraint
    */
@@ -52,6 +52,13 @@ export default class EdgeConstraint {
       (this.v1 === other.v1 && this.v2 === other.v2) ||
       (this.v1 === other.v2 && this.v2 === other.v1)
     );
+  }
+
+  /**
+   * Creates a copy of this edge constraint
+   */
+  clone(): EdgeConstraint {
+    return new EdgeConstraint(this.v1, this.v2, this.t1, this.t2, this.t1Edge);
   }
 
   /**
