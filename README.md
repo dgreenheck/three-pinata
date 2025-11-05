@@ -7,7 +7,7 @@
 ![YouTube Channel Subscribers](https://img.shields.io/youtube/channel/subscribers/UCrdx_EU_Wx8_uBfqO0cI-9Q)
 
 <p align="center">
-![demo](https://github.com/user-attachments/assets/66876fed-9779-462b-a02f-b9da54ad5176)
+<img src="https://github.com/user-attachments/assets/66876fed-9779-462b-a02f-b9da54ad5176" />
 </p>
 
 **Real-time mesh fracturing and slicing for Three.js**
