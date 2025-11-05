@@ -1,7 +1,7 @@
 {
   "name": "@dgreenheck/three-pinata",
-  "version": "0.3.17",
-  "description": "Three.js library for fracturing and slicing non-convex meshes in real time.",
+  "version": "1.0.0",
+  "description": "Three.js library for fracturing and slicing meshes in real time.",
   "type": "module",
   "main": "./build/three-pinata.umd.js",
   "module": "./build/three-pinata.es.js",
@@ -39,6 +39,7 @@
     "url": "https://github.com/dgreenheck/three-pinata/issues"
   },
   "homepage": "https://github.com/dgreenheck/three-pinata#readme",
+  "readme": "../README.md",
   "peerDependencies": {
     "three": ">=0.158.0"
   },
