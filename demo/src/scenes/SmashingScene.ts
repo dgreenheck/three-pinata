@@ -162,7 +162,6 @@ export class SmashingScene extends BaseScene {
             // Add physics (sleeping)
             const body = this.physics.add(fragment, {
               type: "dynamic",
-              collider: "convexHull",
               restitution: 0.3,
             });
             if (body) {
@@ -224,7 +223,6 @@ export class SmashingScene extends BaseScene {
           // Add physics (sleeping)
           const body = this.physics.add(fragment, {
             type: "dynamic",
-            collider: "convexHull",
             restitution: 0.3,
           });
           if (body) {
@@ -370,7 +368,6 @@ export class SmashingScene extends BaseScene {
 
             this.physics.add(fragment, {
               type: "dynamic",
-              collider: "convexHull",
               restitution: 0.3,
             });
           },
@@ -430,7 +427,6 @@ export class SmashingScene extends BaseScene {
           // Add physics
           this.physics.add(fragment, {
             type: "dynamic",
-            collider: "convexHull",
             restitution: 0.3,
           });
         });
@@ -502,6 +498,11 @@ export class SmashingScene extends BaseScene {
         // Keep fragment counts in sync
         this.simpleFractureOptions.fragmentCount =
           this.voronoiFractureOptions.fragmentCount;
+
+        // Enable/disable impact controls based on fracture method
+        const isSimple = this.settings.fractureMethod === "Simple";
+        useImpactPointBinding.disabled = isSimple;
+        impactRadiusBinding.disabled = isSimple;
       });
 
     folder
@@ -533,12 +534,16 @@ export class SmashingScene extends BaseScene {
       },
     );
 
-    folder.addBinding(this.settings, "impactRadius", {
-      min: 0.5,
-      max: 3.0,
-      step: 0.1,
-      label: "Impact Radius",
-    });
+    const impactRadiusBinding = folder.addBinding(
+      this.settings,
+      "impactRadius",
+      {
+        min: 0.5,
+        max: 3.0,
+        step: 0.1,
+        label: "Impact Radius",
+      },
+    );
 
     folder
       .addBinding(this.settings, "preFracture", {

@@ -186,40 +186,40 @@ export class ConstrainedTriangulator extends Triangulator {
         linesIntersect(v_i, v_j, v1, v2)
       ) {
         edgeIndex = E12;
-        var edge = new EdgeConstraint(
+        const edge12 = new EdgeConstraint(
           this.triangulation[t][V1],
           this.triangulation[t][V2],
           t,
           this.triangulation[t][E12],
           edgeIndex,
         );
-        intersectingEdges.push(edge);
+        intersectingEdges.push(edge12);
       } else if (
         this.triangulation[t][E23] !== lastTriangle &&
         linesIntersect(v_i, v_j, v2, v3)
       ) {
         edgeIndex = E23;
-        var edge = new EdgeConstraint(
+        const edge23 = new EdgeConstraint(
           this.triangulation[t][V2],
           this.triangulation[t][V3],
           t,
           this.triangulation[t][E23],
           edgeIndex,
         );
-        intersectingEdges.push(edge);
+        intersectingEdges.push(edge23);
       } else if (
         this.triangulation[t][E31] !== lastTriangle &&
         linesIntersect(v_i, v_j, v3, v1)
       ) {
         edgeIndex = E31;
-        var edge = new EdgeConstraint(
+        const edge31 = new EdgeConstraint(
           this.triangulation[t][V3],
           this.triangulation[t][V1],
           t,
           this.triangulation[t][E31],
           edgeIndex,
         );
-        intersectingEdges.push(edge);
+        intersectingEdges.push(edge31);
       } else {
         // Shouldn't reach this point
         console.warn("Failed to find final triangle, exiting early.");
@@ -425,9 +425,7 @@ export class ConstrainedTriangulator extends Triangulator {
     // Iterate over the list of newly created edges and swap
     // non-constraint diagonals until no more swaps take place
     let swapOccurred = true;
-    let counter = 0;
     while (swapOccurred) {
-      counter++;
       swapOccurred = false;
 
       for (let i = 0; i < newEdges.length; i++) {

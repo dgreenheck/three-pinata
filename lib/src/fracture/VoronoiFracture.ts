@@ -26,7 +26,6 @@ export function voronoiFracture(
   // Create seeded random number generator
   const rng = new SeededRandom(options.seed);
   const seed = rng.getSeed();
-  console.log(`[Voronoi Fracture] Using seed: ${seed}`);
 
   // Store the seed back in options if it was auto-generated
   if (options.seed === undefined) {
@@ -66,7 +65,8 @@ function voronoiFracture3D(
 
   // Step 2: Compute Voronoi cells for each seed
   const fragments: Fragment[] = [];
-  const convex = options.fractureMode === "Convex";
+  // Hardcoded to non-convex mode
+  const convex = false;
 
   // Use approximation based on user option (not automatic threshold)
   const useKNearest = options.useApproximation;
@@ -102,13 +102,9 @@ function voronoiFracture3D(
 
     // Only add non-empty cells
     if (cell && cell.vertexCount > 0) {
-      // Detect isolated fragments within this cell if enabled
-      if (options.detectIsolatedFragments && !convex) {
-        const isolatedFragments = findIsolatedGeometry(cell);
-        fragments.push(...isolatedFragments);
-      } else {
-        fragments.push(cell);
-      }
+      // Detect isolated fragments within this cell (always enabled for non-convex mode)
+      const isolatedFragments = findIsolatedGeometry(cell);
+      fragments.push(...isolatedFragments);
     }
   }
 
@@ -193,7 +189,8 @@ function voronoiFracture2D(
   // For 2.5D, we still use the 3D algorithm but with seeds on a plane
   // The cells will naturally extend through the mesh along the projection axis
   const fragments: Fragment[] = [];
-  const convex = options.fractureMode === "Convex";
+  // Hardcoded to non-convex mode
+  const convex = false;
 
   // Use approximation based on user option (for 2.5D, defaults can be slightly lower)
   const useKNearest = options.useApproximation;
@@ -226,13 +223,9 @@ function voronoiFracture2D(
     );
 
     if (cell && cell.vertexCount > 0) {
-      // Detect isolated fragments within this cell if enabled
-      if (options.detectIsolatedFragments && !convex) {
-        const isolatedFragments = findIsolatedGeometry(cell);
-        fragments.push(...isolatedFragments);
-      } else {
-        fragments.push(cell);
-      }
+      // Detect isolated fragments within this cell (always enabled for non-convex mode)
+      const isolatedFragments = findIsolatedGeometry(cell);
+      fragments.push(...isolatedFragments);
     }
   }
 

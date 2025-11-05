@@ -73,7 +73,6 @@ export class PhysicsWorld {
   add(object: THREE.Object3D, options: PhysicsBodyOptions = {}): PhysicsBody {
     const {
       type = "dynamic",
-      collider = "convexHull",
       mass,
       restitution = 0.2,
       friction = 0.2,
@@ -117,7 +116,7 @@ export class PhysicsWorld {
     let colliderDesc = customColliderDesc;
 
     if (!colliderDesc) {
-      if (collider === "convexHull" && object instanceof THREE.Mesh) {
+      if (object instanceof THREE.Mesh) {
         // Validate geometry before creating convex hull
         const geometry = object.geometry;
         const positionAttribute = geometry.getAttribute("position");
@@ -135,7 +134,6 @@ export class PhysicsWorld {
         if (!geometry.boundingBox) {
           geometry.computeBoundingBox();
         }
-        const bbox = geometry.boundingBox;
 
         // Try to create convex hull with error handling
         try {
@@ -159,23 +157,6 @@ export class PhysicsWorld {
           const scaledRadius = radius * Math.max(scale.x, scale.y, scale.z);
           colliderDesc = this.RAPIER.ColliderDesc.ball(scaledRadius);
         }
-      } else if (collider === "ball") {
-        // Calculate ball radius from mesh bounding sphere
-        let radius = 1;
-        if (object instanceof THREE.Mesh) {
-          if (!object.geometry.boundingSphere) {
-            object.geometry.computeBoundingSphere();
-          }
-          if (object.geometry.boundingSphere) {
-            radius = object.geometry.boundingSphere.radius;
-            // Account for object scale (use the largest scale component)
-            const scale = object.getWorldScale(new THREE.Vector3());
-            radius *= Math.max(scale.x, scale.y, scale.z);
-          }
-        }
-        colliderDesc = this.RAPIER.ColliderDesc.ball(radius);
-      } else if (collider === "cuboid") {
-        colliderDesc = this.RAPIER.ColliderDesc.cuboid(1, 1, 1);
       }
     }
 

@@ -73,22 +73,22 @@ export function sliceFragment(
 
   // Go through and identify which vertices are above/below the split plane
   for (let i = 0; i < fragment.vertices.length; i++) {
-    var vertex = fragment.vertices[i];
+    const vertex = fragment.vertices[i];
     side[i] = isPointAbovePlane(vertex.position, sliceNormal, sliceOrigin);
-    var slice = side[i] ? topSlice : bottomSlice;
+    const slice = side[i] ? topSlice : bottomSlice;
     slice.addMappedVertex(vertex, i);
   }
 
   const offset = fragment.vertices.length;
   for (let i = 0; i < fragment.cutVertices.length; i++) {
-    var vertex = fragment.cutVertices[i];
+    const cutVertex = fragment.cutVertices[i];
     side[i + offset] = isPointAbovePlane(
-      vertex.position,
+      cutVertex.position,
       sliceNormal,
       sliceOrigin,
     );
-    var slice = side[i + offset] ? topSlice : bottomSlice;
-    slice.addMappedVertex(vertex, i + offset);
+    const cutSlice = side[i + offset] ? topSlice : bottomSlice;
+    cutSlice.addMappedVertex(cutVertex, i + offset);
   }
 
   splitTriangles(

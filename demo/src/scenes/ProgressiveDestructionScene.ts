@@ -120,7 +120,6 @@ export class ProgressiveDestructionScene extends BaseScene {
             try {
               const body = this.physics.add(fragment, {
                 type: "dynamic",
-                collider: "convexHull",
                 restitution: 0.2,
               });
               if (body) {
@@ -187,7 +186,6 @@ export class ProgressiveDestructionScene extends BaseScene {
           try {
             const body = this.physics.add(fragment, {
               type: "dynamic",
-              collider: "convexHull",
               restitution: 0.2,
             });
             if (body) {
@@ -253,7 +251,6 @@ export class ProgressiveDestructionScene extends BaseScene {
     // Add physics
     const ballBody = this.physics.add(this.currentBall, {
       type: "dynamic",
-      collider: "ball",
       mass: 10.0,
       restitution: 0.1,
     });

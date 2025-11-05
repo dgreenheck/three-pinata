@@ -65,20 +65,6 @@ export class VoronoiFractureOptions {
   public approximationNeighborCount: number = 12;
 
   /**
-   * Fracturing mode. If set to convex, a faster algorithm will be used under
-   * the assumption that the geometry being fractured is convex.
-   */
-  public fractureMode: "Convex" | "Non-Convex" = "Non-Convex";
-
-  /**
-   * Enables detection of isolated fragments within each Voronoi cell.
-   * When enabled for non-convex meshes, each Voronoi cell is analyzed to detect
-   * disconnected pieces and split them into separate fragments.
-   * This setting has no effect for convex meshes and should be disabled for performance.
-   */
-  public detectIsolatedFragments: boolean = false;
-
-  /**
    * Scale factor to apply to texture coordinates on cut faces
    */
   public textureScale: Vector2 = new Vector2(1, 1);
@@ -104,8 +90,6 @@ export class VoronoiFractureOptions {
     projectionNormal,
     useApproximation,
     approximationNeighborCount,
-    fractureMode,
-    detectIsolatedFragments,
     textureScale,
     textureOffset,
     seed,
@@ -119,8 +103,6 @@ export class VoronoiFractureOptions {
     projectionNormal?: Vector3;
     useApproximation?: boolean;
     approximationNeighborCount?: number;
-    fractureMode?: "Convex" | "Non-Convex";
-    detectIsolatedFragments?: boolean;
     textureScale?: Vector2;
     textureOffset?: Vector2;
     seed?: number;
@@ -159,14 +141,6 @@ export class VoronoiFractureOptions {
 
     if (approximationNeighborCount !== undefined) {
       this.approximationNeighborCount = approximationNeighborCount;
-    }
-
-    if (fractureMode !== undefined) {
-      this.fractureMode = fractureMode;
-    }
-
-    if (detectIsolatedFragments !== undefined) {
-      this.detectIsolatedFragments = detectIsolatedFragments;
     }
 
     if (textureScale !== undefined) {

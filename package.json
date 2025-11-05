@@ -1,6 +1,7 @@
 {
   "name": "three-pinata-monorepo",
   "private": true,
+  "type": "module",
   "workspaces": [
     "demo",
     "lib"
@@ -9,6 +10,12 @@
     "build:lib": "npm run build -w @dgreenheck/three-pinata",
     "build:demo": "npm run build -w three-pinata-demo",
     "dev": "npm run dev -w three-pinata-demo",
-    "test": "jest"
+    "test": "jest",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "typecheck": "npm run typecheck -w @dgreenheck/three-pinata && npm run typecheck -w three-pinata-demo"
+  },
+  "devDependencies": {
+    "globals": "^16.5.0"
   }
 }

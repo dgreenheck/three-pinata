@@ -186,7 +186,6 @@ export class GlassShatterScene extends BaseScene {
 
           this.physics.add(fragment, {
             type: "dynamic",
-            collider: "convexHull",
             restitution: 0.2,
           });
         },
@@ -259,7 +258,6 @@ export class GlassShatterScene extends BaseScene {
         // Add physics
         this.physics.add(fragment, {
           type: "dynamic",
-          collider: "convexHull",
           restitution: 0.2,
         });
       });
@@ -307,6 +305,11 @@ export class GlassShatterScene extends BaseScene {
         // Update fragment count for both options when method changes
         this.simpleFractureOptions.fragmentCount =
           this.voronoiFractureOptions.fragmentCount;
+
+        // Enable/disable impact controls based on fracture method
+        const isSimple = this.settings.fractureMethod === "Simple";
+        useImpactPointBinding.disabled = isSimple;
+        impactRadiusBinding.disabled = isSimple;
       });
 
     folder
@@ -322,16 +325,24 @@ export class GlassShatterScene extends BaseScene {
           this.voronoiFractureOptions.fragmentCount;
       });
 
-    folder.addBinding(this.settings, "useImpactPoint", {
-      label: "Impact Point",
-    });
+    const useImpactPointBinding = folder.addBinding(
+      this.settings,
+      "useImpactPoint",
+      {
+        label: "Impact Point",
+      },
+    );
 
-    folder.addBinding(this.settings, "impactRadius", {
-      min: 0.5,
-      max: 3.0,
-      step: 0.1,
-      label: "Impact Radius",
-    });
+    const impactRadiusBinding = folder.addBinding(
+      this.settings,
+      "impactRadius",
+      {
+        min: 0.5,
+        max: 3.0,
+        step: 0.1,
+        label: "Impact Radius",
+      },
+    );
 
     this.resetButton = folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();

@@ -49,9 +49,9 @@ export class MaterialFactory {
   createGlassMaterial(): THREE.MeshPhysicalMaterial {
     return new THREE.MeshPhysicalMaterial({
       color: 0x88ffff,
-      metalness: 0.2,
-      roughness: 0.05,
-      transmission: 0.5,
+      metalness: 0.5,
+      roughness: 0.01,
+      transmission: 0.3,
       thickness: 0.1,
       envMapIntensity: 1.0,
       transparent: true,
@@ -64,7 +64,7 @@ export class MaterialFactory {
    */
   createGlassInsideMaterial(): THREE.MeshStandardMaterial {
     const material = this.createGlassMaterial();
-    material.color = new THREE.Color(0x50b0b0);
+    material.color = new THREE.Color(0x70b0b0);
     material.opacity = 0.95;
     return material;
   }

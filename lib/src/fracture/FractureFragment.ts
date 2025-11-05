@@ -43,7 +43,6 @@ export function fractureFragment(
   // Create seeded random number generator
   const rng = new SeededRandom(options.seed);
   const seed = rng.getSeed();
-  console.log(`[Fracture] Using seed: ${seed}`);
 
   // Store the seed back in options if it was auto-generated
   if (options.seed === undefined) {
@@ -68,32 +67,20 @@ export function fractureFragment(
     const center = new Vector3();
     fragment.bounds.getCenter(center);
 
-    if (options.fractureMode === "Non-Convex") {
-      const { topSlice, bottomSlice } = sliceFragment(
-        fragment,
-        normal,
-        center,
-        options.textureScale,
-        options.textureOffset,
-        false,
-      );
+    // Hardcoded to non-convex mode with floating fragment detection enabled
+    const { topSlice, bottomSlice } = sliceFragment(
+      fragment,
+      normal,
+      center,
+      options.textureScale,
+      options.textureOffset,
+      false, // convex = false
+    );
 
-      const topfragments = findIsolatedGeometry(topSlice);
-      const bottomfragments = findIsolatedGeometry(bottomSlice);
+    const topfragments = findIsolatedGeometry(topSlice);
+    const bottomfragments = findIsolatedGeometry(bottomSlice);
 
-      fragments.push(...topfragments, ...bottomfragments);
-    } else {
-      const { topSlice, bottomSlice } = sliceFragment(
-        fragment,
-        normal,
-        center,
-        options.textureScale,
-        options.textureOffset,
-        true,
-      );
-
-      fragments.push(topSlice, bottomSlice);
-    }
+    fragments.push(...topfragments, ...bottomfragments);
   }
 
   return fragments;

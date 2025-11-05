@@ -368,7 +368,6 @@ export class SlicingScene extends BaseScene {
     });
 
     if (objectsToSlice.length === 0) {
-      console.log("No objects intersect the slice plane");
       return;
     }
 
@@ -422,7 +421,6 @@ export class SlicingScene extends BaseScene {
               // Add physics
               const body = this.physics.add(piece, {
                 type: "dynamic",
-                collider: "convexHull",
                 restitution: 0.1,
               });
 

@@ -19,14 +19,6 @@ export class FractureOptions {
   } = { x: true, y: true, z: true };
 
   /**
-   * Fracturing mode. If set to convex, a faster algorithm will be used under
-   * the assumption the the geometry being fractured is convex. If set to
-   * non-convex, an algorithm which can handle non-convex geometry will be used
-   * at the expensive of performance.
-   */
-  public fractureMode: "Convex" | "Non-Convex" = "Non-Convex";
-
-  /**
    * Scale factor to apply to texture coordinates
    */
   public textureScale: Vector2 = new Vector2(1, 1);
@@ -45,7 +37,6 @@ export class FractureOptions {
   constructor({
     fragmentCount,
     fracturePlanes,
-    fractureMode,
     textureScale,
     textureOffset,
     seed,
@@ -56,7 +47,6 @@ export class FractureOptions {
       y: boolean;
       z: boolean;
     };
-    fractureMode?: "Convex" | "Non-Convex";
     textureScale?: Vector2;
     textureOffset?: Vector2;
     seed?: number;
@@ -67,10 +57,6 @@ export class FractureOptions {
 
     if (fracturePlanes) {
       this.fracturePlanes = fracturePlanes;
-    }
-
-    if (fractureMode) {
-      this.fractureMode = fractureMode;
     }
 
     if (textureScale) {
