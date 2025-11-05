@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": null,
+  "outputDirectory": "demo/dist",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./"
+}
