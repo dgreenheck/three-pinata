@@ -13,20 +13,16 @@ export class SlicingScene extends BaseScene {
   private objects: DestructibleMesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private wireframeMaterial!: THREE.MeshBasicMaterial;
 
   private settings = {
     primitiveType: "sphere" as PrimitiveType,
-    wireframe: false,
-    useSeed: false,
-    seedValue: 0,
-    convex: false,
   };
 
   // Drawing slice properties
   private isDrawingSlice = false;
   private sliceStartScreen = new THREE.Vector2();
   private sliceEndScreen = new THREE.Vector2();
+  private resetButton: any = null;
 
   // Canvas overlay for drawing
   private canvas!: HTMLCanvasElement;
@@ -34,8 +30,8 @@ export class SlicingScene extends BaseScene {
 
   async init(): Promise<void> {
     // Setup camera
-    this.camera.position.set(6, 5, 8);
-    this.controls.target.set(0, 0, 0);
+    this.camera.position.set(4, 3, -3);
+    this.controls.target.set(0, 1, 0);
     this.controls.enablePan = false; // Disable panning
     this.controls.mouseButtons = {
       LEFT: undefined,
@@ -47,8 +43,6 @@ export class SlicingScene extends BaseScene {
     // Create materials
     this.objectMaterial = this.createMaterial(0x9944ff);
     this.insideMaterial = this.createInsideMaterial(0xdddddd);
-    this.wireframeMaterial =
-      this.materialFactory.createWireframeMaterial(0x80ffa0);
 
     // Load statue geometry if needed
     await this.loadStatueGeometry();
@@ -380,39 +374,43 @@ export class SlicingScene extends BaseScene {
 
     // Configure slice options
     const sliceOptions = new SliceOptions();
-    sliceOptions.detectFloatingFragments = !this.settings.convex;
 
-    objectsToSlice.forEach((obj) => {
-      try {
-        // Preserve the original object's material
-        // If it's an array (from previous slice), get the first element (outer material)
-        const originalMaterial = Array.isArray(obj.material)
-          ? obj.material[0]
-          : obj.material;
+    // Disable reset button and show slicing message
+    if (this.resetButton) {
+      this.resetButton.disabled = true;
+      this.resetButton.title = "Slicing...";
+    }
 
-        // Get the physics body of the original object (if it exists)
-        const originalBody = this.physics.getBody(obj);
-        let linearVel = { x: 0, y: 0, z: 0 };
-        let angularVel = { x: 0, y: 0, z: 0 };
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      objectsToSlice.forEach((obj) => {
+        try {
+          // Preserve the original object's material
+          // If it's an array (from previous slice), get the first element (outer material)
+          const originalMaterial = Array.isArray(obj.material)
+            ? obj.material[0]
+            : obj.material;
 
-        if (originalBody) {
-          // Store the velocities before removing physics
-          linearVel = originalBody.rigidBody.linvel();
-          angularVel = originalBody.rigidBody.angvel();
-          // Remove physics from original object before slicing
-          this.physics.remove(obj);
-        }
+          // Get the physics body of the original object (if it exists)
+          const originalBody = this.physics.getBody(obj);
+          let linearVel = { x: 0, y: 0, z: 0 };
+          let angularVel = { x: 0, y: 0, z: 0 };
 
-        // Slice using world-space coordinates
-        const pieces = obj.sliceWorld(
-          sliceNormal,
-          sliceOrigin,
-          sliceOptions,
-          (piece) => {
-            // Set material (preserve original + inside material for cut face)
-            if (this.settings.wireframe) {
-              piece.material = this.wireframeMaterial;
-            } else {
+          if (originalBody) {
+            // Store the velocities before removing physics
+            linearVel = originalBody.rigidBody.linvel();
+            angularVel = originalBody.rigidBody.angvel();
+            // Remove physics from original object before slicing
+            this.physics.remove(obj);
+          }
+
+          // Slice using world-space coordinates
+          const pieces = obj.sliceWorld(
+            sliceNormal,
+            sliceOrigin,
+            sliceOptions,
+            (piece) => {
+              // Set material (preserve original + inside material for cut face)
               // Use statue inside material for statue, regular inside material for others
               const insideMat =
                 this.settings.primitiveType === "statue"
@@ -420,56 +418,50 @@ export class SlicingScene extends BaseScene {
                   : this.insideMaterial;
               // Use original material for outer surface, inside material for cut face
               piece.material = [originalMaterial, insideMat];
-            }
 
-            // Add physics
-            const body = this.physics.add(piece, {
-              type: "dynamic",
-              collider: "convexHull",
-              restitution: 0.1,
-              mass: 10,
-            });
+              // Add physics
+              const body = this.physics.add(piece, {
+                type: "dynamic",
+                collider: "convexHull",
+                restitution: 0.1,
+              });
 
-            // Inherit velocity from the original object
-            if (body && originalBody) {
-              body.setLinearVelocity(linearVel);
-              body.setAngularVelocity(angularVel);
-            }
-          },
-          () => {
-            // Cleanup original object
-            this.scene.remove(obj);
-            const index = this.objects.indexOf(obj);
-            if (index > -1) {
-              this.objects.splice(index, 1);
-            }
-            obj.dispose();
-          },
-        );
+              // Inherit velocity from the original object
+              if (body && originalBody) {
+                body.setLinearVelocity(linearVel);
+                body.setAngularVelocity(angularVel);
+              }
+            },
+            () => {
+              // Cleanup original object
+              this.scene.remove(obj);
+              const index = this.objects.indexOf(obj);
+              if (index > -1) {
+                this.objects.splice(index, 1);
+              }
+              obj.dispose();
+            },
+          );
 
-        // Add pieces to scene and track them
-        pieces.forEach((piece) => {
-          this.scene.add(piece);
-          this.objects.push(piece);
-        });
-      } catch (error) {
-        console.warn("Could not slice object:", error);
+          // Add pieces to scene and track them
+          pieces.forEach((piece) => {
+            this.scene.add(piece);
+            this.objects.push(piece);
+          });
+        } catch (error) {
+          console.warn("Could not slice object:", error);
+        }
+      });
+
+      // Re-enable reset button
+      if (this.resetButton) {
+        this.resetButton.disabled = false;
+        this.resetButton.title = "Reset";
       }
-    });
+    }, 10);
   }
 
-  private updateWireframe(): void {
-    const material = this.settings.wireframe
-      ? this.wireframeMaterial
-      : [this.objectMaterial, this.insideMaterial];
-
-    // Update all object meshes
-    this.objects.forEach((obj) => {
-      obj.material = material;
-    });
-  }
-
-  update(_deltaTime: number): void {
+  update(): void {
     // No continuous updates needed
   }
 
@@ -504,40 +496,7 @@ export class SlicingScene extends BaseScene {
         this.reset();
       });
 
-    folder
-      .addBinding(this.settings, "wireframe", {
-        label: "Wireframe",
-      })
-      .on("change", () => {
-        this.updateWireframe();
-      });
-
-    folder.addBinding(this.settings, "convex", {
-      label: "Convex (faster)",
-    });
-
-    // Checkbox to enable custom seed
-    const useSeedBinding = folder.addBinding(this.settings, "useSeed", {
-      label: "Use Custom Seed",
-    });
-
-    // Slider for custom seed value
-    const seedValueBinding = folder.addBinding(this.settings, "seedValue", {
-      min: 0,
-      max: 65535,
-      step: 1,
-      label: "Seed Value",
-    });
-
-    // Set initial disabled state
-    seedValueBinding.disabled = !this.settings.useSeed;
-
-    // Update seed value binding when useSeed checkbox changes
-    useSeedBinding.on("change", () => {
-      seedValueBinding.disabled = !this.settings.useSeed;
-    });
-
-    folder.addButton({ title: "Reset" }).on("click", () => {
+    this.resetButton = folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
 

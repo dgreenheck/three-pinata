@@ -13,6 +13,12 @@ export interface PhysicsBodyOptions {
   mass?: number;
   /** Restitution (bounciness) of the collider */
   restitution?: number;
+  /** Friction coefficient */
+  friction?: number;
+  /** Linear damping (reduces linear velocity over time) */
+  linearDamping?: number;
+  /** Angular damping (reduces angular velocity over time) */
+  angularDamping?: number;
   /** Custom collider descriptor (overrides collider type) */
   colliderDesc?: RAPIER.ColliderDesc;
 }
@@ -46,11 +52,12 @@ export class PhysicsWorld {
     this.RAPIER = RAPIER;
     this.world = new RAPIER.World(gravity);
 
-    // Configure integration parameters for more accurate physics
+    // Configure integration parameters for more accurate and stable physics
     const integrationParams = this.world.integrationParameters;
     integrationParams.numSolverIterations = 8; // Increased from default 4
     integrationParams.numAdditionalFrictionIterations = 4; // Increased from default 0
     integrationParams.numInternalPgsIterations = 2; // More internal iterations
+    integrationParams.maxCcdSubsteps = 4; // More substeps for continuous collision detection
 
     this.eventQueue = new RAPIER.EventQueue(true);
     this.bodies = new WeakMap();
@@ -69,6 +76,9 @@ export class PhysicsWorld {
       collider = "convexHull",
       mass,
       restitution = 0.2,
+      friction = 0.2,
+      linearDamping = 0.5,
+      angularDamping = 0.5,
       colliderDesc: customColliderDesc,
     } = options;
 
@@ -93,6 +103,12 @@ export class PhysicsWorld {
     rigidBodyDesc
       .setTranslation(pos.x, pos.y, pos.z)
       .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w });
+
+    // Apply damping for dynamic bodies
+    if (type === "dynamic") {
+      rigidBodyDesc.setLinearDamping(linearDamping);
+      rigidBodyDesc.setAngularDamping(angularDamping);
+    }
 
     // Create rigid body
     const rigidBody = this.world.createRigidBody(rigidBodyDesc);
@@ -166,6 +182,7 @@ export class PhysicsWorld {
     // Set collider properties
     if (colliderDesc) {
       colliderDesc.setRestitution(restitution);
+      colliderDesc.setFriction(friction);
       if (mass !== undefined) {
         colliderDesc.setMass(mass);
       }

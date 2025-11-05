@@ -18,9 +18,8 @@ export class ProgressiveDestructionScene extends BaseScene {
   private fragments: THREE.Mesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private wireframeMaterial!: THREE.MeshBasicMaterial;
   private currentBall: THREE.Mesh | null = null;
-  private axesHelper!: THREE.AxesHelper;
+  private resetButton: any = null;
   private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
@@ -33,7 +32,6 @@ export class ProgressiveDestructionScene extends BaseScene {
 
   private settings = {
     primitiveType: "torusKnot" as PrimitiveType,
-    wireframe: false,
     fractureMethod: "Voronoi" as "Voronoi" | "Radial",
     fragmentCount: 30,
   };
@@ -42,14 +40,13 @@ export class ProgressiveDestructionScene extends BaseScene {
 
   async init(): Promise<void> {
     // Setup camera
-    this.camera.position.set(4, 5, 7);
-    this.controls.target.set(0, 3, 0);
+    this.camera.position.set(4, 3, -3);
+    this.controls.target.set(0, 1, 0);
     this.controls.update();
 
     // Create materials
     this.objectMaterial = this.createMaterial(0x44aaff);
     this.insideMaterial = this.createInsideMaterial(0xcccccc);
-    this.wireframeMaterial = this.materialFactory.createWireframeMaterial();
 
     // Load statue geometry if needed
     await this.loadStatueGeometry();
@@ -79,19 +76,33 @@ export class ProgressiveDestructionScene extends BaseScene {
 
     this.object = new DestructibleMesh(mesh.geometry, materialToUse);
     this.object.castShadow = true;
-    this.object.position.set(0, 3, 0);
+
+    // Calculate height so object sits on ground
+    mesh.geometry.computeBoundingBox();
+    const boundingBox = mesh.geometry.boundingBox!;
+    const height = -boundingBox.min.y; // Offset by the bottom of the bounding box
+
+    this.object.position.set(0, height, 0);
     this.object.updateMatrixWorld(true);
     this.scene.add(this.object);
 
-    // Pre-fracture
-    if (this.settings.fractureMethod === "Voronoi") {
+    // Disable reset button and show fracturing message
+    if (this.resetButton) {
+      this.resetButton.disabled = true;
+      this.resetButton.title = "Fracturing...";
+    }
+
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      if (!this.object) return;
+
+      // Pre-fracture
+      if (this.settings.fractureMethod === "Voronoi") {
       this.fragments = this.object.fracture(
         this.voronoiFractureOptions,
         (fragment) => {
           // For statue, use original material + rock inside material; for others, use custom materials
-          if (this.settings.wireframe) {
-            fragment.material = this.wireframeMaterial;
-          } else if (this.settings.primitiveType === "statue") {
+          if (this.settings.primitiveType === "statue") {
             // Handle both single material and material array cases
             const outerMaterial = Array.isArray(materialToUse)
               ? materialToUse[0]
@@ -124,11 +135,11 @@ export class ProgressiveDestructionScene extends BaseScene {
         },
       );
 
-      // Add fragments to scene
-      this.fragments.forEach((fragment) => {
-        this.scene.add(fragment);
-      });
-    } else {
+        // Add fragments to scene
+        this.fragments.forEach((fragment) => {
+          this.scene.add(fragment);
+        });
+      } else {
       const fragmentGeometries = fracture(
         this.object.geometry,
         this.radialFractureOptions,
@@ -148,9 +159,7 @@ export class ProgressiveDestructionScene extends BaseScene {
         fragmentGeometry.computeBoundingSphere();
 
         let fragmentMaterial: THREE.Material | THREE.Material[];
-        if (this.settings.wireframe) {
-          fragmentMaterial = this.wireframeMaterial;
-        } else if (this.settings.primitiveType === "statue") {
+        if (this.settings.primitiveType === "statue") {
           // Handle both single material and material array cases
           const outerMaterial = Array.isArray(materialToUse)
             ? materialToUse[0]
@@ -188,11 +197,18 @@ export class ProgressiveDestructionScene extends BaseScene {
         } catch (error) {
           console.error("Error adding physics to fragment:", error);
         }
-      });
-    }
+        });
+      }
 
-    // Hide the original mesh immediately (fragments are now visible)
-    this.object.visible = false;
+      // Hide the original mesh immediately (fragments are now visible)
+      this.object!.visible = false;
+
+      // Re-enable reset button
+      if (this.resetButton) {
+        this.resetButton.disabled = false;
+        this.resetButton.title = "Reset";
+      }
+    }, 10);
   }
 
   private onMouseClick = (event: MouseEvent): void => {
@@ -281,17 +297,6 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
   };
 
-  private updateWireframe(): void {
-    const material = this.settings.wireframe
-      ? this.wireframeMaterial
-      : [this.objectMaterial, this.insideMaterial];
-
-    // Update all fragments
-    this.fragments.forEach((fragment) => {
-      fragment.material = material;
-    });
-  }
-
   update(): void {
     // No per-frame updates needed
   }
@@ -352,15 +357,7 @@ export class ProgressiveDestructionScene extends BaseScene {
         this.radialFractureOptions.fragmentCount = this.settings.fragmentCount;
       });
 
-    folder
-      .addBinding(this.settings, "wireframe", {
-        label: "Wireframe",
-      })
-      .on("change", () => {
-        this.updateWireframe();
-      });
-
-    folder.addButton({ title: "Reset" }).on("click", () => {
+    this.resetButton = folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
 
@@ -411,12 +408,6 @@ export class ProgressiveDestructionScene extends BaseScene {
   dispose(): void {
     // Remove click listener
     window.removeEventListener("click", this.onMouseClick);
-
-    // Remove axes helper
-    if (this.axesHelper) {
-      this.scene.remove(this.axesHelper);
-      this.axesHelper.dispose();
-    }
 
     // Remove object
     if (this.object) {

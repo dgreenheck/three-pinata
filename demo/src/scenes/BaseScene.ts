@@ -23,6 +23,7 @@ export abstract class BaseScene {
   protected mouse: THREE.Vector2;
   protected materialFactory: MaterialFactory;
   protected modelFactory: ModelFactory;
+  protected loadingIndicator?: HTMLDivElement;
 
   constructor(
     scene: THREE.Scene,
@@ -149,6 +150,59 @@ export abstract class BaseScene {
   protected updateMouseCoordinates(event: MouseEvent): void {
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  }
+
+  /**
+   * Shows a subtle loading indicator in the top-right corner
+   */
+  protected showLoadingIndicator(message: string = "Processing..."): void {
+    if (!this.loadingIndicator) {
+      this.loadingIndicator = document.createElement("div");
+      this.loadingIndicator.style.position = "fixed";
+      this.loadingIndicator.style.top = "20px";
+      this.loadingIndicator.style.right = "20px";
+      this.loadingIndicator.style.padding = "10px 16px";
+      this.loadingIndicator.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+      this.loadingIndicator.style.color = "#fff";
+      this.loadingIndicator.style.borderRadius = "6px";
+      this.loadingIndicator.style.fontSize = "14px";
+      this.loadingIndicator.style.fontFamily = "monospace";
+      this.loadingIndicator.style.zIndex = "9999";
+      this.loadingIndicator.style.pointerEvents = "none";
+      this.loadingIndicator.style.display = "flex";
+      this.loadingIndicator.style.alignItems = "center";
+      this.loadingIndicator.style.gap = "8px";
+      this.loadingIndicator.style.transition = "opacity 0.2s";
+      document.body.appendChild(this.loadingIndicator);
+    }
+
+    // Add a subtle pulsing dot animation
+    this.loadingIndicator.innerHTML = `
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #4a9eff; animation: pulse 1.5s ease-in-out infinite;"></div>
+      <span>${message}</span>
+      <style>
+        @keyframes pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+      </style>
+    `;
+    this.loadingIndicator.style.opacity = "1";
+  }
+
+  /**
+   * Hides the loading indicator
+   */
+  protected hideLoadingIndicator(): void {
+    if (this.loadingIndicator) {
+      this.loadingIndicator.style.opacity = "0";
+      setTimeout(() => {
+        if (this.loadingIndicator && this.loadingIndicator.parentElement) {
+          this.loadingIndicator.parentElement.removeChild(this.loadingIndicator);
+          this.loadingIndicator = undefined;
+        }
+      }, 200);
+    }
   }
 
   /**

@@ -18,7 +18,6 @@ export class GlassShatterScene extends BaseScene {
   private fragments: THREE.Mesh[] = [];
   private glassMaterial!: THREE.MeshPhysicalMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private wireframeMaterial!: THREE.MeshBasicMaterial;
   private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "2.5D",
     fragmentCount: 50,
@@ -31,22 +30,21 @@ export class GlassShatterScene extends BaseScene {
     fractureMethod: "Voronoi" as "Voronoi" | "Simple",
     useImpactPoint: true,
     impactRadius: 1.0,
-    wireframe: false,
   };
   private impactMarker: THREE.Mesh | null = null;
   private radiusMarker: THREE.Mesh | null = null;
   private hasShattered = false;
+  private resetButton: any = null;
 
   async init(): Promise<void> {
     // Setup camera
-    this.camera.position.set(0, 2, 8);
+    this.camera.position.set(1, 4, 8);
     this.controls.target.set(0, 2, 0);
     this.controls.update();
 
     // Create materials
     this.glassMaterial = this.materialFactory.createGlassMaterial();
     this.insideMaterial = this.materialFactory.createGlassInsideMaterial();
-    this.wireframeMaterial = this.materialFactory.createWireframeMaterial();
 
     // Create impact marker (hidden initially)
     const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
@@ -161,111 +159,123 @@ export class GlassShatterScene extends BaseScene {
   private fractureWithVoronoi(localPoint: THREE.Vector3): void {
     if (!this.glassPane) return;
 
-    // Configure Voronoi fracture options
-    this.voronoiFractureOptions.impactPoint = this.settings.useImpactPoint
-      ? localPoint
-      : undefined;
-    this.voronoiFractureOptions.impactRadius = this.settings.useImpactPoint
-      ? this.settings.impactRadius
-      : undefined;
-    this.voronoiFractureOptions.projectionAxis = "z"; // Project along the thin axis
+    // Disable reset button and show fracturing message
+    if (this.resetButton) {
+      this.resetButton.disabled = true;
+      this.resetButton.title = "Shattering...";
+    }
 
-    this.fragments = this.glassPane.fracture(
-      this.voronoiFractureOptions,
-      (fragment) => {
-        fragment.material = this.settings.wireframe
-          ? this.wireframeMaterial
-          : [this.glassMaterial, this.insideMaterial];
-        fragment.castShadow = true;
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      if (!this.glassPane) return;
 
-        this.physics.add(fragment, {
-          type: "dynamic",
-          collider: "convexHull",
-          restitution: 0.2,
-        });
-      },
-    );
+      // Configure Voronoi fracture options
+      this.voronoiFractureOptions.impactPoint = this.settings.useImpactPoint
+        ? localPoint
+        : undefined;
+      this.voronoiFractureOptions.impactRadius = this.settings.useImpactPoint
+        ? this.settings.impactRadius
+        : undefined;
+      this.voronoiFractureOptions.projectionAxis = "z"; // Project along the thin axis
 
-    // Add fragments to scene
-    this.fragments.forEach((fragment) => {
-      this.scene.add(fragment);
-    });
+      this.fragments = this.glassPane.fracture(
+        this.voronoiFractureOptions,
+        (fragment) => {
+          fragment.material = [this.glassMaterial, this.insideMaterial];
+          fragment.castShadow = true;
 
-    // Hide original glass pane
-    this.glassPane.visible = false;
+          this.physics.add(fragment, {
+            type: "dynamic",
+            collider: "convexHull",
+            restitution: 0.2,
+          });
+        },
+      );
+
+      // Add fragments to scene
+      this.fragments.forEach((fragment) => {
+        this.scene.add(fragment);
+      });
+
+      // Hide original glass pane
+      this.glassPane.visible = false;
+
+      // Re-enable reset button
+      if (this.resetButton) {
+        this.resetButton.disabled = false;
+        this.resetButton.title = "Reset";
+      }
+    }, 10);
   }
 
   private fractureWithSimple(): void {
     if (!this.glassPane) return;
 
-    const fragmentGeometries = fracture(
-      this.glassPane.geometry,
-      this.simpleFractureOptions,
-    );
-
-    // Create mesh objects for each fragment
-    fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
-      // Compute bounding box to get the center of this fragment
-      fragmentGeometry.computeBoundingBox();
-      const center = new THREE.Vector3();
-      fragmentGeometry.boundingBox!.getCenter(center);
-
-      // Translate the geometry so its center is at the origin
-      fragmentGeometry.translate(-center.x, -center.y, -center.z);
-
-      // Recompute bounding sphere after translation
-      fragmentGeometry.computeBoundingSphere();
-
-      const fragment = new THREE.Mesh(
-        fragmentGeometry,
-        this.settings.wireframe
-          ? this.wireframeMaterial
-          : [this.glassMaterial, this.insideMaterial],
-      );
-
-      // Apply world transform from glass pane
-      const worldCenter = center.clone().applyMatrix4(this.glassPane!.matrixWorld);
-      fragment.position.copy(worldCenter);
-      fragment.quaternion.copy(this.glassPane!.quaternion);
-      fragment.scale.copy(this.glassPane!.scale);
-      fragment.castShadow = true;
-
-      this.fragments.push(fragment);
-      this.scene.add(fragment);
-
-      // Add physics
-      this.physics.add(fragment, {
-        type: "dynamic",
-        collider: "convexHull",
-        restitution: 0.2,
-      });
-    });
-
-    // Hide the original glass pane
-    this.glassPane.visible = false;
-  }
-
-  private updateWireframe(): void {
-    if (!this.glassPane) return;
-
-    const material = this.settings.wireframe
-      ? this.wireframeMaterial
-      : [this.glassMaterial, this.insideMaterial];
-
-    // Update main mesh if not yet shattered
-    if (!this.hasShattered) {
-      this.glassPane.material = this.settings.wireframe
-        ? this.wireframeMaterial
-        : this.glassMaterial;
+    // Disable reset button and show fracturing message
+    if (this.resetButton) {
+      this.resetButton.disabled = true;
+      this.resetButton.title = "Shattering...";
     }
 
-    // Update all fragments
-    this.fragments.forEach((fragment) => {
-      fragment.material = material;
-    });
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      if (!this.glassPane) return;
+
+      const fragmentGeometries = fracture(
+        this.glassPane.geometry,
+        this.simpleFractureOptions,
+      );
+
+      // Create mesh objects for each fragment
+      fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
+        // Compute bounding box to get the center of this fragment
+        fragmentGeometry.computeBoundingBox();
+        const center = new THREE.Vector3();
+        fragmentGeometry.boundingBox!.getCenter(center);
+
+        // Translate the geometry so its center is at the origin
+        fragmentGeometry.translate(-center.x, -center.y, -center.z);
+
+        // Recompute bounding sphere after translation
+        fragmentGeometry.computeBoundingSphere();
+
+        const fragment = new THREE.Mesh(fragmentGeometry, [
+          this.glassMaterial,
+          this.insideMaterial,
+        ]);
+
+        // Apply world transform from glass pane
+        const worldCenter = center
+          .clone()
+          .applyMatrix4(this.glassPane!.matrixWorld);
+        fragment.position.copy(worldCenter);
+        fragment.quaternion.copy(this.glassPane!.quaternion);
+        fragment.scale.copy(this.glassPane!.scale);
+        fragment.castShadow = true;
+
+        this.fragments.push(fragment);
+        this.scene.add(fragment);
+
+        // Add physics
+        this.physics.add(fragment, {
+          type: "dynamic",
+          collider: "convexHull",
+          restitution: 0.2,
+        });
+      });
+
+      // Hide the original glass pane
+      this.glassPane.visible = false;
+
+      // Re-enable reset button
+      if (this.resetButton) {
+        this.resetButton.disabled = false;
+        this.resetButton.title = "Reset";
+      }
+    }, 10);
   }
 
-  update(_deltaTime: number): void {
+  update(): void {
     // No per-frame updates needed
   }
 
@@ -323,15 +333,7 @@ export class GlassShatterScene extends BaseScene {
       label: "Impact Radius",
     });
 
-    folder
-      .addBinding(this.settings, "wireframe", {
-        label: "Wireframe",
-      })
-      .on("change", () => {
-        this.updateWireframe();
-      });
-
-    folder.addButton({ title: "Reset" }).on("click", () => {
+    this.resetButton = folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
 

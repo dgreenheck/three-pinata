@@ -19,7 +19,6 @@ export class SmashingScene extends BaseScene {
   private fragments: THREE.Mesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private wireframeMaterial!: THREE.MeshBasicMaterial;
   private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
@@ -36,7 +35,6 @@ export class SmashingScene extends BaseScene {
     useImpactPoint: true,
     impactRadius: 1.0,
     preFracture: false,
-    wireframe: false,
     useSeed: false,
     seedValue: 0,
   };
@@ -44,6 +42,7 @@ export class SmashingScene extends BaseScene {
   private impactMarker: THREE.Mesh | null = null;
   private radiusMarker: THREE.Mesh | null = null;
   private hasSmashed = false;
+  private resetButton: any = null;
 
   async init(): Promise<void> {
     // Setup camera
@@ -54,7 +53,6 @@ export class SmashingScene extends BaseScene {
     // Create materials
     this.objectMaterial = this.createMaterial(0xff6644);
     this.insideMaterial = this.createInsideMaterial(0xdddddd);
-    this.wireframeMaterial = this.materialFactory.createWireframeMaterial();
 
     // Load statue geometry if needed
     await this.loadStatueGeometry();
@@ -130,10 +128,20 @@ export class SmashingScene extends BaseScene {
   private preFractureObject(): void {
     if (!this.object) return;
 
-    // Get the material from the object
-    const materialToUse = this.object.material;
+    // Disable reset button and show fracturing message
+    if (this.resetButton) {
+      this.resetButton.disabled = true;
+      this.resetButton.title = "Fracturing...";
+    }
 
-    if (this.settings.fractureMethod === "Voronoi") {
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      if (!this.object) return;
+
+      // Get the material from the object
+      const materialToUse = this.object.material;
+
+      if (this.settings.fractureMethod === "Voronoi") {
       // Set seed if using custom seed
       if (this.settings.useSeed) {
         this.voronoiFractureOptions.seed = this.settings.seedValue;
@@ -145,9 +153,7 @@ export class SmashingScene extends BaseScene {
         this.voronoiFractureOptions,
         (fragment) => {
           // For statue, use original material + rock inside material; for others, use custom materials
-          if (this.settings.wireframe) {
-            fragment.material = this.wireframeMaterial;
-          } else if (this.settings.primitiveType === "statue") {
+          if (this.settings.primitiveType === "statue") {
             // Handle both single material and material array cases
             const outerMaterial = Array.isArray(materialToUse)
               ? materialToUse[0]
@@ -174,12 +180,12 @@ export class SmashingScene extends BaseScene {
         },
       );
 
-      // Add fragments to scene but keep them hidden
-      this.fragments.forEach((fragment) => {
-        this.scene.add(fragment);
-      });
-    } else {
-      // Simple fracture method
+        // Add fragments to scene but keep them hidden
+        this.fragments.forEach((fragment) => {
+          this.scene.add(fragment);
+        });
+      } else {
+        // Simple fracture method
       if (this.settings.useSeed) {
         this.simpleFractureOptions.seed = this.settings.seedValue;
       } else {
@@ -205,9 +211,7 @@ export class SmashingScene extends BaseScene {
         fragmentGeometry.computeBoundingSphere();
 
         let fragmentMaterial: THREE.Material | THREE.Material[];
-        if (this.settings.wireframe) {
-          fragmentMaterial = this.wireframeMaterial;
-        } else if (this.settings.primitiveType === "statue") {
+        if (this.settings.primitiveType === "statue") {
           // Handle both single material and material array cases
           const outerMaterial = Array.isArray(materialToUse)
             ? materialToUse[0]
@@ -239,28 +243,15 @@ export class SmashingScene extends BaseScene {
         if (body) {
           body.sleep();
         }
-      });
-    }
-  }
+        });
+      }
 
-  private updateWireframe(): void {
-    if (!this.object) return;
-
-    const material = this.settings.wireframe
-      ? this.wireframeMaterial
-      : [this.objectMaterial, this.insideMaterial];
-
-    // Update main mesh if not yet fractured
-    if (!this.hasSmashed) {
-      this.object.material = this.settings.wireframe
-        ? this.wireframeMaterial
-        : this.objectMaterial;
-    }
-
-    // Update all fragments
-    this.fragments.forEach((fragment) => {
-      fragment.material = material;
-    });
+      // Re-enable reset button
+      if (this.resetButton) {
+        this.resetButton.disabled = false;
+        this.resetButton.title = "Reset";
+      }
+    }, 10);
   }
 
   private onMouseMove = (event: MouseEvent): void => {
@@ -351,10 +342,20 @@ export class SmashingScene extends BaseScene {
   private performRealTimeFracture(localPoint: THREE.Vector3): void {
     if (!this.object) return;
 
-    // Get the material from the object
-    const materialToUse = this.object.material;
+    // Disable reset button and show fracturing message
+    if (this.resetButton) {
+      this.resetButton.disabled = true;
+      this.resetButton.title = "Fracturing...";
+    }
 
-    if (this.settings.fractureMethod === "Voronoi") {
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      if (!this.object) return;
+
+      // Get the material from the object
+      const materialToUse = this.object.material;
+
+      if (this.settings.fractureMethod === "Voronoi") {
       this.voronoiFractureOptions.impactPoint = this.settings.useImpactPoint
         ? localPoint
         : undefined;
@@ -373,9 +374,7 @@ export class SmashingScene extends BaseScene {
         this.voronoiFractureOptions,
         (fragment) => {
           // For statue, use original material + rock inside material; for others, use custom materials
-          if (this.settings.wireframe) {
-            fragment.material = this.wireframeMaterial;
-          } else if (this.settings.primitiveType === "statue") {
+          if (this.settings.primitiveType === "statue") {
             // Handle both single material and material array cases
             const outerMaterial = Array.isArray(materialToUse)
               ? materialToUse[0]
@@ -394,15 +393,15 @@ export class SmashingScene extends BaseScene {
         },
       );
 
-      // Add fragments to scene
-      this.fragments.forEach((fragment) => {
-        this.scene.add(fragment);
-      });
+        // Add fragments to scene
+        this.fragments.forEach((fragment) => {
+          this.scene.add(fragment);
+        });
 
-      // Hide original object
-      this.object.visible = false;
-    } else {
-      // Simple fracture method
+        // Hide original object
+        this.object.visible = false;
+      } else {
+        // Simple fracture method
       if (this.settings.useSeed) {
         this.simpleFractureOptions.seed = this.settings.seedValue;
       } else {
@@ -428,9 +427,7 @@ export class SmashingScene extends BaseScene {
         fragmentGeometry.computeBoundingSphere();
 
         let fragmentMaterial: THREE.Material | THREE.Material[];
-        if (this.settings.wireframe) {
-          fragmentMaterial = this.wireframeMaterial;
-        } else if (this.settings.primitiveType === "statue") {
+        if (this.settings.primitiveType === "statue") {
           // Handle both single material and material array cases
           const outerMaterial = Array.isArray(materialToUse)
             ? materialToUse[0]
@@ -458,11 +455,18 @@ export class SmashingScene extends BaseScene {
           collider: "convexHull",
           restitution: 0.3,
         });
-      });
+        });
 
-      // Hide original object
-      this.object.visible = false;
-    }
+        // Hide original object
+        this.object.visible = false;
+      }
+
+      // Re-enable reset button
+      if (this.resetButton) {
+        this.resetButton.disabled = false;
+        this.resetButton.title = "Reset";
+      }
+    }, 10);
   }
 
   private hideMarkers(): void {
@@ -470,7 +474,7 @@ export class SmashingScene extends BaseScene {
     if (this.radiusMarker) this.radiusMarker.visible = false;
   }
 
-  update(deltaTime: number): void {
+  update(): void {
     // No per-frame updates needed
   }
 
@@ -566,14 +570,6 @@ export class SmashingScene extends BaseScene {
         this.reset();
       });
 
-    folder
-      .addBinding(this.settings, "wireframe", {
-        label: "Wireframe",
-      })
-      .on("change", () => {
-        this.updateWireframe();
-      });
-
     // Checkbox to enable custom seed
     const useSeedBinding = folder.addBinding(this.settings, "useSeed", {
       label: "Use Custom Seed",
@@ -605,7 +601,7 @@ export class SmashingScene extends BaseScene {
         !this.settings.useSeed || this.settings.useImpactPoint;
     });
 
-    folder.addButton({ title: "Reset" }).on("click", () => {
+    this.resetButton = folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
 

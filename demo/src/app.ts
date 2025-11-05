@@ -113,7 +113,6 @@ tweakpaneElement.parentElement!.style.width = "300px";
 // App settings
 const appSettings = {
   scene: "glass" as "glass" | "smashing" | "progressive" | "slicing",
-  postProcessing: true,
 };
 
 // Setup GUI controls - Scene Selection
@@ -163,7 +162,7 @@ function setupGround(): void {
   const groundBody = RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0);
   const rigidBody = physics.world.createRigidBody(groundBody);
 
-  const groundCollider = RAPIER.ColliderDesc.cuboid(100, 0.01, 100);
+  const groundCollider = RAPIER.ColliderDesc.cuboid(100, 0.1, 100);
   physics.world.createCollider(groundCollider, rigidBody);
 }
 
@@ -311,12 +310,8 @@ function animate() {
   // Update film shader time for animated grain
   filmPass.uniforms["time"].value = performance.now() * 0.001;
 
-  // Render with or without post-processing
-  if (appSettings.postProcessing) {
-    composer.render(dt);
-  } else {
-    renderer.render(scene, camera);
-  }
+  // Render with post-processing
+  composer.render(dt);
 
   perf.end();
 }
