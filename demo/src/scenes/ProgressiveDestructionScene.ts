@@ -98,23 +98,90 @@ export class ProgressiveDestructionScene extends BaseScene {
 
       // Pre-fracture
       if (this.settings.fractureMethod === "Voronoi") {
-      this.fragments = this.object.fracture(
-        this.voronoiFractureOptions,
-        (fragment) => {
-          // For statue, use original material + rock inside material; for others, use custom materials
+        this.fragments = this.object.fracture(
+          this.voronoiFractureOptions,
+          (fragment) => {
+            // For statue, use original material + rock inside material; for others, use custom materials
+            if (this.settings.primitiveType === "statue") {
+              // Handle both single material and material array cases
+              const outerMaterial = Array.isArray(materialToUse)
+                ? materialToUse[0]
+                : materialToUse;
+              fragment.material = [
+                outerMaterial,
+                this.getStatueInsideMaterial()!,
+              ];
+            } else {
+              fragment.material = [this.objectMaterial, this.insideMaterial];
+            }
+            fragment.castShadow = true;
+
+            // Add physics (locked)
+            try {
+              const body = this.physics.add(fragment, {
+                type: "dynamic",
+                collider: "convexHull",
+                restitution: 0.2,
+              });
+              if (body) {
+                body.rigidBody.lockTranslations(true, false);
+                body.rigidBody.lockRotations(true, false);
+              } else {
+                console.warn("Failed to create physics body for fragment");
+              }
+            } catch (error) {
+              console.error("Error adding physics to fragment:", error);
+            }
+          },
+        );
+
+        // Add fragments to scene
+        this.fragments.forEach((fragment) => {
+          this.scene.add(fragment);
+        });
+      } else {
+        const fragmentGeometries = fracture(
+          this.object.geometry,
+          this.radialFractureOptions,
+        );
+
+        // Create mesh objects for each fragment
+        fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
+          // Compute bounding box to get the center of this fragment
+          fragmentGeometry.computeBoundingBox();
+          const center = new THREE.Vector3();
+          fragmentGeometry.boundingBox!.getCenter(center);
+
+          // Translate the geometry so its center is at the origin
+          fragmentGeometry.translate(-center.x, -center.y, -center.z);
+
+          // Recompute bounding sphere after translation
+          fragmentGeometry.computeBoundingSphere();
+
+          let fragmentMaterial: THREE.Material | THREE.Material[];
           if (this.settings.primitiveType === "statue") {
             // Handle both single material and material array cases
             const outerMaterial = Array.isArray(materialToUse)
               ? materialToUse[0]
               : materialToUse;
-            fragment.material = [
-              outerMaterial,
-              this.getStatueInsideMaterial()!,
-            ];
+            fragmentMaterial = [outerMaterial, this.getStatueInsideMaterial()!];
           } else {
-            fragment.material = [this.objectMaterial, this.insideMaterial];
+            fragmentMaterial = [this.objectMaterial, this.insideMaterial];
           }
+
+          const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
+
+          // Apply world transform from object
+          const worldCenter = center
+            .clone()
+            .applyMatrix4(this.object!.matrixWorld);
+          fragment.position.copy(worldCenter);
+          fragment.quaternion.copy(this.object!.quaternion);
+          fragment.scale.copy(this.object!.scale);
           fragment.castShadow = true;
+
+          this.fragments.push(fragment);
+          this.scene.add(fragment);
 
           // Add physics (locked)
           try {
@@ -132,71 +199,6 @@ export class ProgressiveDestructionScene extends BaseScene {
           } catch (error) {
             console.error("Error adding physics to fragment:", error);
           }
-        },
-      );
-
-        // Add fragments to scene
-        this.fragments.forEach((fragment) => {
-          this.scene.add(fragment);
-        });
-      } else {
-      const fragmentGeometries = fracture(
-        this.object.geometry,
-        this.radialFractureOptions,
-      );
-
-      // Create mesh objects for each fragment
-      fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
-        // Compute bounding box to get the center of this fragment
-        fragmentGeometry.computeBoundingBox();
-        const center = new THREE.Vector3();
-        fragmentGeometry.boundingBox!.getCenter(center);
-
-        // Translate the geometry so its center is at the origin
-        fragmentGeometry.translate(-center.x, -center.y, -center.z);
-
-        // Recompute bounding sphere after translation
-        fragmentGeometry.computeBoundingSphere();
-
-        let fragmentMaterial: THREE.Material | THREE.Material[];
-        if (this.settings.primitiveType === "statue") {
-          // Handle both single material and material array cases
-          const outerMaterial = Array.isArray(materialToUse)
-            ? materialToUse[0]
-            : materialToUse;
-          fragmentMaterial = [outerMaterial, this.getStatueInsideMaterial()!];
-        } else {
-          fragmentMaterial = [this.objectMaterial, this.insideMaterial];
-        }
-
-        const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
-
-        // Apply world transform from object
-        const worldCenter = center.clone().applyMatrix4(this.object!.matrixWorld);
-        fragment.position.copy(worldCenter);
-        fragment.quaternion.copy(this.object!.quaternion);
-        fragment.scale.copy(this.object!.scale);
-        fragment.castShadow = true;
-
-        this.fragments.push(fragment);
-        this.scene.add(fragment);
-
-        // Add physics (locked)
-        try {
-          const body = this.physics.add(fragment, {
-            type: "dynamic",
-            collider: "convexHull",
-            restitution: 0.2,
-          });
-          if (body) {
-            body.rigidBody.lockTranslations(true, false);
-            body.rigidBody.lockRotations(true, false);
-          } else {
-            console.warn("Failed to create physics body for fragment");
-          }
-        } catch (error) {
-          console.error("Error adding physics to fragment:", error);
-        }
         });
       }
 
@@ -229,9 +231,9 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
 
     // Create ball
-    const ballGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const ballGeometry = new THREE.SphereGeometry(0.2, 16, 16);
     const ballMaterial = new THREE.MeshStandardMaterial({
-      color: 0x0000ff,
+      color: 0xffbf40,
       roughness: 0.2,
       metalness: 0.8,
       envMapIntensity: 1.0,
@@ -240,8 +242,10 @@ export class ProgressiveDestructionScene extends BaseScene {
     this.currentBall = new THREE.Mesh(ballGeometry, ballMaterial);
     this.currentBall.castShadow = true;
 
-    // Position ball at camera
-    this.currentBall.position.copy(this.camera.position);
+    // Position ball 1 unit in front of camera
+    const cameraDirection = new THREE.Vector3();
+    this.camera.getWorldDirection(cameraDirection);
+    this.currentBall.position.copy(this.camera.position).add(cameraDirection);
 
     // Add to scene
     this.scene.add(this.currentBall);
@@ -250,8 +254,8 @@ export class ProgressiveDestructionScene extends BaseScene {
     const ballBody = this.physics.add(this.currentBall, {
       type: "dynamic",
       collider: "ball",
-      mass: 5.0,
-      restitution: 0.5,
+      mass: 10.0,
+      restitution: 0.1,
     });
 
     // Calculate direction from camera through mouse position
@@ -260,7 +264,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     direction.copy(this.raycaster.ray.direction).normalize();
 
     // Apply velocity
-    const speed = 20;
+    const speed = 15;
     const velocity = direction.multiplyScalar(speed);
     if (ballBody) {
       ballBody.setLinearVelocity({
