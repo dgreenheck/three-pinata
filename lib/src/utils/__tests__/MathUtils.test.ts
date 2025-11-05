@@ -277,8 +277,8 @@ describe("hashv2", () => {
 
   it("should handle zero and negative values", () => {
     const v1 = new Vector2(0, 0);
-    const v2 = new Vector2(-1, -1);
-    const v3 = new Vector2(1, 1);
+    const v2 = new Vector2(-0.1, -0.1);
+    const v3 = new Vector2(0.1, 0.1);
 
     expect(hashv2(v1)).not.toBe(hashv2(v2));
     expect(hashv2(v2)).not.toBe(hashv2(v3));

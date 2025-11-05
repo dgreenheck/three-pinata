@@ -9,11 +9,16 @@
   "scripts": {
     "build:lib": "npm run build -w @dgreenheck/three-pinata",
     "build:demo": "npm run build -w three-pinata-demo",
+    "build": "npm run build:lib && npm run build:demo",
     "dev": "npm run dev -w three-pinata-demo",
     "test": "jest",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "typecheck": "npm run typecheck -w @dgreenheck/three-pinata && npm run typecheck -w three-pinata-demo"
+    "typecheck": "npm run typecheck -w @dgreenheck/three-pinata && npm run typecheck -w three-pinata-demo",
+    "check:typecheck": "npm run typecheck",
+    "check:lint": "npm run lint",
+    "check:test": "npm test",
+    "validate": "npm run check:typecheck && npm run check:lint && npm run check:test"
   },
   "devDependencies": {
     "globals": "^16.5.0"
