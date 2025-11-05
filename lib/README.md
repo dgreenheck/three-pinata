@@ -68,15 +68,6 @@ renderer.render(scene, camera);
 
 ## API Reference
 
-### Core Functions
-
-#### `fracture(geometry, options)`
-Fractures a BufferGeometry into fragments.
-- **Parameters:**
-  - `geometry: THREE.BufferGeometry` - The geometry to fracture
-  - `options: VoronoiFractureOptions | FractureOptions` - Fracture configuration
-- **Returns:** `THREE.BufferGeometry[]` - Array of fragment geometries
-
 ### Classes
 
 #### `DestructibleMesh`
