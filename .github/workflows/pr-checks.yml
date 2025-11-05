@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build lib
+        run: npm run build:lib
+
       - name: Run TypeScript check
         run: npm run check:typecheck
 

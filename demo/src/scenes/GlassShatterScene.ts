@@ -24,7 +24,6 @@ export class GlassShatterScene extends BaseScene {
   });
   private simpleFractureOptions = new FractureOptions({
     fragmentCount: 50,
-    fractureMode: "Non-Convex",
   });
   private settings = {
     fractureMethod: "Voronoi" as "Voronoi" | "Simple",

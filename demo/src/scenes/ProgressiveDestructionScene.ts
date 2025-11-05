@@ -23,11 +23,9 @@ export class ProgressiveDestructionScene extends BaseScene {
   private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "3D",
     fragmentCount: 50,
-    detectIsolatedFragments: true,
   });
   private radialFractureOptions = new FractureOptions({
     fragmentCount: 50,
-    fractureMode: "Non-Convex",
   });
 
   private settings = {
