@@ -178,10 +178,10 @@ function setupLighting(): void {
   sun.target.position.set(0, 0, 0);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -100;
-  sun.shadow.camera.right = 100;
-  sun.shadow.camera.top = 100;
-  sun.shadow.camera.bottom = -100;
+  sun.shadow.camera.left = -50;
+  sun.shadow.camera.right = 50;
+  sun.shadow.camera.top = 50;
+  sun.shadow.camera.bottom = -50;
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 50;
   sun.shadow.bias = -0.0001;
@@ -237,6 +237,7 @@ async function switchScene(sceneType: string): Promise<void> {
         pane,
         controls,
         clock,
+        renderer,
       );
       break;
     case "smashing":
@@ -247,6 +248,7 @@ async function switchScene(sceneType: string): Promise<void> {
         pane,
         controls,
         clock,
+        renderer,
       );
       break;
     case "progressive":
@@ -257,6 +259,7 @@ async function switchScene(sceneType: string): Promise<void> {
         pane,
         controls,
         clock,
+        renderer,
       );
       break;
     case "slicing":
@@ -267,6 +270,7 @@ async function switchScene(sceneType: string): Promise<void> {
         pane,
         controls,
         clock,
+        renderer,
       );
       break;
   }

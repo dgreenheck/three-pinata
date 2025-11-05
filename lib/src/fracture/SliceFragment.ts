@@ -61,7 +61,7 @@ export function sliceFragment(
   sliceOrigin: Vector3,
   textureScale: Vector2,
   textureOffset: Vector2,
-  convex: boolean,
+  convex: boolean = false,
 ): { topSlice: Fragment; bottomSlice: Fragment } {
   const topSlice = new Fragment();
   const bottomSlice = new Fragment();
@@ -151,6 +151,7 @@ function fillCutFaces(
 
   // First need to weld the coincident vertices for the triangulation to work properly
   topSlice.weldCutFaceVertices();
+  bottomSlice.weldCutFaceVertices();
 
   // Need at least 3 vertices to triangulate
   if (topSlice.cutVertices.length < 3) return;

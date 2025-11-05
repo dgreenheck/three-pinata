@@ -16,6 +16,7 @@ import {
  */
 export class SmashingScene extends BaseScene {
   private object: DestructibleMesh | null = null;
+  private fragments: THREE.Mesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
   private wireframeMaterial!: THREE.MeshBasicMaterial;
@@ -96,6 +97,9 @@ export class SmashingScene extends BaseScene {
       this.object.dispose();
     }
 
+    // Clear fragments
+    this.fragments = [];
+
     // Create the primitive
     const mesh = this.createPrimitive(
       this.settings.primitiveType,
@@ -106,7 +110,7 @@ export class SmashingScene extends BaseScene {
     const materialToUse = mesh.material;
 
     this.object = new DestructibleMesh(mesh.geometry, materialToUse);
-    this.object.mesh.castShadow = true;
+    this.object.castShadow = true;
 
     // Position on floor - calculate height based on bounding box
     const bbox = new THREE.Box3().setFromObject(mesh);
@@ -126,8 +130,8 @@ export class SmashingScene extends BaseScene {
   private preFractureObject(): void {
     if (!this.object) return;
 
-    // Get the material from the object's mesh
-    const materialToUse = this.object.mesh.material;
+    // Get the material from the object
+    const materialToUse = this.object.material;
 
     if (this.settings.fractureMethod === "Voronoi") {
       // Set seed if using custom seed
@@ -137,9 +141,8 @@ export class SmashingScene extends BaseScene {
         this.voronoiFractureOptions.seed = undefined;
       }
 
-      this.object.fracture(
+      this.fragments = this.object.fracture(
         this.voronoiFractureOptions,
-        true, // freeze
         (fragment) => {
           // For statue, use original material + rock inside material; for others, use custom materials
           if (this.settings.wireframe) {
@@ -149,11 +152,15 @@ export class SmashingScene extends BaseScene {
             const outerMaterial = Array.isArray(materialToUse)
               ? materialToUse[0]
               : materialToUse;
-            fragment.material = [outerMaterial, this.getStatueInsideMaterial()!];
+            fragment.material = [
+              outerMaterial,
+              this.getStatueInsideMaterial()!,
+            ];
           } else {
             fragment.material = [this.objectMaterial, this.insideMaterial];
           }
           fragment.castShadow = true;
+          fragment.visible = false; // Start hidden for pre-fracture
 
           // Add physics (sleeping)
           const body = this.physics.add(fragment, {
@@ -166,6 +173,11 @@ export class SmashingScene extends BaseScene {
           }
         },
       );
+
+      // Add fragments to scene but keep them hidden
+      this.fragments.forEach((fragment) => {
+        this.scene.add(fragment);
+      });
     } else {
       // Simple fracture method
       if (this.settings.useSeed) {
@@ -175,12 +187,9 @@ export class SmashingScene extends BaseScene {
       }
 
       const fragmentGeometries = fracture(
-        this.object.mesh.geometry,
+        this.object.geometry,
         this.simpleFractureOptions,
       );
-
-      // Hide the original mesh
-      this.object.mesh.visible = false;
 
       // Create mesh objects for each fragment
       fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
@@ -210,14 +219,16 @@ export class SmashingScene extends BaseScene {
 
         const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
 
-        // Position the fragment at its original center within the group
-        fragment.position.copy(center);
+        // Apply world transform from object
+        const worldCenter = center.clone().applyMatrix4(this.object!.matrixWorld);
+        fragment.position.copy(worldCenter);
+        fragment.quaternion.copy(this.object!.quaternion);
+        fragment.scale.copy(this.object!.scale);
         fragment.castShadow = true;
-        fragment.visible = true;
+        fragment.visible = false; // Start hidden for pre-fracture
 
-        // Add as child to the DestructibleMesh group
-        this.object!.add(fragment);
-        this.object!.fragments.push(fragment);
+        this.fragments.push(fragment);
+        this.scene.add(fragment);
 
         // Add physics (sleeping)
         const body = this.physics.add(fragment, {
@@ -240,14 +251,14 @@ export class SmashingScene extends BaseScene {
       : [this.objectMaterial, this.insideMaterial];
 
     // Update main mesh if not yet fractured
-    if (!this.hasSmashed && this.object.mesh) {
-      this.object.mesh.material = this.settings.wireframe
+    if (!this.hasSmashed) {
+      this.object.material = this.settings.wireframe
         ? this.wireframeMaterial
         : this.objectMaterial;
     }
 
     // Update all fragments
-    this.object.fragments.forEach((fragment) => {
+    this.fragments.forEach((fragment) => {
       fragment.material = material;
     });
   }
@@ -261,7 +272,7 @@ export class SmashingScene extends BaseScene {
 
     // Raycast to find intersection with object
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObject(this.object.mesh, false);
+    const intersects = this.raycaster.intersectObject(this.object, false);
 
     if (intersects.length > 0) {
       const intersectionPoint = intersects[0].point;
@@ -299,14 +310,13 @@ export class SmashingScene extends BaseScene {
   };
 
   private handleFragmentClick(): void {
-    if (!this.object) return;
-    this.handleExplosiveClick(this.object.fragments, 2.0, 10.0);
+    this.handleExplosiveClick(this.fragments, 2.0, 10.0);
   }
 
   private handleFractureClick(): void {
     if (!this.object) return;
 
-    const intersects = this.raycaster.intersectObject(this.object.mesh, false);
+    const intersects = this.raycaster.intersectObject(this.object, false);
     if (intersects.length === 0) return;
 
     const intersectionPoint = intersects[0].point;
@@ -323,9 +333,14 @@ export class SmashingScene extends BaseScene {
   }
 
   private unfreezeObject(): void {
-    if (!this.object) return;
+    // Hide the original object
+    if (this.object) {
+      this.object.visible = false;
+    }
 
-    this.object.unfreeze((fragment) => {
+    // Show and wake up all fragments
+    this.fragments.forEach((fragment) => {
+      fragment.visible = true;
       const body = this.physics.getBody(fragment);
       if (body) {
         body.wakeUp();
@@ -336,8 +351,8 @@ export class SmashingScene extends BaseScene {
   private performRealTimeFracture(localPoint: THREE.Vector3): void {
     if (!this.object) return;
 
-    // Get the material from the object's mesh
-    const materialToUse = this.object.mesh.material;
+    // Get the material from the object
+    const materialToUse = this.object.material;
 
     if (this.settings.fractureMethod === "Voronoi") {
       this.voronoiFractureOptions.impactPoint = this.settings.useImpactPoint
@@ -354,27 +369,38 @@ export class SmashingScene extends BaseScene {
         this.voronoiFractureOptions.seed = undefined;
       }
 
-      this.object.fracture(this.voronoiFractureOptions, false, (fragment) => {
-        // For statue, use original material + rock inside material; for others, use custom materials
-        if (this.settings.wireframe) {
-          fragment.material = this.wireframeMaterial;
-        } else if (this.settings.primitiveType === "statue") {
-          // Handle both single material and material array cases
-          const outerMaterial = Array.isArray(materialToUse)
-            ? materialToUse[0]
-            : materialToUse;
-          fragment.material = [outerMaterial, this.getStatueInsideMaterial()!];
-        } else {
-          fragment.material = [this.objectMaterial, this.insideMaterial];
-        }
-        fragment.castShadow = true;
+      this.fragments = this.object.fracture(
+        this.voronoiFractureOptions,
+        (fragment) => {
+          // For statue, use original material + rock inside material; for others, use custom materials
+          if (this.settings.wireframe) {
+            fragment.material = this.wireframeMaterial;
+          } else if (this.settings.primitiveType === "statue") {
+            // Handle both single material and material array cases
+            const outerMaterial = Array.isArray(materialToUse)
+              ? materialToUse[0]
+              : materialToUse;
+            fragment.material = [outerMaterial, this.getStatueInsideMaterial()!];
+          } else {
+            fragment.material = [this.objectMaterial, this.insideMaterial];
+          }
+          fragment.castShadow = true;
 
-        this.physics.add(fragment, {
-          type: "dynamic",
-          collider: "convexHull",
-          restitution: 0.3,
-        });
+          this.physics.add(fragment, {
+            type: "dynamic",
+            collider: "convexHull",
+            restitution: 0.3,
+          });
+        },
+      );
+
+      // Add fragments to scene
+      this.fragments.forEach((fragment) => {
+        this.scene.add(fragment);
       });
+
+      // Hide original object
+      this.object.visible = false;
     } else {
       // Simple fracture method
       if (this.settings.useSeed) {
@@ -384,12 +410,9 @@ export class SmashingScene extends BaseScene {
       }
 
       const fragmentGeometries = fracture(
-        this.object.mesh.geometry,
+        this.object.geometry,
         this.simpleFractureOptions,
       );
-
-      // Hide the original mesh
-      this.object.mesh.visible = false;
 
       // Create mesh objects for each fragment
       fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
@@ -419,14 +442,15 @@ export class SmashingScene extends BaseScene {
 
         const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
 
-        // Position the fragment at its original center within the group
-        fragment.position.copy(center);
+        // Apply world transform from object
+        const worldCenter = center.clone().applyMatrix4(this.object!.matrixWorld);
+        fragment.position.copy(worldCenter);
+        fragment.quaternion.copy(this.object!.quaternion);
+        fragment.scale.copy(this.object!.scale);
         fragment.castShadow = true;
-        fragment.visible = true;
 
-        // Add as child to the DestructibleMesh group
-        this.object!.add(fragment);
-        this.object!.fragments.push(fragment);
+        this.fragments.push(fragment);
+        this.scene.add(fragment);
 
         // Add physics
         this.physics.add(fragment, {
@@ -435,6 +459,9 @@ export class SmashingScene extends BaseScene {
           restitution: 0.3,
         });
       });
+
+      // Hide original object
+      this.object.visible = false;
     }
   }
 
@@ -470,7 +497,6 @@ export class SmashingScene extends BaseScene {
         options: {
           Cube: "cube",
           Sphere: "sphere",
-          Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
           "Torus Knot": "torusKnot",
@@ -590,6 +616,25 @@ export class SmashingScene extends BaseScene {
     // Clear all physics first
     this.clearPhysics();
 
+    // Remove old object
+    if (this.object) {
+      this.scene.remove(this.object);
+      this.object.dispose();
+      this.object = null;
+    }
+
+    // Remove all fragments
+    this.fragments.forEach((fragment) => {
+      this.scene.remove(fragment);
+      fragment.geometry.dispose();
+      if (Array.isArray(fragment.material)) {
+        fragment.material.forEach((mat) => mat.dispose());
+      } else {
+        fragment.material.dispose();
+      }
+    });
+    this.fragments = [];
+
     // Hide markers
     if (this.impactMarker) {
       this.impactMarker.visible = false;
@@ -597,6 +642,9 @@ export class SmashingScene extends BaseScene {
     if (this.radiusMarker) {
       this.radiusMarker.visible = false;
     }
+
+    // Reset state
+    this.hasSmashed = false;
 
     // Re-add ground physics
     this.setupGroundPhysics();

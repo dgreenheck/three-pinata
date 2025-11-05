@@ -64,7 +64,8 @@ export class MaterialFactory {
    */
   createGlassInsideMaterial(): THREE.MeshStandardMaterial {
     const material = this.createGlassMaterial();
-    material.color = new THREE.Color(0x88ffee);
+    material.color = new THREE.Color(0x50b0b0);
+    material.opacity = 0.95;
     return material;
   }
 

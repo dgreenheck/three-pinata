@@ -5,7 +5,6 @@ import statueGLB from "./assets/statue.glb";
 export type PrimitiveType =
   | "cube"
   | "sphere"
-  | "icosahedron"
   | "cylinder"
   | "torus"
   | "torusKnot"
@@ -110,8 +109,6 @@ export class ModelFactory {
         return new THREE.BoxGeometry(2, 2, 2, 1, 1, 1);
       case "sphere":
         return new THREE.SphereGeometry(1.2, 32, 32);
-      case "icosahedron":
-        return new THREE.IcosahedronGeometry(1.2, 0);
       case "cylinder":
         return new THREE.CylinderGeometry(1, 1, 2.5, 32);
       case "torus":

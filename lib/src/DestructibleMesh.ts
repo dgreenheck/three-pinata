@@ -5,58 +5,39 @@ import { voronoiFracture } from "./fracture/VoronoiFracture";
 import { slice } from "./fracture/Slice";
 
 /**
- * A THREE.Group that contains a mesh which can be fractured or sliced into fragments.
- * The original mesh is accessible via the `mesh` property.
- * Fragments are stored as children of this group and accessible via `fragments` property.
+ * A THREE.Mesh that can be fractured or sliced into fragments.
+ * Fragments are returned but NOT automatically added to the scene -
+ * you must manually add them using scene.add(...fragments).
  */
-export class DestructibleMesh extends THREE.Group {
-  /** The original mesh to be fractured */
-  public mesh: THREE.Mesh;
-
-  /** Array of fragment meshes created by fracture() */
-  public fragments: THREE.Mesh[] = [];
-
-  private _isFrozen: boolean = false;
-
+export class DestructibleMesh extends THREE.Mesh {
   constructor(
     geometry?: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
     material?: THREE.Material | THREE.Material[],
   ) {
-    super();
-
-    // Create the mesh and add it as a child
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.add(this.mesh);
+    super(geometry, material);
   }
 
   /**
    * Fractures the mesh into fragments using Voronoi tessellation
    * @param options Voronoi fracture options controlling the fracture behavior
-   * @param freeze If true, fragments are created but hidden until unfreeze() is called
-   * @param setup Optional callback called for each fragment for custom setup
+   * @param onFragment Optional callback called for each fragment for custom setup
    * @param onComplete Optional callback called once after all fragments are created
-   * @returns The array of created fragment meshes
+   * @returns The array of created fragment meshes (NOT added to scene)
    */
   fracture(
     options: VoronoiFractureOptions,
-    freeze: boolean = false,
-    setup?: (fragment: THREE.Mesh, index: number) => void,
+    onFragment?: (fragment: THREE.Mesh, index: number) => void,
     onComplete?: () => void,
   ): THREE.Mesh[] {
-    if (!this.mesh.geometry) {
+    if (!this.geometry) {
       throw new Error("DestructibleMesh has no geometry to fracture");
     }
 
-    // Mark as frozen if requested
-    if (freeze) {
-      this._isFrozen = true;
-    }
-
     // Perform the fracture operation using Voronoi tessellation
-    const fragmentGeometries = voronoiFracture(this.mesh.geometry, options);
+    const fragmentGeometries = voronoiFracture(this.geometry, options);
 
     // Create mesh objects for each fragment
-    this.fragments = fragmentGeometries.map((fragmentGeometry, index) => {
+    const fragments = fragmentGeometries.map((fragmentGeometry, index) => {
       // Compute bounding box to get the center of this fragment
       fragmentGeometry.computeBoundingBox();
       const center = new THREE.Vector3();
@@ -68,62 +49,54 @@ export class DestructibleMesh extends THREE.Group {
       // Recompute bounding sphere after translation
       fragmentGeometry.computeBoundingSphere();
 
-      const fragment = new THREE.Mesh(fragmentGeometry, this.mesh.material);
+      const fragment = new THREE.Mesh(fragmentGeometry, this.material);
 
-      // Position the fragment at its original center within the group
-      fragment.position.copy(center);
+      // Apply the parent's transform to the fragment position
+      const worldCenter = center.clone().applyMatrix4(this.matrixWorld);
+      fragment.position.copy(worldCenter);
+      fragment.quaternion.copy(this.quaternion);
+      fragment.scale.copy(this.scale);
 
       // Copy properties from the original mesh
-      fragment.castShadow = this.mesh.castShadow;
-      fragment.receiveShadow = this.mesh.receiveShadow;
-      fragment.matrixAutoUpdate = this.mesh.matrixAutoUpdate;
-      fragment.frustumCulled = this.mesh.frustumCulled;
-      fragment.renderOrder = this.mesh.renderOrder;
+      fragment.castShadow = this.castShadow;
+      fragment.receiveShadow = this.receiveShadow;
+      fragment.matrixAutoUpdate = this.matrixAutoUpdate;
+      fragment.frustumCulled = this.frustumCulled;
+      fragment.renderOrder = this.renderOrder;
 
-      // If frozen, hide fragments initially
-      fragment.visible = !freeze;
-
-      // Add as child to this group
-      this.add(fragment);
-
-      // Call the setup callback if provided
-      if (setup) {
-        setup(fragment, index);
+      // Call the onFragment callback if provided
+      if (onFragment) {
+        onFragment(fragment, index);
       }
 
       return fragment;
     });
-
-    // If not frozen, hide/dispose the original mesh
-    if (!freeze) {
-      this.remove(this.mesh);
-      this.disposeMesh(this.mesh);
-    }
-    // If frozen, keep the original mesh visible until unfreeze
 
     // Call the onComplete callback if provided
     if (onComplete) {
       onComplete();
     }
 
-    return this.fragments;
+    return fragments;
   }
 
   /**
-   * Slices the mesh into top and bottom parts
-   * @param sliceNormal Normal of the slice plane (points towards the top slice)
-   * @param sliceOrigin Origin of the slice plane
+   * Slices the mesh into top and bottom parts using a plane in local space
+   * @param sliceNormal Normal of the slice plane in local space (points towards the top slice)
+   * @param sliceOrigin Origin of the slice plane in local space
    * @param options Optional slice options
-   * @param onSlice Optional callback called with top and bottom meshes after slice completes
-   * @returns Object containing the top and bottom DestructibleMesh instances
+   * @param onSlice Optional callback called for each piece for custom setup (material, physics, etc.)
+   * @param onComplete Optional callback called once after all pieces are created
+   * @returns Array of DestructibleMesh pieces created by the slice (NOT added to scene)
    */
   slice(
     sliceNormal: THREE.Vector3,
     sliceOrigin: THREE.Vector3,
     options?: SliceOptions,
-    onSlice?: (top: DestructibleMesh, bottom: DestructibleMesh) => void,
-  ): { top: DestructibleMesh; bottom: DestructibleMesh } {
-    if (!this.mesh.geometry) {
+    onSlice?: (piece: DestructibleMesh, index: number) => void,
+    onComplete?: () => void,
+  ): DestructibleMesh[] {
+    if (!this.geometry) {
       throw new Error("DestructibleMesh has no geometry to slice");
     }
 
@@ -131,145 +104,92 @@ export class DestructibleMesh extends THREE.Group {
     const sliceOptions = options || new SliceOptions();
 
     // Perform the slice operation
-    const { topSlice, bottomSlice } = slice(
-      this.mesh.geometry,
+    const fragments = slice(
+      this.geometry,
       sliceNormal,
       sliceOrigin,
       sliceOptions.textureScale,
       sliceOptions.textureOffset,
-      sliceOptions.detectFloatingFragments === false, // convex parameter
     );
 
-    // Create DestructibleMesh instances for top and bottom
-    const topMesh = new DestructibleMesh(topSlice, this.mesh.material);
-    const bottomMesh = new DestructibleMesh(bottomSlice, this.mesh.material);
+    // Create DestructibleMesh instances for all fragments
+    const pieces = fragments.map((geometry, index) => {
+      const piece = new DestructibleMesh(geometry, this.material);
 
-    // Copy properties to both slices
-    [topMesh, bottomMesh].forEach((destructibleMesh) => {
-      destructibleMesh.mesh.castShadow = this.mesh.castShadow;
-      destructibleMesh.mesh.receiveShadow = this.mesh.receiveShadow;
-      destructibleMesh.mesh.matrixAutoUpdate = this.mesh.matrixAutoUpdate;
-      destructibleMesh.mesh.frustumCulled = this.mesh.frustumCulled;
-      destructibleMesh.mesh.renderOrder = this.mesh.renderOrder;
+      // Copy properties from original mesh
+      piece.castShadow = this.castShadow;
+      piece.receiveShadow = this.receiveShadow;
+      piece.matrixAutoUpdate = this.matrixAutoUpdate;
+      piece.frustumCulled = this.frustumCulled;
+      piece.renderOrder = this.renderOrder;
 
-      // Apply world transform to the group
-      destructibleMesh.position.copy(this.position);
-      destructibleMesh.quaternion.copy(this.quaternion);
-      destructibleMesh.scale.copy(this.scale);
-    });
+      // Apply world transform
+      piece.position.copy(this.position);
+      piece.quaternion.copy(this.quaternion);
+      piece.scale.copy(this.scale);
 
-    // Dispose original mesh
-    this.disposeMesh(this.mesh);
-
-    // Call the onSlice callback if provided
-    if (onSlice) {
-      onSlice(topMesh, bottomMesh);
-    }
-
-    return { top: topMesh, bottom: bottomMesh };
-  }
-
-  /**
-   * Unfreezes fragments, making them visible and disposing the original mesh
-   * @param onFragment Optional callback called for each fragment
-   * @param onComplete Optional callback called once after unfreeze completes
-   */
-  unfreeze(
-    onFragment?: (fragment: THREE.Mesh, index: number) => void,
-    onComplete?: () => void,
-  ): void {
-    if (!this._isFrozen) {
-      console.warn("DestructibleMesh is not frozen");
-      return;
-    }
-
-    console.log(
-      "Unfreezing DestructibleMesh with",
-      this.fragments.length,
-      "fragments",
-    );
-
-    // Remove and dispose the original mesh
-    this.remove(this.mesh);
-    this.disposeMesh(this.mesh);
-
-    // Show all fragments
-    this.fragments.forEach((fragment, index) => {
-      fragment.visible = true;
-
-      // Call the onFragment callback if provided
-      if (onFragment) {
-        onFragment(fragment, index);
+      // Call the onSlice callback if provided
+      if (onSlice) {
+        onSlice(piece, index);
       }
-    });
 
-    this._isFrozen = false;
+      return piece;
+    });
 
     // Call the onComplete callback if provided
     if (onComplete) {
       onComplete();
     }
+
+    return pieces;
   }
 
   /**
-   * Gets all fragments created by fracture()
-   * @returns Array of fragment meshes
+   * Slices the mesh using a plane defined in world space
+   * @param worldNormal Normal of the slice plane in world space
+   * @param worldOrigin Origin of the slice plane in world space
+   * @param options Optional slice options
+   * @param onSlice Optional callback called for each piece for custom setup (material, physics, etc.)
+   * @param onComplete Optional callback called once after all pieces are created
+   * @returns Array of DestructibleMesh pieces created by the slice (NOT added to scene)
    */
-  getFragments(): THREE.Mesh[] {
-    return [...this.fragments];
+  sliceWorld(
+    worldNormal: THREE.Vector3,
+    worldOrigin: THREE.Vector3,
+    options?: SliceOptions,
+    onSlice?: (piece: DestructibleMesh, index: number) => void,
+    onComplete?: () => void,
+  ): DestructibleMesh[] {
+    // Update the object's matrix to ensure accurate transformation
+    this.updateMatrixWorld(true);
+
+    // Transform slice normal and origin to object's local space
+    const worldToLocal = new THREE.Matrix4().copy(this.matrixWorld).invert();
+
+    const localNormal = worldNormal
+      .clone()
+      .transformDirection(worldToLocal)
+      .normalize();
+
+    const localOrigin = worldOrigin.clone().applyMatrix4(worldToLocal);
+
+    // Call the regular slice method with local coordinates
+    return this.slice(localNormal, localOrigin, options, onSlice, onComplete);
   }
 
   /**
-   * Returns whether the mesh is currently frozen
-   */
-  isFrozen(): boolean {
-    return this._isFrozen;
-  }
-
-  /**
-   * Disposes a mesh (geometry and material)
-   */
-  private disposeMesh(mesh: THREE.Mesh): void {
-    if (mesh.geometry) {
-      mesh.geometry.dispose();
-    }
-    if (mesh.material) {
-      this.disposeMaterial(mesh.material);
-    }
-  }
-
-  /**
-   * Helper to dispose material(s)
-   */
-  private disposeMaterial(material: THREE.Material | THREE.Material[]): void {
-    if (Array.isArray(material)) {
-      material.forEach((mat) => mat.dispose());
-    } else {
-      material.dispose();
-    }
-  }
-
-  /**
-   * Disposes this group, the original mesh, and all fragments
+   * Disposes the mesh geometry and material
    */
   dispose(): void {
-    // Dispose the original mesh
-    this.disposeMesh(this.mesh);
-
-    // Dispose all fragments
-    this.fragments.forEach((fragment) => {
-      if (fragment.geometry) {
-        fragment.geometry.dispose();
+    if (this.geometry) {
+      this.geometry.dispose();
+    }
+    if (this.material) {
+      if (Array.isArray(this.material)) {
+        this.material.forEach((mat) => mat.dispose());
+      } else {
+        this.material.dispose();
       }
-      if (fragment.material) {
-        this.disposeMaterial(fragment.material);
-      }
-    });
-
-    // Clear fragments array
-    this.fragments = [];
-
-    // Clear children
-    this.clear();
+    }
   }
 }

@@ -14,78 +14,96 @@ export class SlicingScene extends BaseScene {
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
   private wireframeMaterial!: THREE.MeshBasicMaterial;
-  private slicePlane!: THREE.Mesh;
-  private sliceHelper!: THREE.GridHelper;
-  private sliceGroup!: THREE.Group;
 
   private settings = {
-    primitiveType: "icosahedron" as PrimitiveType,
+    primitiveType: "sphere" as PrimitiveType,
     wireframe: false,
     useSeed: false,
     seedValue: 0,
+    convex: false,
   };
 
-  private slicePosition = new THREE.Vector3(0, 3, 0);
-  private moveSpeed = 2.0;
-  private rotateSpeed = 1.0;
+  // Drawing slice properties
+  private isDrawingSlice = false;
+  private sliceStartScreen = new THREE.Vector2();
+  private sliceEndScreen = new THREE.Vector2();
 
-  private keysPressed = new Set<string>();
+  // Canvas overlay for drawing
+  private canvas!: HTMLCanvasElement;
+  private ctx!: CanvasRenderingContext2D;
 
   async init(): Promise<void> {
     // Setup camera
     this.camera.position.set(6, 5, 8);
-    this.controls.target.set(0, 3, 0);
+    this.controls.target.set(0, 0, 0);
+    this.controls.enablePan = false; // Disable panning
+    this.controls.mouseButtons = {
+      LEFT: undefined,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.ROTATE,
+    };
     this.controls.update();
 
     // Create materials
     this.objectMaterial = this.createMaterial(0x9944ff);
     this.insideMaterial = this.createInsideMaterial(0xdddddd);
-    this.wireframeMaterial = this.materialFactory.createWireframeMaterial(0x80ffa0);
+    this.wireframeMaterial =
+      this.materialFactory.createWireframeMaterial(0x80ffa0);
 
     // Load statue geometry if needed
     await this.loadStatueGeometry();
 
-    // Create slice plane visualization
-    this.createSlicePlane();
-
-    // Create initial object
+    // Create initial object first
     this.createObject();
 
-    // Add keyboard listeners
-    window.addEventListener("keydown", this.onKeyDown);
-    window.addEventListener("keyup", this.onKeyUp);
-    window.addEventListener("click", this.onMouseClick);
+    // Create canvas overlay for drawing
+    this.createCanvasOverlay();
+
+    // Add pointer event listeners
+    window.addEventListener("pointerdown", this.onPointerDown);
+    window.addEventListener("pointermove", this.onPointerMove);
+    window.addEventListener("pointerup", this.onPointerUp);
   }
 
-  private createSlicePlane(): void {
-    this.sliceGroup = new THREE.Group();
+  private createCanvasOverlay(): void {
+    if (!this.renderer) {
+      console.warn("Renderer not available, canvas overlay disabled");
+      return;
+    }
 
-    // Create semi-transparent plane
-    const planeGeometry = new THREE.PlaneGeometry(6, 6);
-    const planeMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
-      transparent: true,
-      opacity: 0.3,
-      side: THREE.DoubleSide,
-    });
-    this.slicePlane = new THREE.Mesh(planeGeometry, planeMaterial);
-    this.sliceGroup.add(this.slicePlane);
+    // Create a canvas that overlays the WebGL canvas
+    this.canvas = document.createElement("canvas");
+    this.canvas.style.position = "absolute";
+    this.canvas.style.top = "0";
+    this.canvas.style.left = "0";
+    this.canvas.style.pointerEvents = "none";
+    this.canvas.style.zIndex = "1000";
 
-    // Add grid helper for better visualization
-    const gridSize = 6;
-    const divisions = 12;
-    this.sliceHelper = new THREE.GridHelper(
-      gridSize,
-      divisions,
-      0xff0000,
-      0xff6666,
-    );
-    this.sliceHelper.rotation.x = Math.PI / 2;
-    this.sliceGroup.add(this.sliceHelper);
+    // Get the renderer's canvas to match its size
+    const rendererCanvas = this.renderer.domElement;
+    this.canvas.width = rendererCanvas.width;
+    this.canvas.height = rendererCanvas.height;
+    this.canvas.style.width = rendererCanvas.style.width;
+    this.canvas.style.height = rendererCanvas.style.height;
 
-    this.sliceGroup.position.copy(this.slicePosition);
-    this.scene.add(this.sliceGroup);
+    // Insert the canvas after the renderer canvas
+    rendererCanvas.parentElement?.appendChild(this.canvas);
+
+    this.ctx = this.canvas.getContext("2d")!;
+
+    // Handle window resize
+    window.addEventListener("resize", this.onWindowResize);
   }
+
+  private onWindowResize = (): void => {
+    if (this.canvas && this.renderer) {
+      const rendererCanvas = this.renderer.domElement;
+      this.canvas.width = rendererCanvas.width;
+      this.canvas.height = rendererCanvas.height;
+      this.canvas.style.width = rendererCanvas.style.width;
+      this.canvas.style.height = rendererCanvas.style.height;
+    }
+  };
 
   private createObject(): void {
     // Create the primitive
@@ -97,38 +115,126 @@ export class SlicingScene extends BaseScene {
     // Use the mesh's material (which may be the statue's original material)
     const materialToUse = mesh.material;
 
-    const destructibleMesh = new DestructibleMesh(
-      mesh.geometry,
-      materialToUse,
-    );
-    destructibleMesh.mesh.castShadow = true;
-    destructibleMesh.position.set(0, 3, 0);
+    const destructibleMesh = new DestructibleMesh(mesh.geometry, materialToUse);
+    destructibleMesh.castShadow = true;
+
+    // Calculate height so object sits on ground
+    mesh.geometry.computeBoundingBox();
+    const boundingBox = mesh.geometry.boundingBox!;
+    const height = -boundingBox.min.y; // Offset by the bottom of the bounding box
+
+    destructibleMesh.position.set(0, height, 0);
     this.scene.add(destructibleMesh);
     this.objects.push(destructibleMesh);
   }
 
-  private onKeyDown = (event: KeyboardEvent): void => {
-    this.keysPressed.add(event.key.toLowerCase());
+  private onPointerDown = (event: PointerEvent): void => {
+    if (!this.renderer) return;
 
-    // Execute slice on Space
-    if (event.key === " ") {
-      event.preventDefault();
-      this.executeSlice();
+    // Allow right click for camera rotation
+    if (event.button === 2) {
+      this.controls.enabled = true;
+      return;
     }
+
+    // Ignore if not left click
+    if (event.button !== 0) return;
+
+    // Start drawing slice from anywhere on screen
+    this.isDrawingSlice = true;
+
+    // Store screen coordinates
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.sliceStartScreen.set(
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+    );
+    this.sliceEndScreen.copy(this.sliceStartScreen);
+
+    // Disable orbit controls while drawing
+    this.controls.enabled = false;
   };
 
-  private onKeyUp = (event: KeyboardEvent): void => {
-    this.keysPressed.delete(event.key.toLowerCase());
+  private onPointerMove = (event: PointerEvent): void => {
+    if (!this.isDrawingSlice || !this.renderer) return;
+
+    // Prevent default to avoid scrolling on mobile
+    event.preventDefault();
+
+    // Update end position
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.sliceEndScreen.set(
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+    );
+
+    // Draw the slice line on canvas
+    this.drawSliceLine();
   };
 
-  private onMouseClick = (event: MouseEvent): void => {
-    this.updateMouseCoordinates(event);
-    this.raycaster.setFromCamera(this.mouse, this.camera);
+  private onPointerUp = (): void => {
+    if (!this.isDrawingSlice || !this.ctx) return;
 
-    // Click on meshes to apply explosive force
-    const allMeshes = this.objects.map((obj) => obj.mesh);
-    this.handleExplosiveClick(allMeshes, 2.0, 15.0);
+    this.isDrawingSlice = false;
+    this.controls.enabled = true;
+
+    // Check if the line is long enough (avoid accidental clicks)
+    const screenDistance = this.sliceStartScreen.distanceTo(
+      this.sliceEndScreen,
+    );
+    if (screenDistance > 20) {
+      // 20 pixels minimum
+      this.executeDrawnSlice();
+    }
+
+    // Clear the canvas
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
   };
+
+  private drawSliceLine(): void {
+    if (!this.ctx) return;
+
+    // Clear canvas
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Draw the slice line with glow effect
+    const dpr = window.devicePixelRatio || 1;
+
+    // Draw glow
+    this.ctx.strokeStyle = "rgba(255, 50, 50, 0.3)";
+    this.ctx.lineWidth = 12 * dpr;
+    this.ctx.lineCap = "round";
+    this.ctx.beginPath();
+    this.ctx.moveTo(
+      this.sliceStartScreen.x * dpr,
+      this.sliceStartScreen.y * dpr,
+    );
+    this.ctx.lineTo(this.sliceEndScreen.x * dpr, this.sliceEndScreen.y * dpr);
+    this.ctx.stroke();
+
+    // Draw main line
+    this.ctx.strokeStyle = "rgba(255, 20, 20, 0.9)";
+    this.ctx.lineWidth = 4 * dpr;
+    this.ctx.lineCap = "round";
+    this.ctx.beginPath();
+    this.ctx.moveTo(
+      this.sliceStartScreen.x * dpr,
+      this.sliceStartScreen.y * dpr,
+    );
+    this.ctx.lineTo(this.sliceEndScreen.x * dpr, this.sliceEndScreen.y * dpr);
+    this.ctx.stroke();
+
+    // Draw bright core
+    this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+    this.ctx.lineWidth = 2 * dpr;
+    this.ctx.beginPath();
+    this.ctx.moveTo(
+      this.sliceStartScreen.x * dpr,
+      this.sliceStartScreen.y * dpr,
+    );
+    this.ctx.lineTo(this.sliceEndScreen.x * dpr, this.sliceEndScreen.y * dpr);
+    this.ctx.stroke();
+  }
 
   /**
    * Check if a plane intersects a bounding box
@@ -167,30 +273,103 @@ export class SlicingScene extends BaseScene {
     return false;
   }
 
-  private executeSlice(): void {
-    // Get the current slice normal from the slice group's orientation
-    // PlaneGeometry is created in XY plane with normal pointing along +Z
-    const sliceNormal = new THREE.Vector3(0, 0, 1);
-    sliceNormal.applyQuaternion(this.sliceGroup.quaternion).normalize();
+  private executeDrawnSlice(): void {
+    if (!this.renderer) return;
 
-    // Get slice plane world position
-    const sliceWorldPosition = new THREE.Vector3();
-    this.sliceGroup.getWorldPosition(sliceWorldPosition);
+    // Convert screen coordinates to NDC
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const startNDC = new THREE.Vector2(
+      (this.sliceStartScreen.x / rect.width) * 2 - 1,
+      -(this.sliceStartScreen.y / rect.height) * 2 + 1,
+    );
+    const endNDC = new THREE.Vector2(
+      (this.sliceEndScreen.x / rect.width) * 2 - 1,
+      -(this.sliceEndScreen.y / rect.height) * 2 + 1,
+    );
 
-    // Create a Three.js plane for intersection testing
-    const plane = new THREE.Plane();
-    plane.setFromNormalAndCoplanarPoint(sliceNormal, sliceWorldPosition);
+    // Unproject to get 3D points on near plane
+    const startNear = new THREE.Vector3(startNDC.x, startNDC.y, -1).unproject(
+      this.camera,
+    );
+    const endNear = new THREE.Vector3(endNDC.x, endNDC.y, -1).unproject(
+      this.camera,
+    );
+
+    // Get the view rays (these account for perspective)
+    const startViewDir = new THREE.Vector3()
+      .subVectors(startNear, this.camera.position)
+      .normalize();
+    const endViewDir = new THREE.Vector3()
+      .subVectors(endNear, this.camera.position)
+      .normalize();
+
+    // Find intersection with objects or use default depth
+    const startRay = new THREE.Ray(this.camera.position, startViewDir);
+    const endRay = new THREE.Ray(this.camera.position, endViewDir);
+
+    this.raycaster.ray = startRay;
+    const startIntersects = this.raycaster.intersectObjects(
+      this.objects,
+      false,
+    );
+
+    this.raycaster.ray = endRay;
+    const endIntersects = this.raycaster.intersectObjects(this.objects, false);
+
+    // Determine slice points in 3D
+    let sliceStart: THREE.Vector3;
+    let sliceEnd: THREE.Vector3;
+
+    if (startIntersects.length > 0 && endIntersects.length > 0) {
+      sliceStart = startIntersects[0].point;
+      sliceEnd = endIntersects[0].point;
+    } else if (startIntersects.length > 0) {
+      sliceStart = startIntersects[0].point;
+      sliceEnd = endRay.at(startIntersects[0].distance, new THREE.Vector3());
+    } else if (endIntersects.length > 0) {
+      sliceEnd = endIntersects[0].point;
+      sliceStart = startRay.at(endIntersects[0].distance, new THREE.Vector3());
+    } else {
+      // Use average distance to objects
+      let avgDist = 5;
+      if (this.objects.length > 0) {
+        avgDist = this.camera.position.distanceTo(this.objects[0].position);
+      }
+      sliceStart = startRay.at(avgDist, new THREE.Vector3());
+      sliceEnd = endRay.at(avgDist, new THREE.Vector3());
+    }
+
+    // The slice line in 3D (this is the line on the screen in world space)
+    const sliceLine = new THREE.Vector3()
+      .subVectors(sliceEnd, sliceStart)
+      .normalize();
+
+    // For "straight into screen", we need the average view direction of the slice line
+    // This accounts for perspective - the direction changes across the screen
+    const midViewDir = new THREE.Vector3()
+      .addVectors(startViewDir, endViewDir)
+      .normalize();
+
+    // The plane normal is perpendicular to both the slice line and the view direction
+    // This makes the plane go "straight into the screen" from the drawn line
+    const sliceNormal = new THREE.Vector3()
+      .crossVectors(sliceLine, midViewDir)
+      .normalize();
+
+    // Origin is the midpoint of the slice line
+    const sliceOrigin = new THREE.Vector3()
+      .addVectors(sliceStart, sliceEnd)
+      .multiplyScalar(0.5);
 
     // Find all objects that intersect the plane
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+      sliceNormal,
+      sliceOrigin,
+    );
     const objectsToSlice = this.objects.filter((obj) => {
-      // Update object's bounding box
-      obj.mesh.geometry.computeBoundingBox();
-      const boundingBox = obj.mesh.geometry.boundingBox!.clone();
-
-      // Transform bounding box to world space
+      obj.geometry.computeBoundingBox();
+      const boundingBox = obj.geometry.boundingBox!.clone();
       boundingBox.applyMatrix4(obj.matrixWorld);
-
-      // Check if the plane intersects the bounding box
       return this.planeIntersectsBox(plane, boundingBox);
     });
 
@@ -199,119 +378,80 @@ export class SlicingScene extends BaseScene {
       return;
     }
 
-    console.log(`Slicing ${objectsToSlice.length} object(s)`);
+    // Configure slice options
+    const sliceOptions = new SliceOptions();
+    sliceOptions.detectFloatingFragments = !this.settings.convex;
 
     objectsToSlice.forEach((obj) => {
-      const sliceOptions = new SliceOptions();
-      sliceOptions.enableReslicing = true;
-      sliceOptions.maxResliceCount = 10;
-
       try {
-        // Get the physics body before slicing to preserve velocity
-        const physicsBody = this.physics.getBody(obj.mesh);
-        let linearVelocity = { x: 0, y: 0, z: 0 };
-        let angularVelocity = { x: 0, y: 0, z: 0 };
+        // Preserve the original object's material
+        // If it's an array (from previous slice), get the first element (outer material)
+        const originalMaterial = Array.isArray(obj.material)
+          ? obj.material[0]
+          : obj.material;
 
-        if (physicsBody) {
-          linearVelocity = physicsBody.rigidBody.linvel();
-          angularVelocity = physicsBody.rigidBody.angvel();
+        // Get the physics body of the original object (if it exists)
+        const originalBody = this.physics.getBody(obj);
+        let linearVel = { x: 0, y: 0, z: 0 };
+        let angularVel = { x: 0, y: 0, z: 0 };
 
-          // Sync the Group's transform from the mesh's world transform
-          // Physics updates obj.mesh, but we need obj (the Group) to have the correct transform
-          const worldPosition = new THREE.Vector3();
-          const worldQuaternion = new THREE.Quaternion();
-          const worldScale = new THREE.Vector3();
-          obj.mesh.getWorldPosition(worldPosition);
-          obj.mesh.getWorldQuaternion(worldQuaternion);
-          obj.mesh.getWorldScale(worldScale);
-
-          obj.position.copy(worldPosition);
-          obj.quaternion.copy(worldQuaternion);
-          obj.scale.copy(worldScale);
-
-          // Remove physics from the original object before slicing
-          this.physics.remove(obj.mesh);
+        if (originalBody) {
+          // Store the velocities before removing physics
+          linearVel = originalBody.rigidBody.linvel();
+          angularVel = originalBody.rigidBody.angvel();
+          // Remove physics from original object before slicing
+          this.physics.remove(obj);
         }
 
-        // Update the object's matrix to ensure accurate transformation
-        obj.updateMatrixWorld(true);
-
-        // Transform slice normal and origin to object's local space
-        const worldToLocal = new THREE.Matrix4();
-        worldToLocal.copy(obj.matrixWorld).invert();
-
-        const localNormal = sliceNormal
-          .clone()
-          .transformDirection(worldToLocal)
-          .normalize();
-
-        // Use the slice group's world position as the origin
-        const sliceWorldPosition = new THREE.Vector3();
-        this.sliceGroup.getWorldPosition(sliceWorldPosition);
-
-        const localOrigin = sliceWorldPosition
-          .clone()
-          .applyMatrix4(worldToLocal);
-
-        obj.slice(
-          localNormal,
-          localOrigin,
+        // Slice using world-space coordinates
+        const pieces = obj.sliceWorld(
+          sliceNormal,
+          sliceOrigin,
           sliceOptions,
-          (top, bottom) => {
-            // Get the original material from the object being sliced
-            const originalMaterial = obj.mesh.material;
+          (piece) => {
+            // Set material (preserve original + inside material for cut face)
+            if (this.settings.wireframe) {
+              piece.material = this.wireframeMaterial;
+            } else {
+              // Use statue inside material for statue, regular inside material for others
+              const insideMat =
+                this.settings.primitiveType === "statue"
+                  ? this.getStatueInsideMaterial()!
+                  : this.insideMaterial;
+              // Use original material for outer surface, inside material for cut face
+              piece.material = [originalMaterial, insideMat];
+            }
 
-            // Setup materials for both pieces
-            [top, bottom].forEach((piece) => {
-              if (this.settings.wireframe) {
-                piece.mesh.material = this.wireframeMaterial;
-              } else if (this.settings.primitiveType === "statue") {
-                // For statue, extract outer material and use rock inside material
-                const outerMaterial = Array.isArray(originalMaterial)
-                  ? originalMaterial[0]
-                  : originalMaterial;
-                piece.mesh.material = [outerMaterial, this.getStatueInsideMaterial()!];
-              } else {
-                // For regular objects:
-                // Note: The slicing library currently doesn't preserve material groups from previous slices.
-                // When reslicing, all old geometry goes into group 0 and the new cut face into group 1.
-                // This means previous cut faces will render with the outer material after reslicing.
-                // To properly fix this would require tracking material indices through the slicing algorithm.
-                const outerMaterial = Array.isArray(originalMaterial)
-                  ? originalMaterial[0]
-                  : originalMaterial;
-                piece.mesh.material = [outerMaterial, this.insideMaterial];
-              }
-              piece.mesh.castShadow = true;
-
-              // Add to scene and tracking
-              this.scene.add(piece);
-              this.objects.push(piece);
-
-              // Add physics and restore velocity
-              this.physics.add(piece.mesh, {
-                type: "dynamic",
-                collider: "convexHull",
-                restitution: 0.3,
-              });
-
-              // Apply the original object's velocity to the new pieces
-              const newBody = this.physics.getBody(piece.mesh);
-              if (newBody) {
-                newBody.rigidBody.setLinvel(linearVelocity, true);
-                newBody.rigidBody.setAngvel(angularVelocity, true);
-              }
+            // Add physics
+            const body = this.physics.add(piece, {
+              type: "dynamic",
+              collider: "convexHull",
+              restitution: 0.1,
+              mass: 10,
             });
+
+            // Inherit velocity from the original object
+            if (body && originalBody) {
+              body.setLinearVelocity(linearVel);
+              body.setAngularVelocity(angularVel);
+            }
+          },
+          () => {
+            // Cleanup original object
+            this.scene.remove(obj);
+            const index = this.objects.indexOf(obj);
+            if (index > -1) {
+              this.objects.splice(index, 1);
+            }
+            obj.dispose();
           },
         );
 
-        // Remove the original object
-        this.scene.remove(obj);
-        const index = this.objects.indexOf(obj);
-        if (index > -1) {
-          this.objects.splice(index, 1);
-        }
-        obj.dispose();
+        // Add pieces to scene and track them
+        pieces.forEach((piece) => {
+          this.scene.add(piece);
+          this.objects.push(piece);
+        });
       } catch (error) {
         console.warn("Could not slice object:", error);
       }
@@ -325,74 +465,21 @@ export class SlicingScene extends BaseScene {
 
     // Update all object meshes
     this.objects.forEach((obj) => {
-      obj.mesh.material = this.settings.wireframe
-        ? this.wireframeMaterial
-        : material;
+      obj.material = material;
     });
   }
 
-  update(deltaTime: number): void {
-    // Guard clause - ensure slice group is initialized
-    if (!this.sliceGroup) {
-      return;
-    }
-
-    // Handle WASD movement (horizontal) and RF (vertical)
-    const movement = new THREE.Vector3();
-
-    if (this.keysPressed.has("w")) {
-      movement.z -= this.moveSpeed * deltaTime;
-    }
-    if (this.keysPressed.has("s")) {
-      movement.z += this.moveSpeed * deltaTime;
-    }
-    if (this.keysPressed.has("a")) {
-      movement.x -= this.moveSpeed * deltaTime;
-    }
-    if (this.keysPressed.has("d")) {
-      movement.x += this.moveSpeed * deltaTime;
-    }
-    if (this.keysPressed.has("r")) {
-      movement.y += this.moveSpeed * deltaTime;
-    }
-    if (this.keysPressed.has("f")) {
-      movement.y -= this.moveSpeed * deltaTime;
-    }
-
-    // Apply movement
-    this.sliceGroup.position.add(movement);
-    this.slicePosition.copy(this.sliceGroup.position);
-
-    // Handle QE rotation
-    let rotation = 0;
-    if (this.keysPressed.has("q")) {
-      rotation += this.rotateSpeed * deltaTime;
-    }
-    if (this.keysPressed.has("e")) {
-      rotation -= this.rotateSpeed * deltaTime;
-    }
-
-    if (rotation !== 0) {
-      // Rotate around the Y axis
-      const axis = new THREE.Vector3(0, 1, 0);
-      const quaternion = new THREE.Quaternion();
-      quaternion.setFromAxisAngle(axis, rotation);
-
-      // Apply rotation to the slice group
-      this.sliceGroup.quaternion.premultiply(quaternion);
-    }
+  update(_deltaTime: number): void {
+    // No continuous updates needed
   }
 
   getInstructions(): string {
     return `SLICING DEMO
 
-• WASD - Move slicing plane (horizontal)
-• R/F - Move slicing plane (up/down)
-• Q/E - Rotate plane
-• SPACE - Execute slice
-• Click objects to apply explosive force
-• Slice objects multiple times
-• Choose different primitives`;
+• Left click and drag to slice
+• Right click and drag to rotate camera
+• Scroll to zoom
+• Works like Fruit Ninja!`;
   }
 
   setupUI(): any {
@@ -406,7 +493,6 @@ export class SlicingScene extends BaseScene {
         options: {
           Cube: "cube",
           Sphere: "sphere",
-          Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
           "Torus Knot": "torusKnot",
@@ -425,6 +511,10 @@ export class SlicingScene extends BaseScene {
       .on("change", () => {
         this.updateWireframe();
       });
+
+    folder.addBinding(this.settings, "convex", {
+      label: "Convex (faster)",
+    });
 
     // Checkbox to enable custom seed
     const useSeedBinding = folder.addBinding(this.settings, "useSeed", {
@@ -447,10 +537,6 @@ export class SlicingScene extends BaseScene {
       seedValueBinding.disabled = !this.settings.useSeed;
     });
 
-    folder.addButton({ title: "Slice (Space)" }).on("click", () => {
-      this.executeSlice();
-    });
-
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
@@ -469,10 +555,11 @@ export class SlicingScene extends BaseScene {
     });
     this.objects = [];
 
-    // Reset slice plane position and rotation
-    this.slicePosition.set(0, 3, 0);
-    this.sliceGroup.position.copy(this.slicePosition);
-    this.sliceGroup.quaternion.identity();
+    // Clear canvas if exists
+    if (this.ctx && this.canvas) {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    this.isDrawingSlice = false;
 
     // Re-add ground physics
     this.setupGroundPhysics();
@@ -482,23 +569,31 @@ export class SlicingScene extends BaseScene {
   }
 
   dispose(): void {
+    // Restore default orbit controls
+    this.controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN,
+    };
+    this.controls.enablePan = true;
+
     // Remove event listeners
-    window.removeEventListener("keydown", this.onKeyDown);
-    window.removeEventListener("keyup", this.onKeyUp);
-    window.removeEventListener("click", this.onMouseClick);
+    window.removeEventListener("pointerdown", this.onPointerDown);
+    window.removeEventListener("pointermove", this.onPointerMove);
+    window.removeEventListener("pointerup", this.onPointerUp);
+    window.removeEventListener("resize", this.onWindowResize);
 
     // Remove all objects
     this.objects.forEach((obj) => {
       this.scene.remove(obj);
-      this.physics.remove(obj.mesh);
+      this.physics.remove(obj);
       obj.dispose();
     });
     this.objects = [];
 
-    // Remove slice plane
-    this.scene.remove(this.sliceGroup);
-    this.slicePlane.geometry.dispose();
-    (this.slicePlane.material as THREE.Material).dispose();
-    this.sliceHelper.dispose();
+    // Remove canvas overlay
+    if (this.canvas && this.canvas.parentElement) {
+      this.canvas.parentElement.removeChild(this.canvas);
+    }
   }
 }

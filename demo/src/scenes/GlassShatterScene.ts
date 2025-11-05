@@ -15,6 +15,7 @@ import {
  */
 export class GlassShatterScene extends BaseScene {
   private glassPane: DestructibleMesh | null = null;
+  private fragments: THREE.Mesh[] = [];
   private glassMaterial!: THREE.MeshPhysicalMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
   private wireframeMaterial!: THREE.MeshBasicMaterial;
@@ -79,11 +80,14 @@ export class GlassShatterScene extends BaseScene {
   }
 
   private createGlassPane(): void {
+    // Clear fragments
+    this.fragments = [];
+
     // Create a thin vertical pane
     const glassGeometry = new THREE.BoxGeometry(4, 6, 0.2, 1, 1, 1);
     this.glassPane = new DestructibleMesh(glassGeometry, this.glassMaterial);
-    this.glassPane.mesh.castShadow = true;
-    this.glassPane.mesh.receiveShadow = false;
+    this.glassPane.castShadow = true;
+    this.glassPane.receiveShadow = false;
     this.glassPane.position.set(0, 3, 0);
     this.scene.add(this.glassPane);
   }
@@ -95,10 +99,7 @@ export class GlassShatterScene extends BaseScene {
 
     // Raycast to find intersection with glass pane
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObject(
-      this.glassPane.mesh,
-      false,
-    );
+    const intersects = this.raycaster.intersectObject(this.glassPane, false);
 
     if (intersects.length > 0) {
       const intersectionPoint = intersects[0].point;
@@ -132,13 +133,10 @@ export class GlassShatterScene extends BaseScene {
 
     if (this.hasShattered) {
       // Click fragments to apply explosive force
-      this.handleExplosiveClick(this.glassPane.fragments, 1.5, 20.0);
+      this.handleExplosiveClick(this.fragments, 1.5, 20.0);
     } else {
       // Initial click to shatter
-      const intersects = this.raycaster.intersectObject(
-        this.glassPane.mesh,
-        false,
-      );
+      const intersects = this.raycaster.intersectObject(this.glassPane, false);
 
       if (intersects.length > 0) {
         const intersectionPoint = intersects[0].point;
@@ -172,30 +170,38 @@ export class GlassShatterScene extends BaseScene {
       : undefined;
     this.voronoiFractureOptions.projectionAxis = "z"; // Project along the thin axis
 
-    this.glassPane.fracture(this.voronoiFractureOptions, false, (fragment) => {
-      fragment.material = this.settings.wireframe
-        ? this.wireframeMaterial
-        : [this.glassMaterial, this.insideMaterial];
-      fragment.castShadow = true;
+    this.fragments = this.glassPane.fracture(
+      this.voronoiFractureOptions,
+      (fragment) => {
+        fragment.material = this.settings.wireframe
+          ? this.wireframeMaterial
+          : [this.glassMaterial, this.insideMaterial];
+        fragment.castShadow = true;
 
-      this.physics.add(fragment, {
-        type: "dynamic",
-        collider: "convexHull",
-        restitution: 0.2,
-      });
+        this.physics.add(fragment, {
+          type: "dynamic",
+          collider: "convexHull",
+          restitution: 0.2,
+        });
+      },
+    );
+
+    // Add fragments to scene
+    this.fragments.forEach((fragment) => {
+      this.scene.add(fragment);
     });
+
+    // Hide original glass pane
+    this.glassPane.visible = false;
   }
 
   private fractureWithSimple(): void {
     if (!this.glassPane) return;
 
     const fragmentGeometries = fracture(
-      this.glassPane.mesh.geometry,
+      this.glassPane.geometry,
       this.simpleFractureOptions,
     );
-
-    // Hide the original mesh
-    this.glassPane.mesh.visible = false;
 
     // Create mesh objects for each fragment
     fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
@@ -217,14 +223,15 @@ export class GlassShatterScene extends BaseScene {
           : [this.glassMaterial, this.insideMaterial],
       );
 
-      // Position the fragment at its original center within the group
-      fragment.position.copy(center);
+      // Apply world transform from glass pane
+      const worldCenter = center.clone().applyMatrix4(this.glassPane!.matrixWorld);
+      fragment.position.copy(worldCenter);
+      fragment.quaternion.copy(this.glassPane!.quaternion);
+      fragment.scale.copy(this.glassPane!.scale);
       fragment.castShadow = true;
-      fragment.visible = true;
 
-      // Add as child to the DestructibleMesh group
-      this.glassPane!.add(fragment);
-      this.glassPane!.fragments.push(fragment);
+      this.fragments.push(fragment);
+      this.scene.add(fragment);
 
       // Add physics
       this.physics.add(fragment, {
@@ -233,6 +240,9 @@ export class GlassShatterScene extends BaseScene {
         restitution: 0.2,
       });
     });
+
+    // Hide the original glass pane
+    this.glassPane.visible = false;
   }
 
   private updateWireframe(): void {
@@ -243,14 +253,14 @@ export class GlassShatterScene extends BaseScene {
       : [this.glassMaterial, this.insideMaterial];
 
     // Update main mesh if not yet shattered
-    if (!this.hasShattered && this.glassPane.mesh) {
-      this.glassPane.mesh.material = this.settings.wireframe
+    if (!this.hasShattered) {
+      this.glassPane.material = this.settings.wireframe
         ? this.wireframeMaterial
         : this.glassMaterial;
     }
 
     // Update all fragments
-    this.glassPane.fragments.forEach((fragment) => {
+    this.fragments.forEach((fragment) => {
       fragment.material = material;
     });
   }
@@ -337,6 +347,18 @@ export class GlassShatterScene extends BaseScene {
       this.scene.remove(this.glassPane);
       this.glassPane.dispose();
     }
+
+    // Remove all fragments
+    this.fragments.forEach((fragment) => {
+      this.scene.remove(fragment);
+      fragment.geometry.dispose();
+      if (Array.isArray(fragment.material)) {
+        fragment.material.forEach((mat) => mat.dispose());
+      } else {
+        fragment.material.dispose();
+      }
+    });
+    this.fragments = [];
 
     // Hide markers
     if (this.impactMarker) {

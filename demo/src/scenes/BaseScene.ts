@@ -18,6 +18,7 @@ export abstract class BaseScene {
   protected pane: Pane;
   protected controls: OrbitControls;
   protected clock: THREE.Clock;
+  protected renderer?: THREE.WebGLRenderer;
   protected raycaster: THREE.Raycaster;
   protected mouse: THREE.Vector2;
   protected materialFactory: MaterialFactory;
@@ -30,6 +31,7 @@ export abstract class BaseScene {
     pane: Pane,
     controls: OrbitControls,
     clock: THREE.Clock,
+    renderer?: THREE.WebGLRenderer,
   ) {
     this.scene = scene;
     this.camera = camera;
@@ -37,6 +39,7 @@ export abstract class BaseScene {
     this.pane = pane;
     this.controls = controls;
     this.clock = clock;
+    this.renderer = renderer;
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
     this.materialFactory = new MaterialFactory();

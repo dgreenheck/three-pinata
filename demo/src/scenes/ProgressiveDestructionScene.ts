@@ -15,6 +15,7 @@ import {
  */
 export class ProgressiveDestructionScene extends BaseScene {
   private object: DestructibleMesh | null = null;
+  private fragments: THREE.Mesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
   private wireframeMaterial!: THREE.MeshBasicMaterial;
@@ -64,6 +65,9 @@ export class ProgressiveDestructionScene extends BaseScene {
   }
 
   private createObject(): void {
+    // Clear fragments
+    this.fragments = [];
+
     // Create the primitive
     const mesh = this.createPrimitive(
       this.settings.primitiveType,
@@ -74,15 +78,15 @@ export class ProgressiveDestructionScene extends BaseScene {
     const materialToUse = mesh.material;
 
     this.object = new DestructibleMesh(mesh.geometry, materialToUse);
-    this.object.mesh.castShadow = true;
+    this.object.castShadow = true;
     this.object.position.set(0, 3, 0);
+    this.object.updateMatrixWorld(true);
     this.scene.add(this.object);
 
-    // Pre-fracture and freeze
+    // Pre-fracture
     if (this.settings.fractureMethod === "Voronoi") {
-      this.object.fracture(
+      this.fragments = this.object.fracture(
         this.voronoiFractureOptions,
-        true, // freeze
         (fragment) => {
           // For statue, use original material + rock inside material; for others, use custom materials
           if (this.settings.wireframe) {
@@ -101,10 +105,7 @@ export class ProgressiveDestructionScene extends BaseScene {
           }
           fragment.castShadow = true;
 
-          // Make fragment visible (they're hidden by default when frozen)
-          fragment.visible = true;
-
-          // Add physics (sleeping)
+          // Add physics (locked)
           try {
             const body = this.physics.add(fragment, {
               type: "dynamic",
@@ -122,9 +123,14 @@ export class ProgressiveDestructionScene extends BaseScene {
           }
         },
       );
+
+      // Add fragments to scene
+      this.fragments.forEach((fragment) => {
+        this.scene.add(fragment);
+      });
     } else {
       const fragmentGeometries = fracture(
-        this.object.mesh.geometry,
+        this.object.geometry,
         this.radialFractureOptions,
       );
 
@@ -156,16 +162,17 @@ export class ProgressiveDestructionScene extends BaseScene {
 
         const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
 
-        // Position the fragment at its original center within the group
-        fragment.position.copy(center);
+        // Apply world transform from object
+        const worldCenter = center.clone().applyMatrix4(this.object!.matrixWorld);
+        fragment.position.copy(worldCenter);
+        fragment.quaternion.copy(this.object!.quaternion);
+        fragment.scale.copy(this.object!.scale);
         fragment.castShadow = true;
-        fragment.visible = true;
 
-        // Add as child to the DestructibleMesh group
-        this.object!.add(fragment);
-        this.object!.fragments.push(fragment);
+        this.fragments.push(fragment);
+        this.scene.add(fragment);
 
-        // Add physics (sleeping)
+        // Add physics (locked)
         try {
           const body = this.physics.add(fragment, {
             type: "dynamic",
@@ -185,7 +192,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
 
     // Hide the original mesh immediately (fragments are now visible)
-    this.object.mesh.visible = false;
+    this.object.visible = false;
   }
 
   private onMouseClick = (event: MouseEvent): void => {
@@ -259,8 +266,8 @@ export class ProgressiveDestructionScene extends BaseScene {
     const ball2 = obj2 === this.currentBall;
 
     // Check if either object is a fragment of our object
-    const isFragment1 = obj1.parent === this.object;
-    const isFragment2 = obj2.parent === this.object;
+    const isFragment1 = this.fragments.includes(obj1);
+    const isFragment2 = this.fragments.includes(obj2);
 
     // Only wake up fragment if hit by ball (not by other fragments)
     if (ball1 && isFragment2 && !this.collisionHandled.has(obj2)) {
@@ -275,14 +282,12 @@ export class ProgressiveDestructionScene extends BaseScene {
   };
 
   private updateWireframe(): void {
-    if (!this.object) return;
-
     const material = this.settings.wireframe
       ? this.wireframeMaterial
       : [this.objectMaterial, this.insideMaterial];
 
     // Update all fragments
-    this.object.fragments.forEach((fragment) => {
+    this.fragments.forEach((fragment) => {
       fragment.material = material;
     });
   }
@@ -312,7 +317,6 @@ export class ProgressiveDestructionScene extends BaseScene {
         options: {
           Cube: "cube",
           Sphere: "sphere",
-          Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
           "Torus Knot": "torusKnot",
@@ -373,6 +377,18 @@ export class ProgressiveDestructionScene extends BaseScene {
       this.object.dispose();
       this.object = null;
     }
+
+    // Remove all fragments
+    this.fragments.forEach((fragment) => {
+      this.scene.remove(fragment);
+      fragment.geometry.dispose();
+      if (Array.isArray(fragment.material)) {
+        fragment.material.forEach((mat) => mat.dispose());
+      } else {
+        fragment.material.dispose();
+      }
+    });
+    this.fragments = [];
 
     // Remove current ball
     if (this.currentBall) {

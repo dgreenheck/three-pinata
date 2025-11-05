@@ -45,6 +45,13 @@ export class PhysicsWorld {
   ) {
     this.RAPIER = RAPIER;
     this.world = new RAPIER.World(gravity);
+
+    // Configure integration parameters for more accurate physics
+    const integrationParams = this.world.integrationParameters;
+    integrationParams.numSolverIterations = 8; // Increased from default 4
+    integrationParams.numAdditionalFrictionIterations = 4; // Increased from default 0
+    integrationParams.numInternalPgsIterations = 2; // More internal iterations
+
     this.eventQueue = new RAPIER.EventQueue(true);
     this.bodies = new WeakMap();
     this.handleToBodies = new Map();

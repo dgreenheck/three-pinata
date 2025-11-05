@@ -42,7 +42,28 @@ export function geometryToFragment(geometry: THREE.BufferGeometry): Fragment {
     indices = Array.from({ length: vertexCount }, (_, i) => i);
   }
 
-  fragment.triangles = [indices, []];
+  // Preserve material groups if geometry has been previously sliced
+  if (geometry.groups && geometry.groups.length === 2) {
+    // Split indices into two groups based on material groups
+    const group0Indices: number[] = [];
+    const group1Indices: number[] = [];
+
+    for (const group of geometry.groups) {
+      const targetArray = group.materialIndex === 0 ? group0Indices : group1Indices;
+      const start = group.start;
+      const end = start + group.count;
+
+      for (let i = start; i < end; i++) {
+        targetArray.push(indices[i]);
+      }
+    }
+
+    fragment.triangles = [group0Indices, group1Indices];
+  } else {
+    // No groups or single group - treat as unsliced geometry
+    fragment.triangles = [indices, []];
+  }
+
   fragment.calculateBounds();
 
   return fragment;
