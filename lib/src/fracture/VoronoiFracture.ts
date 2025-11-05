@@ -3,9 +3,13 @@ import { Vector3 } from "three";
 import { VoronoiFractureOptions } from "../entities/VoronoiFractureOptions";
 import { SeedPointGenerator } from "../utils/SeedPointGenerator";
 import { computeVoronoiCell, findKNearestNeighbors } from "./VoronoiCell";
-import { geometryToFragment, fragmentToGeometry } from "../utils/GeometryConversion";
+import {
+  geometryToFragment,
+  fragmentToGeometry,
+} from "../utils/GeometryConversion";
 import { Fragment } from "../entities/Fragment";
 import { findIsolatedGeometry } from "./FractureFragment";
+import { SeededRandom } from "../utils/SeededRandom";
 
 /**
  * Fractures a mesh using Voronoi tessellation.
@@ -19,6 +23,15 @@ export function voronoiFracture(
   geometry: THREE.BufferGeometry,
   options: VoronoiFractureOptions,
 ): THREE.BufferGeometry[] {
+  // Create seeded random number generator
+  const rng = new SeededRandom(options.seed);
+  const seed = rng.getSeed();
+
+  // Store the seed back in options if it was auto-generated
+  if (options.seed === undefined) {
+    options.seed = seed;
+  }
+
   // Convert input geometry to internal fragment representation
   const sourceFragment = geometryToFragment(geometry);
 
@@ -26,9 +39,9 @@ export function voronoiFracture(
   let fragments: Fragment[];
 
   if (options.mode === "3D") {
-    fragments = voronoiFracture3D(sourceFragment, options);
+    fragments = voronoiFracture3D(sourceFragment, options, rng);
   } else {
-    fragments = voronoiFracture2D(sourceFragment, options);
+    fragments = voronoiFracture2D(sourceFragment, options, rng);
   }
 
   // Convert fragments back to THREE.BufferGeometry
@@ -45,20 +58,19 @@ export function voronoiFracture(
 function voronoiFracture3D(
   sourceFragment: Fragment,
   options: VoronoiFractureOptions,
+  rng: SeededRandom,
 ): Fragment[] {
   // Step 1: Generate or use provided seed points
-  const seeds = generateSeeds(sourceFragment, options);
+  const seeds = generateSeeds(sourceFragment, options, rng);
 
   // Step 2: Compute Voronoi cells for each seed
   const fragments: Fragment[] = [];
-  const convex = options.fractureMode === "Convex";
+  // Hardcoded to non-convex mode
+  const convex = false;
 
   // Use approximation based on user option (not automatic threshold)
   const useKNearest = options.useApproximation;
-  const k = Math.min(
-    options.approximationNeighborCount,
-    seeds.length - 1,
-  );
+  const k = Math.min(options.approximationNeighborCount, seeds.length - 1);
 
   // Warn user if approximation is enabled
   if (useKNearest) {
@@ -90,13 +102,9 @@ function voronoiFracture3D(
 
     // Only add non-empty cells
     if (cell && cell.vertexCount > 0) {
-      // Detect isolated fragments within this cell if enabled
-      if (options.detectIsolatedFragments && !convex) {
-        const isolatedFragments = findIsolatedGeometry(cell);
-        fragments.push(...isolatedFragments);
-      } else {
-        fragments.push(cell);
-      }
+      // Detect isolated fragments within this cell (always enabled for non-convex mode)
+      const isolatedFragments = findIsolatedGeometry(cell);
+      fragments.push(...isolatedFragments);
     }
   }
 
@@ -113,6 +121,7 @@ function voronoiFracture3D(
 function voronoiFracture2D(
   sourceFragment: Fragment,
   options: VoronoiFractureOptions,
+  rng: SeededRandom,
 ): Fragment[] {
   // Calculate bounds
   sourceFragment.calculateBounds();
@@ -152,7 +161,8 @@ function voronoiFracture2D(
     seeds = options.seedPoints;
   } else if (options.impactPoint) {
     // Use 2D impact-based generation to keep seeds on a plane
-    const radius = options.impactRadius ||
+    const radius =
+      options.impactRadius ||
       Math.min(
         sourceFragment.bounds.max.x - sourceFragment.bounds.min.x,
         sourceFragment.bounds.max.y - sourceFragment.bounds.min.y,
@@ -165,26 +175,26 @@ function voronoiFracture2D(
       options.impactPoint,
       radius,
       axis as "x" | "y" | "z",
+      rng,
     );
   } else {
     seeds = SeedPointGenerator.generate2D(
       sourceFragment.bounds,
       options.fragmentCount,
       axis as "x" | "y" | "z",
+      rng,
     );
   }
 
   // For 2.5D, we still use the 3D algorithm but with seeds on a plane
   // The cells will naturally extend through the mesh along the projection axis
   const fragments: Fragment[] = [];
-  const convex = options.fractureMode === "Convex";
+  // Hardcoded to non-convex mode
+  const convex = false;
 
   // Use approximation based on user option (for 2.5D, defaults can be slightly lower)
   const useKNearest = options.useApproximation;
-  const k = Math.min(
-    options.approximationNeighborCount,
-    seeds.length - 1,
-  );
+  const k = Math.min(options.approximationNeighborCount, seeds.length - 1);
 
   // Warn user if approximation is enabled
   if (useKNearest) {
@@ -213,13 +223,9 @@ function voronoiFracture2D(
     );
 
     if (cell && cell.vertexCount > 0) {
-      // Detect isolated fragments within this cell if enabled
-      if (options.detectIsolatedFragments && !convex) {
-        const isolatedFragments = findIsolatedGeometry(cell);
-        fragments.push(...isolatedFragments);
-      } else {
-        fragments.push(cell);
-      }
+      // Detect isolated fragments within this cell (always enabled for non-convex mode)
+      const isolatedFragments = findIsolatedGeometry(cell);
+      fragments.push(...isolatedFragments);
     }
   }
 
@@ -236,6 +242,7 @@ function voronoiFracture2D(
 function generateSeeds(
   fragment: Fragment,
   options: VoronoiFractureOptions,
+  rng: SeededRandom,
 ): Vector3[] {
   // Use provided seeds if available
   if (options.seedPoints && options.seedPoints.length > 0) {
@@ -249,7 +256,8 @@ function generateSeeds(
 
   // Generate seeds based on impact point or uniform distribution
   if (options.impactPoint) {
-    const radius = options.impactRadius ||
+    const radius =
+      options.impactRadius ||
       Math.min(
         fragment.bounds.max.x - fragment.bounds.min.x,
         fragment.bounds.max.y - fragment.bounds.min.y,
@@ -261,11 +269,13 @@ function generateSeeds(
       options.fragmentCount,
       options.impactPoint,
       radius,
+      rng,
     );
   } else {
     return SeedPointGenerator.generateUniform(
       fragment.bounds,
       options.fragmentCount,
+      rng,
     );
   }
 }

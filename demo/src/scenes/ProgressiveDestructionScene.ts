@@ -3,6 +3,8 @@ import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
   VoronoiFractureOptions,
+  FractureOptions,
+  fracture,
 } from "@dgreenheck/three-pinata";
 
 /**
@@ -13,35 +15,39 @@ import {
  */
 export class ProgressiveDestructionScene extends BaseScene {
   private object: DestructibleMesh | null = null;
+  private fragments: THREE.Mesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private wireframeMaterial!: THREE.MeshBasicMaterial;
   private currentBall: THREE.Mesh | null = null;
-  private fractureOptions = new VoronoiFractureOptions({
+  private resetButton: any = null;
+  private voronoiFractureOptions = new VoronoiFractureOptions({
     mode: "3D",
+    fragmentCount: 50,
+  });
+  private radialFractureOptions = new FractureOptions({
     fragmentCount: 50,
   });
 
   private settings = {
-    primitiveType: "cube" as PrimitiveType,
-    wireframe: false,
+    primitiveType: "torusKnot" as PrimitiveType,
+    fractureMethod: "Voronoi" as "Voronoi" | "Radial",
+    fragmentCount: 30,
   };
 
   private collisionHandled = new WeakSet<THREE.Mesh>();
 
   async init(): Promise<void> {
     // Setup camera
-    this.camera.position.set(4, 5, 7);
-    this.controls.target.set(0, 3, 0);
+    this.camera.position.set(4, 3, -3);
+    this.controls.target.set(0, 1, 0);
     this.controls.update();
 
     // Create materials
     this.objectMaterial = this.createMaterial(0x44aaff);
     this.insideMaterial = this.createInsideMaterial(0xcccccc);
-    this.wireframeMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      wireframe: true,
-    });
+
+    // Load statue geometry if needed
+    await this.loadStatueGeometry();
 
     // Create and pre-fracture object
     this.createObject();
@@ -54,45 +60,153 @@ export class ProgressiveDestructionScene extends BaseScene {
   }
 
   private createObject(): void {
+    // Clear fragments
+    this.fragments = [];
+
     // Create the primitive
     const mesh = this.createPrimitive(
       this.settings.primitiveType,
       this.objectMaterial,
     );
 
-    this.object = new DestructibleMesh(mesh.geometry, this.objectMaterial);
-    this.object.mesh.castShadow = true;
-    this.object.position.set(0, 3, 0);
+    // Use the mesh's material (which may be the statue's original material)
+    const materialToUse = mesh.material;
+
+    this.object = new DestructibleMesh(mesh.geometry, materialToUse);
+    this.object.castShadow = true;
+
+    // Calculate height so object sits on ground
+    mesh.geometry.computeBoundingBox();
+    const boundingBox = mesh.geometry.boundingBox!;
+    const height = -boundingBox.min.y; // Offset by the bottom of the bounding box
+
+    this.object.position.set(0, height, 0);
+    this.object.updateMatrixWorld(true);
     this.scene.add(this.object);
 
-    // Pre-fracture and freeze
-    this.object.fracture(
-      this.fractureOptions,
-      true, // freeze
-      (fragment) => {
-        fragment.material = this.settings.wireframe
-          ? this.wireframeMaterial
-          : [this.objectMaterial, this.insideMaterial];
-        fragment.castShadow = true;
+    // Disable reset button and show fracturing message
+    if (this.resetButton) {
+      this.resetButton.disabled = true;
+      this.resetButton.title = "Fracturing...";
+    }
 
-        // Make fragment visible (they're hidden by default when frozen)
-        fragment.visible = true;
+    // Use setTimeout to allow UI to update
+    setTimeout(() => {
+      if (!this.object) return;
 
-        // Add physics (sleeping)
-        const body = this.physics.add(fragment, {
-          type: "dynamic",
-          collider: "convexHull",
-          restitution: 0.2,
+      // Pre-fracture
+      if (this.settings.fractureMethod === "Voronoi") {
+        this.fragments = this.object.fracture(
+          this.voronoiFractureOptions,
+          (fragment) => {
+            // For statue, use original material + rock inside material; for others, use custom materials
+            if (this.settings.primitiveType === "statue") {
+              // Handle both single material and material array cases
+              const outerMaterial = Array.isArray(materialToUse)
+                ? materialToUse[0]
+                : materialToUse;
+              fragment.material = [
+                outerMaterial,
+                this.getStatueInsideMaterial()!,
+              ];
+            } else {
+              fragment.material = [this.objectMaterial, this.insideMaterial];
+            }
+            fragment.castShadow = true;
+
+            // Add physics (locked)
+            try {
+              const body = this.physics.add(fragment, {
+                type: "dynamic",
+                restitution: 0.2,
+              });
+              if (body) {
+                body.rigidBody.lockTranslations(true, false);
+                body.rigidBody.lockRotations(true, false);
+              } else {
+                console.warn("Failed to create physics body for fragment");
+              }
+            } catch (error) {
+              console.error("Error adding physics to fragment:", error);
+            }
+          },
+        );
+
+        // Add fragments to scene
+        this.fragments.forEach((fragment) => {
+          this.scene.add(fragment);
         });
-        if (body) {
-          body.rigidBody.lockTranslations(true, false);
-          body.rigidBody.lockRotations(true, false);
-        }
-      },
-    );
+      } else {
+        const fragmentGeometries = fracture(
+          this.object.geometry,
+          this.radialFractureOptions,
+        );
 
-    // Hide the original mesh immediately (fragments are now visible)
-    this.object.mesh.visible = false;
+        // Create mesh objects for each fragment
+        fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
+          // Compute bounding box to get the center of this fragment
+          fragmentGeometry.computeBoundingBox();
+          const center = new THREE.Vector3();
+          fragmentGeometry.boundingBox!.getCenter(center);
+
+          // Translate the geometry so its center is at the origin
+          fragmentGeometry.translate(-center.x, -center.y, -center.z);
+
+          // Recompute bounding sphere after translation
+          fragmentGeometry.computeBoundingSphere();
+
+          let fragmentMaterial: THREE.Material | THREE.Material[];
+          if (this.settings.primitiveType === "statue") {
+            // Handle both single material and material array cases
+            const outerMaterial = Array.isArray(materialToUse)
+              ? materialToUse[0]
+              : materialToUse;
+            fragmentMaterial = [outerMaterial, this.getStatueInsideMaterial()!];
+          } else {
+            fragmentMaterial = [this.objectMaterial, this.insideMaterial];
+          }
+
+          const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
+
+          // Apply world transform from object
+          const worldCenter = center
+            .clone()
+            .applyMatrix4(this.object!.matrixWorld);
+          fragment.position.copy(worldCenter);
+          fragment.quaternion.copy(this.object!.quaternion);
+          fragment.scale.copy(this.object!.scale);
+          fragment.castShadow = true;
+
+          this.fragments.push(fragment);
+          this.scene.add(fragment);
+
+          // Add physics (locked)
+          try {
+            const body = this.physics.add(fragment, {
+              type: "dynamic",
+              restitution: 0.2,
+            });
+            if (body) {
+              body.rigidBody.lockTranslations(true, false);
+              body.rigidBody.lockRotations(true, false);
+            } else {
+              console.warn("Failed to create physics body for fragment");
+            }
+          } catch (error) {
+            console.error("Error adding physics to fragment:", error);
+          }
+        });
+      }
+
+      // Hide the original mesh immediately (fragments are now visible)
+      this.object!.visible = false;
+
+      // Re-enable reset button
+      if (this.resetButton) {
+        this.resetButton.disabled = false;
+        this.resetButton.title = "Reset";
+      }
+    }, 10);
   }
 
   private onMouseClick = (event: MouseEvent): void => {
@@ -113,9 +227,9 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
 
     // Create ball
-    const ballGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const ballGeometry = new THREE.SphereGeometry(0.2, 16, 16);
     const ballMaterial = new THREE.MeshStandardMaterial({
-      color: 0x0000ff,
+      color: 0xffbf40,
       roughness: 0.2,
       metalness: 0.8,
       envMapIntensity: 1.0,
@@ -124,8 +238,10 @@ export class ProgressiveDestructionScene extends BaseScene {
     this.currentBall = new THREE.Mesh(ballGeometry, ballMaterial);
     this.currentBall.castShadow = true;
 
-    // Position ball at camera
-    this.currentBall.position.copy(this.camera.position);
+    // Position ball 1 unit in front of camera
+    const cameraDirection = new THREE.Vector3();
+    this.camera.getWorldDirection(cameraDirection);
+    this.currentBall.position.copy(this.camera.position).add(cameraDirection);
 
     // Add to scene
     this.scene.add(this.currentBall);
@@ -133,9 +249,8 @@ export class ProgressiveDestructionScene extends BaseScene {
     // Add physics
     const ballBody = this.physics.add(this.currentBall, {
       type: "dynamic",
-      collider: "ball",
-      mass: 5.0,
-      restitution: 0.5,
+      mass: 10.0,
+      restitution: 0.1,
     });
 
     // Calculate direction from camera through mouse position
@@ -144,7 +259,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     direction.copy(this.raycaster.ray.direction).normalize();
 
     // Apply velocity
-    const speed = 20;
+    const speed = 15;
     const velocity = direction.multiplyScalar(speed);
     if (ballBody) {
       ballBody.setLinearVelocity({
@@ -166,8 +281,8 @@ export class ProgressiveDestructionScene extends BaseScene {
     const ball2 = obj2 === this.currentBall;
 
     // Check if either object is a fragment of our object
-    const isFragment1 = obj1.parent === this.object;
-    const isFragment2 = obj2.parent === this.object;
+    const isFragment1 = this.fragments.includes(obj1);
+    const isFragment2 = this.fragments.includes(obj2);
 
     // Only wake up fragment if hit by ball (not by other fragments)
     if (ball1 && isFragment2 && !this.collisionHandled.has(obj2)) {
@@ -181,20 +296,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
   };
 
-  private updateWireframe(): void {
-    if (!this.object) return;
-
-    const material = this.settings.wireframe
-      ? this.wireframeMaterial
-      : [this.objectMaterial, this.insideMaterial];
-
-    // Update all fragments
-    this.object.fragments.forEach((fragment) => {
-      fragment.material = material;
-    });
-  }
-
-  update(deltaTime: number): void {
+  update(): void {
     // No per-frame updates needed
   }
 
@@ -219,10 +321,10 @@ export class ProgressiveDestructionScene extends BaseScene {
         options: {
           Cube: "cube",
           Sphere: "sphere",
-          Icosahedron: "icosahedron",
           Cylinder: "cylinder",
           Torus: "torus",
           "Torus Knot": "torusKnot",
+          Statue: "statue",
         },
         label: "Primitive",
       })
@@ -230,29 +332,38 @@ export class ProgressiveDestructionScene extends BaseScene {
         this.reset();
       });
 
-    folder.addBinding(this.fractureOptions, "fragmentCount", {
-      min: 10,
-      max: 150,
-      step: 1,
-      label: "Fragment Count",
-    });
-
     folder
-      .addBinding(this.settings, "wireframe", {
-        label: "Wireframe",
+      .addBinding(this.settings, "fractureMethod", {
+        options: {
+          "Voronoi (High Quality, Slow)": "Voronoi",
+          "Simple (Low Quality, Fast)": "Radial",
+        },
+        label: "Fracture Method",
       })
       .on("change", () => {
-        this.updateWireframe();
+        this.reset();
       });
 
-    folder.addButton({ title: "Reset" }).on("click", () => {
+    folder
+      .addBinding(this.settings, "fragmentCount", {
+        min: 10,
+        max: 150,
+        step: 1,
+        label: "Fragment Count",
+      })
+      .on("change", () => {
+        this.voronoiFractureOptions.fragmentCount = this.settings.fragmentCount;
+        this.radialFractureOptions.fragmentCount = this.settings.fragmentCount;
+      });
+
+    this.resetButton = folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
 
     return folder;
   }
 
-  reset(): void {
+  async reset(): Promise<void> {
     // Clear all physics first
     this.clearPhysics();
 
@@ -260,7 +371,20 @@ export class ProgressiveDestructionScene extends BaseScene {
     if (this.object) {
       this.scene.remove(this.object);
       this.object.dispose();
+      this.object = null;
     }
+
+    // Remove all fragments
+    this.fragments.forEach((fragment) => {
+      this.scene.remove(fragment);
+      fragment.geometry.dispose();
+      if (Array.isArray(fragment.material)) {
+        fragment.material.forEach((mat) => mat.dispose());
+      } else {
+        fragment.material.dispose();
+      }
+    });
+    this.fragments = [];
 
     // Remove current ball
     if (this.currentBall) {

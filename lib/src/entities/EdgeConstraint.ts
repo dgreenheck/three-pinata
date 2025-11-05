@@ -1,7 +1,7 @@
 /**
  * Represents an edge constraint between two vertices in the triangulation
  */
-export default class EdgeConstraint {
+export class EdgeConstraint {
   /**
    * Index of the first end point of the constraint
    */

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { Vector2, Vector3 } from "three";
 import { geometryToFragment, fragmentToGeometry } from "../GeometryConversion";
 import { Fragment } from "../../entities/Fragment";
-import MeshVertex from "../../entities/MeshVertex";
+import { MeshVertex } from "../../entities/MeshVertex";
 
 describe("GeometryConversion", () => {
   let cube: THREE.BufferGeometry;

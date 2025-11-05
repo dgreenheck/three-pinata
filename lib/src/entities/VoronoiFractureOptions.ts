@@ -65,20 +65,6 @@ export class VoronoiFractureOptions {
   public approximationNeighborCount: number = 12;
 
   /**
-   * Fracturing mode. If set to convex, a faster algorithm will be used under
-   * the assumption that the geometry being fractured is convex.
-   */
-  public fractureMode: "Convex" | "Non-Convex" = "Non-Convex";
-
-  /**
-   * Enables detection of isolated fragments within each Voronoi cell.
-   * When enabled for non-convex meshes, each Voronoi cell is analyzed to detect
-   * disconnected pieces and split them into separate fragments.
-   * This setting has no effect for convex meshes and should be disabled for performance.
-   */
-  public detectIsolatedFragments: boolean = false;
-
-  /**
    * Scale factor to apply to texture coordinates on cut faces
    */
   public textureScale: Vector2 = new Vector2(1, 1);
@@ -87,6 +73,12 @@ export class VoronoiFractureOptions {
    * Offset to apply to texture coordinates on cut faces
    */
   public textureOffset: Vector2 = new Vector2();
+
+  /**
+   * Seed value for random number generation. If not specified, a random seed will be generated.
+   * Using the same seed will produce the same fracture pattern for reproducibility.
+   */
+  public seed?: number;
 
   constructor({
     fragmentCount,
@@ -98,10 +90,9 @@ export class VoronoiFractureOptions {
     projectionNormal,
     useApproximation,
     approximationNeighborCount,
-    fractureMode,
-    detectIsolatedFragments,
     textureScale,
     textureOffset,
+    seed,
   }: {
     fragmentCount?: number;
     mode?: "3D" | "2.5D";
@@ -112,10 +103,9 @@ export class VoronoiFractureOptions {
     projectionNormal?: Vector3;
     useApproximation?: boolean;
     approximationNeighborCount?: number;
-    fractureMode?: "Convex" | "Non-Convex";
-    detectIsolatedFragments?: boolean;
     textureScale?: Vector2;
     textureOffset?: Vector2;
+    seed?: number;
   } = {}) {
     if (fragmentCount !== undefined) {
       this.fragmentCount = fragmentCount;
@@ -153,20 +143,16 @@ export class VoronoiFractureOptions {
       this.approximationNeighborCount = approximationNeighborCount;
     }
 
-    if (fractureMode !== undefined) {
-      this.fractureMode = fractureMode;
-    }
-
-    if (detectIsolatedFragments !== undefined) {
-      this.detectIsolatedFragments = detectIsolatedFragments;
-    }
-
     if (textureScale !== undefined) {
       this.textureScale = textureScale;
     }
 
     if (textureOffset !== undefined) {
       this.textureOffset = textureOffset;
+    }
+
+    if (seed !== undefined) {
+      this.seed = seed;
     }
   }
 }

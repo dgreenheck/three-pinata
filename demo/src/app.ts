@@ -21,7 +21,6 @@ import { FilmShader } from "three/examples/jsm/shaders/FilmShader.js";
 
 import gridUrl from "./assets/grid.png";
 import envMapUrl from "./assets/autumn_field_puresky_4k.jpg";
-import { film } from "three/examples/jsm/tsl/display/FilmNode.js";
 
 const RAPIER = await import("@dimforge/rapier3d");
 
@@ -51,8 +50,8 @@ renderer.setClearColor(0xa0a0a0);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.5;
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 2;
 document.body.appendChild(renderer.domElement);
 
 // Add performance monitor
@@ -79,8 +78,8 @@ composer.addPass(bloomPass);
 
 // Vignette pass
 const vignettePass = new ShaderPass(VignetteShader);
-vignettePass.uniforms["offset"].value = 1.0;
-vignettePass.uniforms["darkness"].value = 1.0;
+vignettePass.uniforms["offset"].value = 0.5;
+vignettePass.uniforms["darkness"].value = 1;
 composer.addPass(vignettePass);
 
 // Film/noise pass
@@ -114,7 +113,6 @@ tweakpaneElement.parentElement!.style.width = "300px";
 // App settings
 const appSettings = {
   scene: "glass" as "glass" | "smashing" | "progressive" | "slicing",
-  postProcessing: true,
 };
 
 // Setup GUI controls - Scene Selection
@@ -153,7 +151,7 @@ function setupGround(): void {
     map: gridTexture,
     roughness: 0.1,
     metalness: 0.2,
-    envMapIntensity: 0.8,
+    envMapIntensity: 0.9,
   });
   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
   plane.rotation.x = -Math.PI / 2;
@@ -164,25 +162,25 @@ function setupGround(): void {
   const groundBody = RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0);
   const rigidBody = physics.world.createRigidBody(groundBody);
 
-  const groundCollider = RAPIER.ColliderDesc.cuboid(100, 0.01, 100);
+  const groundCollider = RAPIER.ColliderDesc.cuboid(100, 0.1, 100);
   physics.world.createCollider(groundCollider, rigidBody);
 }
 
 function setupLighting(): void {
   // Add ambient light
-  const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
   scene.add(ambient);
 
   // Add directional light
-  const sun = new THREE.DirectionalLight(0xffffff, 2);
-  sun.position.set(1, 8, 1);
+  const sun = new THREE.DirectionalLight(0xffffff, 3);
+  sun.position.set(3, 5, 3);
   sun.target.position.set(0, 0, 0);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -100;
-  sun.shadow.camera.right = 100;
-  sun.shadow.camera.top = 100;
-  sun.shadow.camera.bottom = -100;
+  sun.shadow.camera.left = -50;
+  sun.shadow.camera.right = 50;
+  sun.shadow.camera.top = 50;
+  sun.shadow.camera.bottom = -50;
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 50;
   sun.shadow.bias = -0.0001;
@@ -238,6 +236,7 @@ async function switchScene(sceneType: string): Promise<void> {
         pane,
         controls,
         clock,
+        renderer,
       );
       break;
     case "smashing":
@@ -248,6 +247,7 @@ async function switchScene(sceneType: string): Promise<void> {
         pane,
         controls,
         clock,
+        renderer,
       );
       break;
     case "progressive":
@@ -258,6 +258,7 @@ async function switchScene(sceneType: string): Promise<void> {
         pane,
         controls,
         clock,
+        renderer,
       );
       break;
     case "slicing":
@@ -268,6 +269,7 @@ async function switchScene(sceneType: string): Promise<void> {
         pane,
         controls,
         clock,
+        renderer,
       );
       break;
   }
@@ -308,12 +310,8 @@ function animate() {
   // Update film shader time for animated grain
   filmPass.uniforms["time"].value = performance.now() * 0.001;
 
-  // Render with or without post-processing
-  if (appSettings.postProcessing) {
-    composer.render(dt);
-  } else {
-    renderer.render(scene, camera);
-  }
+  // Render with post-processing
+  composer.render(dt);
 
   perf.end();
 }

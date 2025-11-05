@@ -13,6 +13,12 @@ export interface PhysicsBodyOptions {
   mass?: number;
   /** Restitution (bounciness) of the collider */
   restitution?: number;
+  /** Friction coefficient */
+  friction?: number;
+  /** Linear damping (reduces linear velocity over time) */
+  linearDamping?: number;
+  /** Angular damping (reduces angular velocity over time) */
+  angularDamping?: number;
   /** Custom collider descriptor (overrides collider type) */
   colliderDesc?: RAPIER.ColliderDesc;
 }
@@ -45,6 +51,14 @@ export class PhysicsWorld {
   ) {
     this.RAPIER = RAPIER;
     this.world = new RAPIER.World(gravity);
+
+    // Configure integration parameters for more accurate and stable physics
+    const integrationParams = this.world.integrationParameters;
+    integrationParams.numSolverIterations = 8; // Increased from default 4
+    integrationParams.numAdditionalFrictionIterations = 4; // Increased from default 0
+    integrationParams.numInternalPgsIterations = 2; // More internal iterations
+    integrationParams.maxCcdSubsteps = 4; // More substeps for continuous collision detection
+
     this.eventQueue = new RAPIER.EventQueue(true);
     this.bodies = new WeakMap();
     this.handleToBodies = new Map();
@@ -59,9 +73,11 @@ export class PhysicsWorld {
   add(object: THREE.Object3D, options: PhysicsBodyOptions = {}): PhysicsBody {
     const {
       type = "dynamic",
-      collider = "convexHull",
       mass,
       restitution = 0.2,
+      friction = 0.2,
+      linearDamping = 0.5,
+      angularDamping = 0.5,
       colliderDesc: customColliderDesc,
     } = options;
 
@@ -87,6 +103,12 @@ export class PhysicsWorld {
       .setTranslation(pos.x, pos.y, pos.z)
       .setRotation({ x: quat.x, y: quat.y, z: quat.z, w: quat.w });
 
+    // Apply damping for dynamic bodies
+    if (type === "dynamic") {
+      rigidBodyDesc.setLinearDamping(linearDamping);
+      rigidBodyDesc.setAngularDamping(angularDamping);
+    }
+
     // Create rigid body
     const rigidBody = this.world.createRigidBody(rigidBodyDesc);
 
@@ -94,7 +116,7 @@ export class PhysicsWorld {
     let colliderDesc = customColliderDesc;
 
     if (!colliderDesc) {
-      if (collider === "convexHull" && object instanceof THREE.Mesh) {
+      if (object instanceof THREE.Mesh) {
         // Validate geometry before creating convex hull
         const geometry = object.geometry;
         const positionAttribute = geometry.getAttribute("position");
@@ -111,18 +133,6 @@ export class PhysicsWorld {
         // Check geometry size to avoid degenerate shapes
         if (!geometry.boundingBox) {
           geometry.computeBoundingBox();
-        }
-        const bbox = geometry.boundingBox;
-        if (bbox) {
-          const size = new THREE.Vector3();
-          bbox.getSize(size);
-          if (size.x < 0.01 || size.y < 0.01 || size.z < 0.01) {
-            console.warn(
-              "Geometry too small for physics (degenerate), skipping physics",
-            );
-            this.world.removeRigidBody(rigidBody);
-            return null as any;
-          }
         }
 
         // Try to create convex hull with error handling
@@ -147,29 +157,13 @@ export class PhysicsWorld {
           const scaledRadius = radius * Math.max(scale.x, scale.y, scale.z);
           colliderDesc = this.RAPIER.ColliderDesc.ball(scaledRadius);
         }
-      } else if (collider === "ball") {
-        // Calculate ball radius from mesh bounding sphere
-        let radius = 1;
-        if (object instanceof THREE.Mesh) {
-          if (!object.geometry.boundingSphere) {
-            object.geometry.computeBoundingSphere();
-          }
-          if (object.geometry.boundingSphere) {
-            radius = object.geometry.boundingSphere.radius;
-            // Account for object scale (use the largest scale component)
-            const scale = object.getWorldScale(new THREE.Vector3());
-            radius *= Math.max(scale.x, scale.y, scale.z);
-          }
-        }
-        colliderDesc = this.RAPIER.ColliderDesc.ball(radius);
-      } else if (collider === "cuboid") {
-        colliderDesc = this.RAPIER.ColliderDesc.cuboid(1, 1, 1);
       }
     }
 
     // Set collider properties
     if (colliderDesc) {
       colliderDesc.setRestitution(restitution);
+      colliderDesc.setFriction(friction);
       if (mass !== undefined) {
         colliderDesc.setMass(mass);
       }

@@ -156,7 +156,7 @@ export function hashi2(x: number, y: number): number {
 /**
  * Calculates hash value of Vector2 using Cantor pairing
  */
-export function hashv2(v: Vector2, tolerance: number = 1e-6): number {
+export function hashv2(v: Vector2, tolerance: number = 1e-9): number {
   const invTolerance = 1 / tolerance;
   const x = Math.floor(v.x * invTolerance);
   const y = Math.floor(v.y * invTolerance);
@@ -166,7 +166,7 @@ export function hashv2(v: Vector2, tolerance: number = 1e-6): number {
 /**
  * Calculates hash value of Vector3 using Cantor pairing
  */
-export function hash3(v: Vector3, tolerance: number = 1e-6): number {
+export function hash3(v: Vector3, tolerance: number = 1e-9): number {
   const invTolerance = 1 / tolerance;
   const x = Math.floor(v.x * invTolerance);
   const y = Math.floor(v.y * invTolerance);

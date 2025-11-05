@@ -1,7 +1,7 @@
 import { Vector2, Vector3, Box3 } from "three";
 import { hash3 } from "../utils/MathUtils";
-import MeshVertex from "./MeshVertex";
-import EdgeConstraint from "./EdgeConstraint";
+import { MeshVertex } from "./MeshVertex";
+import { EdgeConstraint } from "./EdgeConstraint";
 
 // The enum can be directly translated
 export enum SlicedMeshSubmesh {
@@ -182,7 +182,7 @@ export class Fragment {
   }
 
   /**
-   * Finds coincident vertices on the cut face and welds them together.
+   * Finds coincident vertices on the cut face and welds them together
    */
   weldCutFaceVertices(): void {
     // Temporary array containing the unique (welded) vertices
@@ -215,11 +215,24 @@ export class Fragment {
     });
 
     // Update the edge constraints to point to the new welded vertices
+    // and optionally filter out degenerate edges
+    const filteredConstraints: EdgeConstraint[] = [];
+
     for (let i = 0; i < this.constraints.length; i++) {
       const edge = this.constraints[i];
       edge.v1 = indexMap[edge.v1];
       edge.v2 = indexMap[edge.v2];
+
+      // Check for degenerate constraint (edge from vertex to itself)
+      if (Math.abs(edge.v1 - edge.v2) < 1e-9) {
+        continue;
+      }
+
+      filteredConstraints.push(edge);
     }
+
+    // Update constraints with filtered list
+    this.constraints = filteredConstraints;
 
     // Update the cut vertices
     this.cutVertices = weldedVerts;
