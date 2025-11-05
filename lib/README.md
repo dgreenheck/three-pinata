@@ -14,9 +14,22 @@
 
 Three-pinata is a library that enables you to fracture and slice 3D meshes in real-time directly in the browser. Whether you're building a destruction physics game, an interactive art piece, or a scientific visualization, three-pinata provides the tools you need to break things beautifully.
 
+## Features
+
+- **Voronoi Fracturing** - Natural-looking fracture patterns with 3D and 2.5D modes
+- **Impact-Based Fracturing** - Concentrate fragments around impact points for realistic destruction
+- **Plane Slicing** - Slice meshes along arbitrary planes in local or world space
+- **Dual Materials** - Separate materials for outer surfaces and internal fracture faces
+- **Re-slicing Support** - Slice fragments multiple times for progressive destruction
+- **Floating Fragment Detection** - Automatically split disconnected pieces for non-convex meshes
+- **Custom Seed Points** - Full control over fracture patterns with custom Voronoi seeds
+- **UV Mapping** - Automatic UV generation for internal faces with configurable scale and offset
+- **TypeScript Support** - Full type definitions included
+- **Zero Dependencies** - Only requires Three.js as a peer dependency
+
 ## Live Demo
 
-Check out the interactive demo: https://dgreenheck.github.io/three-pinata/
+Check out the interactive demo: https://three-pinata-demo.vercel.app/
 
 ## Installation
 
