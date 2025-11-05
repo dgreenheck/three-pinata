@@ -2,9 +2,7 @@ import * as THREE from "three";
 import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
-  VoronoiFractureOptions,
   FractureOptions,
-  fracture,
 } from "@dgreenheck/three-pinata";
 
 /**
@@ -20,11 +18,15 @@ export class ProgressiveDestructionScene extends BaseScene {
   private insideMaterial!: THREE.MeshStandardMaterial;
   private currentBall: THREE.Mesh | null = null;
   private resetButton: any = null;
-  private voronoiFractureOptions = new VoronoiFractureOptions({
-    mode: "3D",
+  private voronoiFractureOptions = new FractureOptions({
+    fractureMethod: "voronoi",
     fragmentCount: 50,
+    voronoiOptions: {
+      mode: "3D",
+    },
   });
   private radialFractureOptions = new FractureOptions({
+    fractureMethod: "simple",
     fragmentCount: 50,
   });
 
@@ -137,64 +139,45 @@ export class ProgressiveDestructionScene extends BaseScene {
           this.scene.add(fragment);
         });
       } else {
-        const fragmentGeometries = fracture(
-          this.object.geometry,
+        this.fragments = this.object.fracture(
           this.radialFractureOptions,
+          (fragment) => {
+            // For statue, use original material + rock inside material; for others, use custom materials
+            if (this.settings.primitiveType === "statue") {
+              // Handle both single material and material array cases
+              const outerMaterial = Array.isArray(materialToUse)
+                ? materialToUse[0]
+                : materialToUse;
+              fragment.material = [
+                outerMaterial,
+                this.getStatueInsideMaterial()!,
+              ];
+            } else {
+              fragment.material = [this.objectMaterial, this.insideMaterial];
+            }
+            fragment.castShadow = true;
+
+            // Add physics (locked)
+            try {
+              const body = this.physics.add(fragment, {
+                type: "dynamic",
+                restitution: 0.2,
+              });
+              if (body) {
+                body.rigidBody.lockTranslations(true, false);
+                body.rigidBody.lockRotations(true, false);
+              } else {
+                console.warn("Failed to create physics body for fragment");
+              }
+            } catch (error) {
+              console.error("Error adding physics to fragment:", error);
+            }
+          },
         );
 
-        // Create mesh objects for each fragment
-        fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
-          // Compute bounding box to get the center of this fragment
-          fragmentGeometry.computeBoundingBox();
-          const center = new THREE.Vector3();
-          fragmentGeometry.boundingBox!.getCenter(center);
-
-          // Translate the geometry so its center is at the origin
-          fragmentGeometry.translate(-center.x, -center.y, -center.z);
-
-          // Recompute bounding sphere after translation
-          fragmentGeometry.computeBoundingSphere();
-
-          let fragmentMaterial: THREE.Material | THREE.Material[];
-          if (this.settings.primitiveType === "statue") {
-            // Handle both single material and material array cases
-            const outerMaterial = Array.isArray(materialToUse)
-              ? materialToUse[0]
-              : materialToUse;
-            fragmentMaterial = [outerMaterial, this.getStatueInsideMaterial()!];
-          } else {
-            fragmentMaterial = [this.objectMaterial, this.insideMaterial];
-          }
-
-          const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
-
-          // Apply world transform from object
-          const worldCenter = center
-            .clone()
-            .applyMatrix4(this.object!.matrixWorld);
-          fragment.position.copy(worldCenter);
-          fragment.quaternion.copy(this.object!.quaternion);
-          fragment.scale.copy(this.object!.scale);
-          fragment.castShadow = true;
-
-          this.fragments.push(fragment);
+        // Add fragments to scene
+        this.fragments.forEach((fragment) => {
           this.scene.add(fragment);
-
-          // Add physics (locked)
-          try {
-            const body = this.physics.add(fragment, {
-              type: "dynamic",
-              restitution: 0.2,
-            });
-            if (body) {
-              body.rigidBody.lockTranslations(true, false);
-              body.rigidBody.lockRotations(true, false);
-            } else {
-              console.warn("Failed to create physics body for fragment");
-            }
-          } catch (error) {
-            console.error("Error adding physics to fragment:", error);
-          }
         });
       }
 

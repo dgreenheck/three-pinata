@@ -43,7 +43,7 @@ Requires Three.js >= 0.158.0 as a peer dependency.
 
 ```typescript
 import * as THREE from "three";
-import { DestructibleMesh, VoronoiFractureOptions } from "@dgreenheck/three-pinata";
+import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 
 // Setup scene
 const scene = new THREE.Scene();
@@ -62,7 +62,13 @@ const mesh = new DestructibleMesh(geometry, outerMaterial);
 scene.add(mesh);
 
 // Fracture the mesh
-const options = new VoronoiFractureOptions({ fragmentCount: 50 });
+const options = new FractureOptions({
+  fractureMethod: "voronoi",
+  fragmentCount: 50,
+  voronoiOptions: {
+    mode: "3D",
+  },
+});
 const fragments = mesh.fracture(
   options,
   (fragment) => {
@@ -96,7 +102,7 @@ new DestructibleMesh(geometry: THREE.BufferGeometry, material: THREE.Material | 
 ##### `fracture(options, onFragment?, onComplete?)`
 Fractures the mesh into fragments.
 - **Parameters:**
-  - `options: VoronoiFractureOptions | FractureOptions` - Fracture configuration
+  - `options: FractureOptions` - Fracture configuration
   - `onFragment?: (fragment: THREE.Mesh, index: number) => void` - Optional callback for each fragment
   - `onComplete?: () => void` - Optional callback when fracturing is complete
 - **Returns:** `THREE.Mesh[]` - Array of fragment meshes
@@ -123,51 +129,15 @@ Slices the mesh along a plane (world space).
 
 ### Options
 
-#### `VoronoiFractureOptions`
-Configuration for Voronoi-based fracturing (natural-looking breaks).
-
-**Constructor:**
-```typescript
-new VoronoiFractureOptions({
-  fragmentCount?: number;
-  mode?: "3D" | "2.5D";
-  seedPoints?: THREE.Vector3[];
-  impactPoint?: THREE.Vector3;
-  impactRadius?: number;
-  projectionAxis?: "x" | "y" | "z" | "auto";
-  projectionNormal?: THREE.Vector3;
-  useApproximation?: boolean;
-  approximationNeighborCount?: number;
-  textureScale?: THREE.Vector2;
-  textureOffset?: THREE.Vector2;
-  seed?: number;
-})
-```
-
-**Properties:**
-- `fragmentCount: number` - Number of fragments to create (default: 50)
-- `mode: "3D" | "2.5D"` - Fracture mode (default: "3D")
-  - `"3D"`: Full 3D Voronoi tessellation - most realistic, slower
-  - `"2.5D"`: 2D Voronoi projected through mesh - faster, good for flat objects
-- `seedPoints?: THREE.Vector3[]` - Custom seed points for Voronoi cells (auto-generated if not provided)
-- `impactPoint?: THREE.Vector3` - Impact location to concentrate fragments around
-- `impactRadius?: number` - Radius around impact point for fragment density
-- `projectionAxis?: "x" | "y" | "z" | "auto"` - For 2.5D mode: projection axis (default: "auto")
-- `projectionNormal?: THREE.Vector3` - For 2.5D mode: optional projection plane normal
-- `useApproximation: boolean` - Use K-nearest neighbor approximation for performance (default: false)
-  - **Warning:** May cause fragment overlap when enabled
-- `approximationNeighborCount: number` - Neighbors to consider when using approximation (default: 12)
-- `textureScale: THREE.Vector2` - UV scale for internal faces (default: 1,1)
-- `textureOffset: THREE.Vector2` - UV offset for internal faces (default: 0,0)
-- `seed?: number` - Random seed for reproducibility
-
 #### `FractureOptions`
-Configuration for simple plane-based fracturing.
+Configuration for fracturing operations. Supports both Voronoi and simple plane-based fracturing.
 
 **Constructor:**
 ```typescript
 new FractureOptions({
+  fractureMethod?: "voronoi" | "simple";
   fragmentCount?: number;
+  voronoiOptions?: VoronoiOptions;
   fracturePlanes?: { x: boolean; y: boolean; z: boolean };
   textureScale?: THREE.Vector2;
   textureOffset?: THREE.Vector2;
@@ -176,11 +146,45 @@ new FractureOptions({
 ```
 
 **Properties:**
-- `fragmentCount: number` - Number of fragments (default: 50)
-- `fracturePlanes: { x: boolean; y: boolean; z: boolean }` - Which axes to fracture along (default: all true)
+- `fractureMethod: "voronoi" | "simple"` - Fracture method to use (default: "voronoi")
+  - `"voronoi"`: Natural-looking fracture using Voronoi tessellation (requires voronoiOptions)
+  - `"simple"`: Simple plane-based fracturing (fast, lower quality)
+- `fragmentCount: number` - Number of fragments to create (default: 50)
+- `voronoiOptions?: VoronoiOptions` - Voronoi-specific options (required when fractureMethod is "voronoi")
+- `fracturePlanes: { x: boolean; y: boolean; z: boolean }` - Simple fracture: which axes to fracture along (default: all true)
 - `textureScale: THREE.Vector2` - UV scale for internal faces (default: 1,1)
 - `textureOffset: THREE.Vector2` - UV offset for internal faces (default: 0,0)
 - `seed?: number` - Random seed for reproducibility
+
+#### `VoronoiOptions`
+Voronoi-specific fracture configuration (used within FractureOptions).
+
+**Interface:**
+```typescript
+{
+  mode: "3D" | "2.5D";
+  seedPoints?: THREE.Vector3[];
+  impactPoint?: THREE.Vector3;
+  impactRadius?: number;
+  projectionAxis?: "x" | "y" | "z" | "auto";
+  projectionNormal?: THREE.Vector3;
+  useApproximation?: boolean;
+  approximationNeighborCount?: number;
+}
+```
+
+**Properties:**
+- `mode: "3D" | "2.5D"` - Voronoi fracture mode (required)
+  - `"3D"`: Full 3D Voronoi tessellation - most realistic, slower
+  - `"2.5D"`: 2D Voronoi projected through mesh - faster, good for flat objects
+- `seedPoints?: THREE.Vector3[]` - Custom seed points for Voronoi cells (auto-generated if not provided)
+- `impactPoint?: THREE.Vector3` - Impact location to concentrate fragments around
+- `impactRadius?: number` - Radius around impact point for fragment density
+- `projectionAxis?: "x" | "y" | "z" | "auto"` - For 2.5D mode: projection axis (default: "auto")
+- `projectionNormal?: THREE.Vector3` - For 2.5D mode: optional projection plane normal
+- `useApproximation?: boolean` - Use K-nearest neighbor approximation for performance (default: false)
+  - **Warning:** May cause fragment overlap when enabled
+- `approximationNeighborCount?: number` - Neighbors to consider when using approximation (default: 12)
 
 #### `SliceOptions`
 Configuration for slicing operations.
@@ -212,12 +216,18 @@ new SliceOptions({
 ### Basic Fracturing
 
 ```typescript
-import { DestructibleMesh, VoronoiFractureOptions } from "@dgreenheck/three-pinata";
+import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 
 const mesh = new DestructibleMesh(geometry, material);
 scene.add(mesh);
 
-const options = new VoronoiFractureOptions({ fragmentCount: 50 });
+const options = new FractureOptions({
+  fractureMethod: "voronoi",
+  fragmentCount: 50,
+  voronoiOptions: {
+    mode: "3D",
+  },
+});
 const fragments = mesh.fracture(options);
 
 fragments.forEach(fragment => scene.add(fragment));
@@ -227,10 +237,26 @@ mesh.visible = false;
 ### Fracturing with Impact Point
 
 ```typescript
-const options = new VoronoiFractureOptions({
+const options = new FractureOptions({
+  fractureMethod: "voronoi",
   fragmentCount: 50,
-  impactPoint: new THREE.Vector3(0, 1, 0), // Local space
-  impactRadius: 0.5  // Smaller = more concentrated
+  voronoiOptions: {
+    mode: "3D",
+    impactPoint: new THREE.Vector3(0, 1, 0), // Local space
+    impactRadius: 0.5,  // Smaller = more concentrated
+  },
+});
+
+const fragments = mesh.fracture(options);
+```
+
+### Simple Fracturing
+
+```typescript
+const options = new FractureOptions({
+  fractureMethod: "simple",
+  fragmentCount: 50,
+  fracturePlanes: { x: true, y: true, z: true },
 });
 
 const fragments = mesh.fracture(options);

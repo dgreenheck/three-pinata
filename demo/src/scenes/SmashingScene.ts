@@ -2,9 +2,7 @@ import * as THREE from "three";
 import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
-  VoronoiFractureOptions,
   FractureOptions,
-  fracture,
 } from "@dgreenheck/three-pinata";
 
 /**
@@ -19,11 +17,15 @@ export class SmashingScene extends BaseScene {
   private fragments: THREE.Mesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private voronoiFractureOptions = new VoronoiFractureOptions({
-    mode: "3D",
+  private voronoiFractureOptions = new FractureOptions({
+    fractureMethod: "voronoi",
     fragmentCount: 50,
+    voronoiOptions: {
+      mode: "3D",
+    },
   });
   private simpleFractureOptions = new FractureOptions({
+    fractureMethod: "simple",
     fragmentCount: 50,
   });
 
@@ -174,58 +176,39 @@ export class SmashingScene extends BaseScene {
         });
       } else {
         // Simple fracture method
-        const fragmentGeometries = fracture(
-          this.object.geometry,
+        this.fragments = this.object.fracture(
           this.simpleFractureOptions,
+          (fragment) => {
+            // For statue, use original material + rock inside material; for others, use custom materials
+            if (this.settings.primitiveType === "statue") {
+              // Handle both single material and material array cases
+              const outerMaterial = Array.isArray(materialToUse)
+                ? materialToUse[0]
+                : materialToUse;
+              fragment.material = [
+                outerMaterial,
+                this.getStatueInsideMaterial()!,
+              ];
+            } else {
+              fragment.material = [this.objectMaterial, this.insideMaterial];
+            }
+            fragment.castShadow = true;
+            fragment.visible = false; // Start hidden for pre-fracture
+
+            // Add physics (sleeping)
+            const body = this.physics.add(fragment, {
+              type: "dynamic",
+              restitution: 0.3,
+            });
+            if (body) {
+              body.sleep();
+            }
+          },
         );
 
-        // Create mesh objects for each fragment
-        fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
-          // Compute bounding box to get the center of this fragment
-          fragmentGeometry.computeBoundingBox();
-          const center = new THREE.Vector3();
-          fragmentGeometry.boundingBox!.getCenter(center);
-
-          // Translate the geometry so its center is at the origin
-          fragmentGeometry.translate(-center.x, -center.y, -center.z);
-
-          // Recompute bounding sphere after translation
-          fragmentGeometry.computeBoundingSphere();
-
-          let fragmentMaterial: THREE.Material | THREE.Material[];
-          if (this.settings.primitiveType === "statue") {
-            // Handle both single material and material array cases
-            const outerMaterial = Array.isArray(materialToUse)
-              ? materialToUse[0]
-              : materialToUse;
-            fragmentMaterial = [outerMaterial, this.getStatueInsideMaterial()!];
-          } else {
-            fragmentMaterial = [this.objectMaterial, this.insideMaterial];
-          }
-
-          const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
-
-          // Apply world transform from object
-          const worldCenter = center
-            .clone()
-            .applyMatrix4(this.object!.matrixWorld);
-          fragment.position.copy(worldCenter);
-          fragment.quaternion.copy(this.object!.quaternion);
-          fragment.scale.copy(this.object!.scale);
-          fragment.castShadow = true;
-          fragment.visible = false; // Start hidden for pre-fracture
-
-          this.fragments.push(fragment);
+        // Add fragments to scene but keep them hidden
+        this.fragments.forEach((fragment) => {
           this.scene.add(fragment);
-
-          // Add physics (sleeping)
-          const body = this.physics.add(fragment, {
-            type: "dynamic",
-            restitution: 0.3,
-          });
-          if (body) {
-            body.sleep();
-          }
         });
       }
 
@@ -339,12 +322,14 @@ export class SmashingScene extends BaseScene {
       const materialToUse = this.object.material;
 
       if (this.settings.fractureMethod === "Voronoi") {
-        this.voronoiFractureOptions.impactPoint = this.settings.useImpactPoint
-          ? localPoint
-          : undefined;
-        this.voronoiFractureOptions.impactRadius = this.settings.useImpactPoint
-          ? this.settings.impactRadius
-          : undefined;
+        if (this.voronoiFractureOptions.voronoiOptions) {
+          this.voronoiFractureOptions.voronoiOptions.impactPoint = this.settings.useImpactPoint
+            ? localPoint
+            : undefined;
+          this.voronoiFractureOptions.voronoiOptions.impactRadius = this.settings.useImpactPoint
+            ? this.settings.impactRadius
+            : undefined;
+        }
 
         this.fragments = this.object.fracture(
           this.voronoiFractureOptions,
@@ -379,54 +364,34 @@ export class SmashingScene extends BaseScene {
         // Hide original object
         this.object.visible = false;
       } else {
-        const fragmentGeometries = fracture(
-          this.object.geometry,
+        this.fragments = this.object.fracture(
           this.simpleFractureOptions,
+          (fragment) => {
+            // For statue, use original material + rock inside material; for others, use custom materials
+            if (this.settings.primitiveType === "statue") {
+              // Handle both single material and material array cases
+              const outerMaterial = Array.isArray(materialToUse)
+                ? materialToUse[0]
+                : materialToUse;
+              fragment.material = [
+                outerMaterial,
+                this.getStatueInsideMaterial()!,
+              ];
+            } else {
+              fragment.material = [this.objectMaterial, this.insideMaterial];
+            }
+            fragment.castShadow = true;
+
+            this.physics.add(fragment, {
+              type: "dynamic",
+              restitution: 0.3,
+            });
+          },
         );
 
-        // Create mesh objects for each fragment
-        fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
-          // Compute bounding box to get the center of this fragment
-          fragmentGeometry.computeBoundingBox();
-          const center = new THREE.Vector3();
-          fragmentGeometry.boundingBox!.getCenter(center);
-
-          // Translate the geometry so its center is at the origin
-          fragmentGeometry.translate(-center.x, -center.y, -center.z);
-
-          // Recompute bounding sphere after translation
-          fragmentGeometry.computeBoundingSphere();
-
-          let fragmentMaterial: THREE.Material | THREE.Material[];
-          if (this.settings.primitiveType === "statue") {
-            // Handle both single material and material array cases
-            const outerMaterial = Array.isArray(materialToUse)
-              ? materialToUse[0]
-              : materialToUse;
-            fragmentMaterial = [outerMaterial, this.getStatueInsideMaterial()!];
-          } else {
-            fragmentMaterial = [this.objectMaterial, this.insideMaterial];
-          }
-
-          const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
-
-          // Apply world transform from object
-          const worldCenter = center
-            .clone()
-            .applyMatrix4(this.object!.matrixWorld);
-          fragment.position.copy(worldCenter);
-          fragment.quaternion.copy(this.object!.quaternion);
-          fragment.scale.copy(this.object!.scale);
-          fragment.castShadow = true;
-
-          this.fragments.push(fragment);
+        // Add fragments to scene
+        this.fragments.forEach((fragment) => {
           this.scene.add(fragment);
-
-          // Add physics
-          this.physics.add(fragment, {
-            type: "dynamic",
-            restitution: 0.3,
-          });
         });
 
         // Hide original object
@@ -516,7 +481,7 @@ export class SmashingScene extends BaseScene {
           this.voronoiFractureOptions.fragmentCount;
       });
 
-    folder.addBinding(this.voronoiFractureOptions, "mode", {
+    folder.addBinding(this.voronoiFractureOptions.voronoiOptions!, "mode", {
       options: {
         "3D": "3D",
         "2.5D": "2.5D",

@@ -10,6 +10,7 @@ import { GlassShatterScene } from "./scenes/GlassShatterScene";
 import { SmashingScene } from "./scenes/SmashingScene";
 import { ProgressiveDestructionScene } from "./scenes/ProgressiveDestructionScene";
 import { SlicingScene } from "./scenes/SlicingScene";
+import { BrickWallScene } from "./scenes/BrickWallScene";
 
 // Add imports for postprocessing
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -112,7 +113,12 @@ tweakpaneElement.parentElement!.style.width = "300px";
 
 // App settings
 const appSettings = {
-  scene: "glass" as "glass" | "smashing" | "progressive" | "slicing",
+  scene: "brickwall" as
+    | "glass"
+    | "smashing"
+    | "progressive"
+    | "slicing"
+    | "brickwall",
 };
 
 // Setup GUI controls - Scene Selection
@@ -121,10 +127,11 @@ const appFolder = pane.addFolder({ title: "Scene Selection", expanded: true });
 appFolder
   .addBinding(appSettings, "scene", {
     options: {
-      "Glass Shatter": "glass",
-      "Smashing Object": "smashing",
+      "Brick Wall": "brickwall",
+      Glass: "glass",
       "Progressive Destruction": "progressive",
-      "Slicing Demo": "slicing",
+      Slicing: "slicing",
+      "Smashing Object": "smashing",
     },
     label: "Demo Scene",
   })
@@ -183,7 +190,8 @@ function setupLighting(): void {
   sun.shadow.camera.bottom = -50;
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 50;
-  sun.shadow.bias = -0.0001;
+  sun.shadow.bias = -0.001;
+  sun.shadow.normalBias = 0.05;
   scene.add(sun);
   scene.add(sun.target);
 }
@@ -263,6 +271,17 @@ async function switchScene(sceneType: string): Promise<void> {
       break;
     case "slicing":
       currentScene = new SlicingScene(
+        scene,
+        camera,
+        physics,
+        pane,
+        controls,
+        clock,
+        renderer,
+      );
+      break;
+    case "brickwall":
+      currentScene = new BrickWallScene(
         scene,
         camera,
         physics,

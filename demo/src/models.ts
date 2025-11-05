@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import statueGLB from "./assets/statue.glb";
+import brickGLB from "./assets/brick.glb";
 
 export type PrimitiveType =
   | "cube"
@@ -22,6 +23,8 @@ export class ModelFactory {
   private gltfLoader = new GLTFLoader();
   private statueGeometryCache: THREE.BufferGeometry | null = null;
   private statueMaterialCache: THREE.Material | THREE.Material[] | null = null;
+  private brickGeometryCache: THREE.BufferGeometry | null = null;
+  private brickMaterialCache: THREE.Material | THREE.Material[] | null = null;
 
   /**
    * Load the statue geometry and material from GLB file (cached)
@@ -160,5 +163,79 @@ export class ModelFactory {
    */
   getStatueMaterial(): THREE.Material | THREE.Material[] | null {
     return this.statueMaterialCache;
+  }
+
+  /**
+   * Load the brick geometry and material from GLB file (cached)
+   */
+  async loadBrickGeometry(
+    forceReload: boolean = false,
+  ): Promise<GeometryWithMaterial> {
+    if (this.brickGeometryCache && this.brickMaterialCache && !forceReload) {
+      return {
+        geometry: this.brickGeometryCache,
+        material: this.brickMaterialCache,
+      };
+    }
+
+    return new Promise((resolve, reject) => {
+      this.gltfLoader.load(
+        brickGLB,
+        (gltf) => {
+          gltf.scene.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              const geometry = child.geometry.clone();
+
+              // Ensure geometry has normals
+              if (!geometry.attributes.normal) {
+                geometry.computeVertexNormals();
+              }
+
+              // Ensure geometry has UVs (required for fracturing)
+              if (!geometry.attributes.uv) {
+                const uvs = new Float32Array(
+                  geometry.attributes.position.count * 2,
+                );
+                geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+              }
+
+              // Compute bounding sphere/box
+              geometry.computeBoundingBox();
+              geometry.computeBoundingSphere();
+
+              this.brickGeometryCache = geometry;
+
+              // Store the original material(s)
+              if (Array.isArray(child.material)) {
+                this.brickMaterialCache = child.material;
+              } else {
+                this.brickMaterialCache = child.material;
+              }
+            }
+          });
+
+          resolve({
+            geometry: this.brickGeometryCache!,
+            material: this.brickMaterialCache!,
+          });
+        },
+        undefined,
+        reject,
+      );
+    });
+  }
+
+  /**
+   * Get the cached brick geometry (must call loadBrickGeometry first)
+   */
+  getBrickGeometry(): THREE.BufferGeometry | null {
+    return this.brickGeometryCache;
+  }
+
+  /**
+   * Get the cached brick material (must call loadBrickGeometry first)
+   */
+  getBrickMaterial(): THREE.Material | THREE.Material[] | null {
+    return this.brickMaterialCache;
   }
 }

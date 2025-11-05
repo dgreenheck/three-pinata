@@ -2,9 +2,7 @@ import * as THREE from "three";
 import { BaseScene } from "./BaseScene";
 import {
   DestructibleMesh,
-  VoronoiFractureOptions,
   FractureOptions,
-  fracture,
 } from "@dgreenheck/three-pinata";
 
 /**
@@ -18,11 +16,15 @@ export class GlassShatterScene extends BaseScene {
   private fragments: THREE.Mesh[] = [];
   private glassMaterial!: THREE.MeshPhysicalMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private voronoiFractureOptions = new VoronoiFractureOptions({
-    mode: "2.5D",
+  private voronoiFractureOptions = new FractureOptions({
+    fractureMethod: "voronoi",
     fragmentCount: 50,
+    voronoiOptions: {
+      mode: "2.5D",
+    },
   });
   private simpleFractureOptions = new FractureOptions({
+    fractureMethod: "simple",
     fragmentCount: 50,
   });
   private settings = {
@@ -169,13 +171,15 @@ export class GlassShatterScene extends BaseScene {
       if (!this.glassPane) return;
 
       // Configure Voronoi fracture options
-      this.voronoiFractureOptions.impactPoint = this.settings.useImpactPoint
-        ? localPoint
-        : undefined;
-      this.voronoiFractureOptions.impactRadius = this.settings.useImpactPoint
-        ? this.settings.impactRadius
-        : undefined;
-      this.voronoiFractureOptions.projectionAxis = "z"; // Project along the thin axis
+      if (this.voronoiFractureOptions.voronoiOptions) {
+        this.voronoiFractureOptions.voronoiOptions.impactPoint = this.settings.useImpactPoint
+          ? localPoint
+          : undefined;
+        this.voronoiFractureOptions.voronoiOptions.impactRadius = this.settings.useImpactPoint
+          ? this.settings.impactRadius
+          : undefined;
+        this.voronoiFractureOptions.voronoiOptions.projectionAxis = "z"; // Project along the thin axis
+      }
 
       this.fragments = this.glassPane.fracture(
         this.voronoiFractureOptions,
@@ -219,46 +223,22 @@ export class GlassShatterScene extends BaseScene {
     setTimeout(() => {
       if (!this.glassPane) return;
 
-      const fragmentGeometries = fracture(
-        this.glassPane.geometry,
+      this.fragments = this.glassPane.fracture(
         this.simpleFractureOptions,
+        (fragment) => {
+          fragment.material = [this.glassMaterial, this.insideMaterial];
+          fragment.castShadow = true;
+
+          this.physics.add(fragment, {
+            type: "dynamic",
+            restitution: 0.2,
+          });
+        },
       );
 
-      // Create mesh objects for each fragment
-      fragmentGeometries.forEach((fragmentGeometry: THREE.BufferGeometry) => {
-        // Compute bounding box to get the center of this fragment
-        fragmentGeometry.computeBoundingBox();
-        const center = new THREE.Vector3();
-        fragmentGeometry.boundingBox!.getCenter(center);
-
-        // Translate the geometry so its center is at the origin
-        fragmentGeometry.translate(-center.x, -center.y, -center.z);
-
-        // Recompute bounding sphere after translation
-        fragmentGeometry.computeBoundingSphere();
-
-        const fragment = new THREE.Mesh(fragmentGeometry, [
-          this.glassMaterial,
-          this.insideMaterial,
-        ]);
-
-        // Apply world transform from glass pane
-        const worldCenter = center
-          .clone()
-          .applyMatrix4(this.glassPane!.matrixWorld);
-        fragment.position.copy(worldCenter);
-        fragment.quaternion.copy(this.glassPane!.quaternion);
-        fragment.scale.copy(this.glassPane!.scale);
-        fragment.castShadow = true;
-
-        this.fragments.push(fragment);
+      // Add fragments to scene
+      this.fragments.forEach((fragment) => {
         this.scene.add(fragment);
-
-        // Add physics
-        this.physics.add(fragment, {
-          type: "dynamic",
-          restitution: 0.2,
-        });
       });
 
       // Hide the original glass pane

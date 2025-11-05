@@ -1,7 +1,8 @@
 import * as THREE from "three";
-import { VoronoiFractureOptions } from "./entities/VoronoiFractureOptions";
+import { FractureOptions } from "./entities/FractureOptions";
 import { SliceOptions } from "./entities/SliceOptions";
 import { voronoiFracture } from "./fracture/VoronoiFracture";
+import { fracture as simpleFracture } from "./fracture/Fracture";
 import { slice } from "./fracture/Slice";
 
 /**
@@ -18,14 +19,14 @@ export class DestructibleMesh extends THREE.Mesh {
   }
 
   /**
-   * Fractures the mesh into fragments using Voronoi tessellation
-   * @param options Voronoi fracture options controlling the fracture behavior
+   * Fractures the mesh into fragments
+   * @param options Fracture options controlling the fracture behavior
    * @param onFragment Optional callback called for each fragment for custom setup
    * @param onComplete Optional callback called once after all fragments are created
    * @returns The array of created fragment meshes (NOT added to scene)
    */
   fracture(
-    options: VoronoiFractureOptions,
+    options: FractureOptions,
     onFragment?: (fragment: THREE.Mesh, index: number) => void,
     onComplete?: () => void,
   ): THREE.Mesh[] {
@@ -33,8 +34,40 @@ export class DestructibleMesh extends THREE.Mesh {
       throw new Error("DestructibleMesh has no geometry to fracture");
     }
 
-    // Perform the fracture operation using Voronoi tessellation
-    const fragmentGeometries = voronoiFracture(this.geometry, options);
+    // Perform the fracture operation based on the method
+    let fragmentGeometries: THREE.BufferGeometry[];
+
+    try {
+      if (options.fractureMethod === "voronoi") {
+        if (!options.voronoiOptions) {
+          throw new Error("voronoiOptions is required when fractureMethod is 'voronoi'");
+        }
+
+        // Convert FractureOptions to VoronoiFractureOptions format for the voronoiFracture function
+        const voronoiOptions = {
+          fragmentCount: options.fragmentCount,
+          mode: options.voronoiOptions.mode,
+          seedPoints: options.voronoiOptions.seedPoints,
+          impactPoint: options.voronoiOptions.impactPoint,
+          impactRadius: options.voronoiOptions.impactRadius,
+          projectionAxis: options.voronoiOptions.projectionAxis || "auto",
+          projectionNormal: options.voronoiOptions.projectionNormal,
+          useApproximation: options.voronoiOptions.useApproximation || false,
+          approximationNeighborCount: options.voronoiOptions.approximationNeighborCount || 12,
+          textureScale: options.textureScale,
+          textureOffset: options.textureOffset,
+          seed: options.seed,
+        };
+
+        fragmentGeometries = voronoiFracture(this.geometry, voronoiOptions);
+      } else {
+        // Simple fracture
+        fragmentGeometries = simpleFracture(this.geometry, options);
+      }
+    } catch (error) {
+      console.error("Fracture operation failed:", error);
+      throw error;
+    }
 
     // Create mesh objects for each fragment
     const fragments = fragmentGeometries.map((fragmentGeometry, index) => {

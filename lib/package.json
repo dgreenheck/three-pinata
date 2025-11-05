@@ -1,6 +1,6 @@
 {
   "name": "@dgreenheck/three-pinata",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Three.js library for fracturing and slicing meshes in real time.",
   "type": "module",
   "main": "./build/three-pinata.umd.js",
