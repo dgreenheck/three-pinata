@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Pane } from "tweakpane";
+import { Pane, FolderApi } from "tweakpane";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ThreePerf } from "three-perf";
 import { PhysicsWorld } from "./physics/PhysicsWorld";
@@ -143,7 +143,7 @@ appFolder
 pane.addBlade({ view: "separator" });
 
 // Track scene-specific folders
-let sceneFolder: any = null;
+let sceneFolder: FolderApi | null = null;
 
 function setupGround(): void {
   // Load grid texture

@@ -11,11 +11,23 @@ import { slice } from "./fracture/Slice";
  * you must manually add them using scene.add(...fragments).
  */
 export class DestructibleMesh extends THREE.Mesh {
+  private _refractureCount: number = 0;
+
   constructor(
     geometry?: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
     material?: THREE.Material | THREE.Material[],
+    refractureCount: number = 0,
   ) {
     super(geometry, material);
+    this._refractureCount = refractureCount;
+  }
+
+  /**
+   * Gets the number of times this mesh has been refractured
+   * (0 for the original mesh, 1 for first generation fragments, etc.)
+   */
+  get refractureCount(): number {
+    return this._refractureCount;
   }
 
   /**
@@ -27,15 +39,29 @@ export class DestructibleMesh extends THREE.Mesh {
    */
   fracture(
     options: FractureOptions,
-    onFragment?: (fragment: THREE.Mesh, index: number) => void,
+    onFragment?: (fragment: DestructibleMesh, index: number) => void,
     onComplete?: () => void,
-  ): THREE.Mesh[] {
+  ): DestructibleMesh[] {
     if (!this.geometry) {
       throw new Error("DestructibleMesh has no geometry to fracture");
     }
 
+    // Check if refracturing is enabled and if this mesh has exceeded the max refracture count
+    if (options.refracture.enabled && this._refractureCount > options.refracture.maxRefractures) {
+      console.warn(
+        `Cannot refracture: max refractures (${options.refracture.maxRefractures}) reached. Current count: ${this._refractureCount}`,
+      );
+      return [];
+    }
+
     // Perform the fracture operation based on the method
     let fragmentGeometries: THREE.BufferGeometry[];
+
+    // Determine fragment count: use refracture count if this is a refracture, otherwise use main count
+    const fragmentCount =
+      options.refracture.enabled && this._refractureCount > 0
+        ? options.refracture.fragmentCount
+        : options.fragmentCount;
 
     try {
       if (options.fractureMethod === "voronoi") {
@@ -45,7 +71,7 @@ export class DestructibleMesh extends THREE.Mesh {
 
         // Convert FractureOptions to VoronoiFractureOptions format for the voronoiFracture function
         const voronoiOptions = {
-          fragmentCount: options.fragmentCount,
+          fragmentCount: fragmentCount,
           mode: options.voronoiOptions.mode,
           seedPoints: options.voronoiOptions.seedPoints,
           impactPoint: options.voronoiOptions.impactPoint,
@@ -61,8 +87,16 @@ export class DestructibleMesh extends THREE.Mesh {
 
         fragmentGeometries = voronoiFracture(this.geometry, voronoiOptions);
       } else {
-        // Simple fracture
-        fragmentGeometries = simpleFracture(this.geometry, options);
+        // Simple fracture - need to update options with correct fragment count
+        const modifiedOptions = new FractureOptions({
+          fractureMethod: options.fractureMethod,
+          fragmentCount: fragmentCount,
+          fracturePlanes: options.fracturePlanes,
+          textureScale: options.textureScale,
+          textureOffset: options.textureOffset,
+          seed: options.seed,
+        });
+        fragmentGeometries = simpleFracture(this.geometry, modifiedOptions);
       }
     } catch (error) {
       console.error("Fracture operation failed:", error);
@@ -82,7 +116,12 @@ export class DestructibleMesh extends THREE.Mesh {
       // Recompute bounding sphere after translation
       fragmentGeometry.computeBoundingSphere();
 
-      const fragment = new THREE.Mesh(fragmentGeometry, this.material);
+      // Create DestructibleMesh with inherited refracture count
+      const fragment = new DestructibleMesh(
+        fragmentGeometry,
+        this.material,
+        this._refractureCount + 1,
+      );
 
       // Apply the parent's transform to the fragment position
       const worldCenter = center.clone().applyMatrix4(this.matrixWorld);

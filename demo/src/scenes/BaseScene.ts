@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Pane } from "tweakpane";
+import { Pane, FolderApi } from "tweakpane";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { MaterialFactory } from "../materials";
@@ -62,7 +62,7 @@ export abstract class BaseScene {
    * Setup UI controls specific to this scene
    * @returns The folder containing scene-specific UI controls
    */
-  abstract setupUI(): any;
+  abstract setupUI(): FolderApi;
 
   /**
    * Get instructions text for this scene

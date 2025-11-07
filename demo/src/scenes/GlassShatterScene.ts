@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { FolderApi, ButtonApi } from "tweakpane";
 import { BaseScene } from "./BaseScene";
 import {
   DestructibleMesh,
@@ -35,7 +36,7 @@ export class GlassShatterScene extends BaseScene {
   private impactMarker: THREE.Mesh | null = null;
   private radiusMarker: THREE.Mesh | null = null;
   private hasShattered = false;
-  private resetButton: any = null;
+  private resetButton: ButtonApi | null = null;
 
   async init(): Promise<void> {
     // Setup camera
@@ -266,7 +267,7 @@ export class GlassShatterScene extends BaseScene {
 • Toggle impact point clustering`;
   }
 
-  setupUI(): any {
+  setupUI(): FolderApi {
     const folder = this.pane.addFolder({
       title: "Glass Shatter",
       expanded: true,
@@ -293,8 +294,8 @@ export class GlassShatterScene extends BaseScene {
 
     folder
       .addBinding(this.voronoiFractureOptions, "fragmentCount", {
-        min: 10,
-        max: 200,
+        min: 2,
+        max: 64,
         step: 1,
         label: "Fragment Count",
       })

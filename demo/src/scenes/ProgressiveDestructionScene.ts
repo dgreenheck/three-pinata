@@ -1,9 +1,11 @@
 import * as THREE from "three";
+import { FolderApi, ButtonApi } from "tweakpane";
 import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
   FractureOptions,
 } from "@dgreenheck/three-pinata";
+import { PhysicsBody } from "../physics/PhysicsBody";
 
 /**
  * Progressive Destruction Demo
@@ -17,7 +19,7 @@ export class ProgressiveDestructionScene extends BaseScene {
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
   private currentBall: THREE.Mesh | null = null;
-  private resetButton: any = null;
+  private resetButton: ButtonApi | null = null;
   private voronoiFractureOptions = new FractureOptions({
     fractureMethod: "voronoi",
     fragmentCount: 50,
@@ -253,7 +255,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
   }
 
-  private onCollision = (body1: any, body2: any, started: boolean): void => {
+  private onCollision = (body1: PhysicsBody, body2: PhysicsBody, started: boolean): void => {
     if (!started || !this.object || !this.currentBall) return;
 
     const obj1 = body1.object as THREE.Mesh;
@@ -293,7 +295,7 @@ export class ProgressiveDestructionScene extends BaseScene {
 • Adjust fragment count and reset`;
   }
 
-  setupUI(): any {
+  setupUI(): FolderApi {
     const folder = this.pane.addFolder({
       title: "Progressive Destruction",
       expanded: true,
@@ -329,8 +331,8 @@ export class ProgressiveDestructionScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "fragmentCount", {
-        min: 10,
-        max: 150,
+        min: 2,
+        max: 64,
         step: 1,
         label: "Fragment Count",
       })

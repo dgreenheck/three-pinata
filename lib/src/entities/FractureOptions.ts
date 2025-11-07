@@ -107,6 +107,29 @@ export class FractureOptions {
    */
   public seed?: number;
 
+  /**
+   * Refracture settings - allows fragments to be fractured multiple times
+   */
+  public refracture: {
+    /**
+     * Enable or disable refracturing functionality
+     */
+    enabled: boolean;
+    /**
+     * Maximum number of additional refractures after the initial fracture
+     * (e.g., maxRefractures=1 means initial fracture + 1 refracture = 2 total fracture events)
+     */
+    maxRefractures: number;
+    /**
+     * Number of fragments to generate when refracturing
+     */
+    fragmentCount: number;
+  } = {
+    enabled: false,
+    maxRefractures: 2,
+    fragmentCount: 25,
+  };
+
   constructor({
     fractureMethod,
     fragmentCount,
@@ -115,6 +138,7 @@ export class FractureOptions {
     textureScale,
     textureOffset,
     seed,
+    refracture,
   }: {
     fractureMethod?: "voronoi" | "simple";
     fragmentCount?: number;
@@ -127,6 +151,11 @@ export class FractureOptions {
     textureScale?: Vector2;
     textureOffset?: Vector2;
     seed?: number;
+    refracture?: {
+      enabled?: boolean;
+      maxRefractures?: number;
+      fragmentCount?: number;
+    };
   } = {}) {
     if (fractureMethod !== undefined) {
       this.fractureMethod = fractureMethod;
@@ -154,6 +183,18 @@ export class FractureOptions {
 
     if (seed !== undefined) {
       this.seed = seed;
+    }
+
+    if (refracture !== undefined) {
+      if (refracture.enabled !== undefined) {
+        this.refracture.enabled = refracture.enabled;
+      }
+      if (refracture.maxRefractures !== undefined) {
+        this.refracture.maxRefractures = refracture.maxRefractures;
+      }
+      if (refracture.fragmentCount !== undefined) {
+        this.refracture.fragmentCount = refracture.fragmentCount;
+      }
     }
 
     // Validate that voronoiOptions is provided when fractureMethod is 'voronoi'

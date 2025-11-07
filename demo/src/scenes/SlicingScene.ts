@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { FolderApi, ButtonApi } from "tweakpane";
 import { BaseScene, PrimitiveType } from "./BaseScene";
 import { DestructibleMesh, SliceOptions } from "@dgreenheck/three-pinata";
 
@@ -22,7 +23,7 @@ export class SlicingScene extends BaseScene {
   private isDrawingSlice = false;
   private sliceStartScreen = new THREE.Vector2();
   private sliceEndScreen = new THREE.Vector2();
-  private resetButton: any = null;
+  private resetButton: ButtonApi | null = null;
 
   // Canvas overlay for drawing
   private canvas!: HTMLCanvasElement;
@@ -472,7 +473,7 @@ export class SlicingScene extends BaseScene {
 • Works like Fruit Ninja!`;
   }
 
-  setupUI(): any {
+  setupUI(): FolderApi {
     const folder = this.pane.addFolder({
       title: "Slicing Demo",
       expanded: true,

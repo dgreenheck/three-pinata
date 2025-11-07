@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { FolderApi } from "tweakpane";
 import { BaseScene } from "./BaseScene";
 import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 
@@ -11,19 +12,28 @@ import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 export class BrickWallScene extends BaseScene {
   private bricks: DestructibleMesh[] = [];
   private fracturedBricks = new Set<DestructibleMesh>();
-  private fragments: THREE.Mesh[] = [];
+  private fragments: DestructibleMesh[] = [];
   private brickMaterial!: THREE.Material | THREE.Material[];
   private ballMaterial!: THREE.MeshStandardMaterial;
   private balls: THREE.Mesh[] = [];
   private brickGeometry!: THREE.BufferGeometry;
 
-  private fractureOptions = new FractureOptions({
+  private voronoiFractureOptions = new FractureOptions({
     fractureMethod: "voronoi",
     fragmentCount: 16,
     voronoiOptions: {
       mode: "3D",
     },
   });
+
+  private simpleFractureOptions = new FractureOptions({
+    fractureMethod: "simple",
+    fragmentCount: 16,
+  });
+
+  private settings = {
+    fractureMethod: "Voronoi" as "Voronoi" | "Simple",
+  };
 
   async init(): Promise<void> {
     // Setup camera
@@ -96,8 +106,15 @@ export class BrickWallScene extends BaseScene {
           this.brickMaterial,
         );
 
-        // Rotate brick 90 degrees around y-axis
-        brick.rotation.y = Math.PI / 2;
+        // Random size variation (±1% on each axis)
+        const scaleX = 1 + (Math.random() - 0.5) * 0.02;
+        const scaleY = 1 + (Math.random() - 0.5) * 0.02;
+        const scaleZ = 1 + (Math.random() - 0.5) * 0.02;
+        brick.scale.set(scaleX, scaleY, scaleZ);
+
+        // Rotate brick 90 degrees around y-axis + random variation (±2 degrees)
+        const randomRotation = (Math.random() - 0.5) * ((4 * Math.PI) / 180); // ±2 degrees in radians
+        brick.rotation.y = Math.PI / 2 + randomRotation;
 
         // Position brick with spacing
         brick.position.set(xStart + i * (brickWidth + spacing), yPosition, 0);
@@ -181,14 +198,20 @@ export class BrickWallScene extends BaseScene {
     // Convert world point to local coordinates
     const localPoint = brick.worldToLocal(worldPoint.clone());
 
-    // Set impact point for fracture
-    if (this.fractureOptions.voronoiOptions) {
-      this.fractureOptions.voronoiOptions.impactPoint = localPoint;
-      this.fractureOptions.voronoiOptions.impactRadius = 1.5;
+    // Get the appropriate fracture options
+    const options =
+      this.settings.fractureMethod === "Voronoi"
+        ? this.voronoiFractureOptions
+        : this.simpleFractureOptions;
+
+    // Set impact point for fracture (Voronoi only)
+    if (this.settings.fractureMethod === "Voronoi" && options.voronoiOptions) {
+      options.voronoiOptions.impactPoint = localPoint;
+      options.voronoiOptions.impactRadius = 1.5;
     }
 
     // Fracture the brick - use brick material for both outer and inner faces
-    const fragments = brick.fracture(this.fractureOptions, (fragment) => {
+    const fragments = brick.fracture(options, (fragment) => {
       // Use brick's own material for both outer and inner faces
       fragment.material = this.brickMaterial;
       fragment.castShadow = true;
@@ -227,18 +250,38 @@ export class BrickWallScene extends BaseScene {
 • Watch the pyramid collapse!`;
   }
 
-  setupUI(): any {
+  setupUI(): FolderApi {
     const folder = this.pane.addFolder({
       title: "Brick Wall",
       expanded: true,
     });
 
-    folder.addBinding(this.fractureOptions, "fragmentCount", {
-      min: 8,
-      max: 50,
-      step: 1,
-      label: "Fragment Count",
-    });
+    folder
+      .addBinding(this.settings, "fractureMethod", {
+        options: {
+          "Voronoi (High Quality, Slow)": "Voronoi",
+          "Simple (Low Quality, Fast)": "Simple",
+        },
+        label: "Fracture Method",
+      })
+      .on("change", () => {
+        // Keep fragment counts in sync
+        this.simpleFractureOptions.fragmentCount =
+          this.voronoiFractureOptions.fragmentCount;
+      });
+
+    folder
+      .addBinding(this.voronoiFractureOptions, "fragmentCount", {
+        min: 2,
+        max: 64,
+        step: 1,
+        label: "Fragment Count",
+      })
+      .on("change", () => {
+        // Keep both fracture options in sync
+        this.simpleFractureOptions.fragmentCount =
+          this.voronoiFractureOptions.fragmentCount;
+      });
 
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();

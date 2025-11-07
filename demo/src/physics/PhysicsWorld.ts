@@ -68,9 +68,9 @@ export class PhysicsWorld {
    * Adds physics to a THREE.Object3D
    * @param object The THREE.Object3D to add physics to
    * @param options Physics configuration
-   * @returns The created PhysicsBody
+   * @returns The created PhysicsBody or null if creation fails
    */
-  add(object: THREE.Object3D, options: PhysicsBodyOptions = {}): PhysicsBody {
+  add(object: THREE.Object3D, options: PhysicsBodyOptions = {}): PhysicsBody | null {
     const {
       type = "dynamic",
       mass,
@@ -127,7 +127,7 @@ export class PhysicsWorld {
             "Geometry has insufficient vertices for convex hull, skipping physics",
           );
           this.world.removeRigidBody(rigidBody);
-          return null as any; // Return null instead of throwing
+          return null; // Return null instead of throwing
         }
 
         // Check geometry size to avoid degenerate shapes
