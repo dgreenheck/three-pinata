@@ -18,10 +18,9 @@ Three-pinata is a library that enables you to fracture and slice 3D meshes in re
 
 - **Voronoi Fracturing** - Natural-looking fracture patterns with 3D and 2.5D modes
 - **Impact-Based Fracturing** - Concentrate fragments around impact points for realistic destruction
+- **Refracturing** - Fracture fragments multiple times for progressive destruction
 - **Plane Slicing** - Slice meshes along arbitrary planes in local or world space
 - **Dual Materials** - Separate materials for outer surfaces and internal fracture faces
-- **Re-slicing Support** - Slice fragments multiple times for progressive destruction
-- **Floating Fragment Detection** - Automatically split disconnected pieces for non-convex meshes
 - **Custom Seed Points** - Full control over fracture patterns with custom Voronoi seeds
 - **UV Mapping** - Automatic UV generation for internal faces with configurable scale and offset
 - **TypeScript Support** - Full type definitions included
@@ -97,35 +96,43 @@ Extends `THREE.Mesh` with built-in fracturing and slicing capabilities.
 new DestructibleMesh(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[])
 ```
 
+**Properties:**
+- `refractureCount: number` - Read-only property indicating the number of times this mesh has been refractured (0 for the original mesh, 1 for first generation fragments, etc.)
+
 **Methods:**
 
 ##### `fracture(options, onFragment?, onComplete?)`
 Fractures the mesh into fragments.
 - **Parameters:**
   - `options: FractureOptions` - Fracture configuration
-  - `onFragment?: (fragment: THREE.Mesh, index: number) => void` - Optional callback for each fragment
+  - `onFragment?: (fragment: DestructibleMesh, index: number) => void` - Optional callback for each fragment
   - `onComplete?: () => void` - Optional callback when fracturing is complete
-- **Returns:** `THREE.Mesh[]` - Array of fragment meshes
+- **Returns:** `DestructibleMesh[]` - Array of fragment meshes (NOT added to scene)
 
-##### `slice(normal, origin, options?, onSlice?, onComplete?)`
+##### `slice(sliceNormal, sliceOrigin, options?, onSlice?, onComplete?)`
 Slices the mesh along a plane (local space).
 - **Parameters:**
-  - `normal: THREE.Vector3` - Slice plane normal (local space)
-  - `origin: THREE.Vector3` - Point on slice plane (local space)
+  - `sliceNormal: THREE.Vector3` - Slice plane normal (local space)
+  - `sliceOrigin: THREE.Vector3` - Point on slice plane (local space)
   - `options?: SliceOptions` - Slice configuration
-  - `onSlice?: (piece: THREE.Mesh, index: number) => void` - Optional callback for each piece
+  - `onSlice?: (piece: DestructibleMesh, index: number) => void` - Optional callback for each piece
   - `onComplete?: () => void` - Optional callback when slicing is complete
-- **Returns:** `THREE.Mesh[]` - Array of sliced pieces
+- **Returns:** `DestructibleMesh[]` - Array of sliced pieces (NOT added to scene)
 
-##### `sliceWorld(normal, origin, options?, onSlice?, onComplete?)`
+##### `sliceWorld(worldNormal, worldOrigin, options?, onSlice?, onComplete?)`
 Slices the mesh along a plane (world space).
 - **Parameters:**
-  - `normal: THREE.Vector3` - Slice plane normal (world space)
-  - `origin: THREE.Vector3` - Point on slice plane (world space)
+  - `worldNormal: THREE.Vector3` - Slice plane normal (world space)
+  - `worldOrigin: THREE.Vector3` - Point on slice plane (world space)
   - `options?: SliceOptions` - Slice configuration
-  - `onSlice?: (piece: THREE.Mesh, index: number) => void` - Optional callback for each piece
+  - `onSlice?: (piece: DestructibleMesh, index: number) => void` - Optional callback for each piece
   - `onComplete?: () => void` - Optional callback when slicing is complete
-- **Returns:** `THREE.Mesh[]` - Array of sliced pieces
+- **Returns:** `DestructibleMesh[]` - Array of sliced pieces (NOT added to scene)
+
+##### `dispose()`
+Disposes the mesh geometry and material to free up memory.
+- **Parameters:** None
+- **Returns:** `void`
 
 ### Options
 
@@ -142,6 +149,11 @@ new FractureOptions({
   textureScale?: THREE.Vector2;
   textureOffset?: THREE.Vector2;
   seed?: number;
+  refracture?: {
+    enabled?: boolean;
+    maxRefractures?: number;
+    fragmentCount?: number;
+  };
 })
 ```
 
@@ -155,6 +167,10 @@ new FractureOptions({
 - `textureScale: THREE.Vector2` - UV scale for internal faces (default: 1,1)
 - `textureOffset: THREE.Vector2` - UV offset for internal faces (default: 0,0)
 - `seed?: number` - Random seed for reproducibility
+- `refracture?: object` - Refracture settings for progressive destruction
+  - `enabled: boolean` - Enable refracturing functionality (default: false)
+  - `maxRefractures: number` - Maximum number of additional refractures after initial fracture (default: 2)
+  - `fragmentCount: number` - Number of fragments to generate when refracturing (default: 25)
 
 #### `VoronoiOptions`
 Voronoi-specific fracture configuration (used within FractureOptions).
@@ -191,25 +207,13 @@ Configuration for slicing operations.
 
 **Constructor:**
 ```typescript
-new SliceOptions({
-  enableReslicing?: boolean;
-  maxResliceCount?: number;
-  detectFloatingFragments?: boolean;
-  insideMaterial?: THREE.Material;
-  textureScale?: THREE.Vector2;
-  textureOffset?: THREE.Vector2;
-  invokeCallbacks?: boolean;
-})
+new SliceOptions()
 ```
 
 **Properties:**
-- `enableReslicing: boolean` - Allow slicing pieces multiple times (default: false)
-- `maxResliceCount: number` - Maximum times a piece can be resliced (default: 1)
-- `detectFloatingFragments: boolean` - Split disconnected pieces for non-convex meshes (default: false)
-- `insideMaterial?: THREE.Material` - Material for internal faces
+- `insideMaterial?: THREE.Material` - Material for internal faces (default: undefined)
 - `textureScale: THREE.Vector2` - UV scale for internal faces (default: 1,1)
 - `textureOffset: THREE.Vector2` - UV offset for internal faces (default: 0,0)
-- `invokeCallbacks: boolean` - Whether to invoke callbacks when reslicing (default: false)
 
 ## Usage Examples
 
@@ -248,6 +252,36 @@ const options = new FractureOptions({
 });
 
 const fragments = mesh.fracture(options);
+```
+
+### Refracturing (Progressive Destruction)
+
+Enable refracturing to allow fragments to be fractured again when clicked or hit:
+
+```typescript
+const options = new FractureOptions({
+  fractureMethod: "voronoi",
+  fragmentCount: 50,
+  voronoiOptions: {
+    mode: "3D",
+  },
+  refracture: {
+    enabled: true,
+    maxRefractures: 2,      // Allow up to 2 additional refractures
+    fragmentCount: 25,      // Use fewer fragments when refracturing
+  },
+});
+
+const fragments = mesh.fracture(options);
+
+// Later, you can fracture a fragment again
+fragments.forEach(fragment => {
+  // Check if fragment can still be refractured
+  if (fragment.refractureCount < options.refracture.maxRefractures) {
+    const subFragments = fragment.fracture(options);
+    // Add sub-fragments to scene...
+  }
+});
 ```
 
 ### Simple Fracturing
@@ -303,14 +337,14 @@ Fragments support two materials - one for the original surface, one for internal
 const outerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6644 });
 const innerMaterial = new THREE.MeshStandardMaterial({ color: 0xdddddd });
 
-fragmentGeometries.forEach((geo) => {
-  // Material array: [outer, inner]
-  const fragment = new THREE.Mesh(geo, [outerMaterial, innerMaterial]);
+const fragments = mesh.fracture(options, (fragment) => {
+  // Assign material array: [outer, inner]
+  fragment.material = [outerMaterial, innerMaterial];
   scene.add(fragment);
 });
 ```
 
-The geometry includes two material groups:
+The fragment geometries include two material groups:
 - **Group 0**: Original outer surface faces
 - **Group 1**: Newly created internal fracture faces
 
