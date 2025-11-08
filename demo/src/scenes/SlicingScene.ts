@@ -469,8 +469,7 @@ export class SlicingScene extends BaseScene {
 
 • Left click and drag to slice
 • Right click and drag to rotate camera
-• Scroll to zoom
-• Works like Fruit Ninja!`;
+• Scroll to zoom`;
   }
 
   setupUI(): FolderApi {
@@ -481,14 +480,7 @@ export class SlicingScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "primitiveType", {
-        options: {
-          Cube: "cube",
-          Sphere: "sphere",
-          Cylinder: "cylinder",
-          Torus: "torus",
-          "Torus Knot": "torusKnot",
-          Statue: "statue",
-        },
+        options: BaseScene.PRIMITIVE_OPTIONS,
         label: "Primitive",
       })
       .on("change", () => {

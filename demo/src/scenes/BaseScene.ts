@@ -12,6 +12,21 @@ export type { PrimitiveType };
  * Provides common functionality and interface for scene management
  */
 export abstract class BaseScene {
+  // Common constants for UI options
+  protected static readonly PRIMITIVE_OPTIONS = {
+    Cube: "cube",
+    Sphere: "sphere",
+    Cylinder: "cylinder",
+    Torus: "torus",
+    "Torus Knot": "torusKnot",
+    Statue: "statue",
+  } as const;
+
+  protected static readonly FRACTURE_METHOD_OPTIONS = {
+    "Voronoi (High Quality, Slow)": "Voronoi",
+    "Simple (Low Quality, Fast)": "Simple",
+  } as const;
+
   protected scene: THREE.Scene;
   protected camera: THREE.PerspectiveCamera;
   protected physics: PhysicsWorld;
@@ -113,7 +128,7 @@ export abstract class BaseScene {
    */
   protected createInsideMaterial(
     color: number = 0xcccccc,
-  ): THREE.MeshStandardMaterial {
+  ): THREE.MeshPhysicalMaterial {
     return this.materialFactory.createInsideMaterial(color);
   }
 
@@ -308,5 +323,55 @@ export abstract class BaseScene {
     }
 
     return null;
+  }
+
+  /**
+   * Cleans up an array of fragments by removing them from the scene and disposing resources
+   * @param fragments Array of fragment meshes to clean up
+   * @param disposeMaterials Whether to dispose materials (default: true). Set to false if materials are shared.
+   */
+  protected cleanupFragments(fragments: THREE.Mesh[], disposeMaterials: boolean = true): void {
+    fragments.forEach((fragment) => {
+      this.scene.remove(fragment);
+      fragment.geometry.dispose();
+      if (disposeMaterials) {
+        if (Array.isArray(fragment.material)) {
+          fragment.material.forEach((mat) => mat.dispose());
+        } else {
+          fragment.material.dispose();
+        }
+      }
+    });
+  }
+
+  /**
+   * Creates impact and radius marker meshes (hidden by default)
+   * @returns Object containing the impact marker and radius marker meshes
+   */
+  protected createImpactMarkers(): { impact: THREE.Mesh; radius: THREE.Mesh } {
+    // Create impact marker (small sphere)
+    const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
+    const markerMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.7,
+    });
+    const impactMarker = new THREE.Mesh(markerGeometry, markerMaterial);
+    impactMarker.visible = false;
+    this.scene.add(impactMarker);
+
+    // Create radius marker (wireframe sphere)
+    const radiusGeometry = new THREE.SphereGeometry(1, 16, 16);
+    const radiusMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.3,
+      wireframe: true,
+    });
+    const radiusMarker = new THREE.Mesh(radiusGeometry, radiusMaterial);
+    radiusMarker.visible = false;
+    this.scene.add(radiusMarker);
+
+    return { impact: impactMarker, radius: radiusMarker };
   }
 }

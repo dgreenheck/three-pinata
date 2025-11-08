@@ -48,28 +48,10 @@ export class GlassShatterScene extends BaseScene {
     this.glassMaterial = this.materialFactory.createGlassMaterial();
     this.insideMaterial = this.materialFactory.createGlassInsideMaterial();
 
-    // Create impact marker (hidden initially)
-    const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-    const markerMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.7,
-    });
-    this.impactMarker = new THREE.Mesh(markerGeometry, markerMaterial);
-    this.impactMarker.visible = false;
-    this.scene.add(this.impactMarker);
-
-    // Create radius marker (wireframe sphere)
-    const radiusGeometry = new THREE.SphereGeometry(1, 16, 16);
-    const radiusMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.3,
-      wireframe: true,
-    });
-    this.radiusMarker = new THREE.Mesh(radiusGeometry, radiusMaterial);
-    this.radiusMarker.visible = false;
-    this.scene.add(this.radiusMarker);
+    // Create impact and radius markers
+    const markers = this.createImpactMarkers();
+    this.impactMarker = markers.impact;
+    this.radiusMarker = markers.radius;
 
     // Create glass pane
     this.createGlassPane();
@@ -275,10 +257,7 @@ export class GlassShatterScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "fractureMethod", {
-        options: {
-          "Voronoi (High Quality, Slow)": "Voronoi",
-          "Simple (Low Quality, Fast)": "Simple",
-        },
+        options: BaseScene.FRACTURE_METHOD_OPTIONS,
         label: "Fracture Method",
       })
       .on("change", () => {
@@ -342,15 +321,7 @@ export class GlassShatterScene extends BaseScene {
     }
 
     // Remove all fragments
-    this.fragments.forEach((fragment) => {
-      this.scene.remove(fragment);
-      fragment.geometry.dispose();
-      if (Array.isArray(fragment.material)) {
-        fragment.material.forEach((mat) => mat.dispose());
-      } else {
-        fragment.material.dispose();
-      }
-    });
+    this.cleanupFragments(this.fragments);
     this.fragments = [];
 
     // Hide markers

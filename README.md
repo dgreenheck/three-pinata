@@ -46,7 +46,12 @@ import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 
 // Setup scene
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000,
+);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -68,14 +73,11 @@ const options = new FractureOptions({
     mode: "3D",
   },
 });
-const fragments = mesh.fracture(
-  options,
-  (fragment) => {
-    // Setup each fragment
-    fragment.material = [outerMaterial, innerMaterial];
-    scene.add(fragment);
-  }
-);
+const fragments = mesh.fracture(options, (fragment) => {
+  // Setup each fragment
+  fragment.material = [outerMaterial, innerMaterial];
+  scene.add(fragment);
+});
 
 // Hide original mesh
 mesh.visible = false;
@@ -89,57 +91,70 @@ renderer.render(scene, camera);
 ### Classes
 
 #### `DestructibleMesh`
+
 Extends `THREE.Mesh` with built-in fracturing and slicing capabilities.
 
 **Constructor:**
+
 ```typescript
 new DestructibleMesh(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[])
 ```
 
 **Properties:**
+
 - `refractureCount: number` - Read-only property indicating the number of times this mesh has been refractured (0 for the original mesh, 1 for first generation fragments, etc.)
 
 **Methods:**
 
 ##### `fracture(options, onFragment?, onComplete?)`
+
 Fractures the mesh into fragments.
+
 - **Parameters:**
   - `options: FractureOptions` - Fracture configuration
   - `onFragment?: (fragment: DestructibleMesh, index: number) => void` - Optional callback for each fragment
   - `onComplete?: () => void` - Optional callback when fracturing is complete
-- **Returns:** `DestructibleMesh[]` - Array of fragment meshes (NOT added to scene)
+- **Returns:** `DestructibleMesh[]` - Array of fragment meshes
 
 ##### `slice(sliceNormal, sliceOrigin, options?, onSlice?, onComplete?)`
+
 Slices the mesh along a plane (local space).
+
 - **Parameters:**
   - `sliceNormal: THREE.Vector3` - Slice plane normal (local space)
   - `sliceOrigin: THREE.Vector3` - Point on slice plane (local space)
   - `options?: SliceOptions` - Slice configuration
   - `onSlice?: (piece: DestructibleMesh, index: number) => void` - Optional callback for each piece
   - `onComplete?: () => void` - Optional callback when slicing is complete
-- **Returns:** `DestructibleMesh[]` - Array of sliced pieces (NOT added to scene)
+- **Returns:** `DestructibleMesh[]` - Array of fragment meshes
 
 ##### `sliceWorld(worldNormal, worldOrigin, options?, onSlice?, onComplete?)`
+
 Slices the mesh along a plane (world space).
+
 - **Parameters:**
   - `worldNormal: THREE.Vector3` - Slice plane normal (world space)
   - `worldOrigin: THREE.Vector3` - Point on slice plane (world space)
   - `options?: SliceOptions` - Slice configuration
   - `onSlice?: (piece: DestructibleMesh, index: number) => void` - Optional callback for each piece
   - `onComplete?: () => void` - Optional callback when slicing is complete
-- **Returns:** `DestructibleMesh[]` - Array of sliced pieces (NOT added to scene)
+- **Returns:** `DestructibleMesh[]` - Array of fragment meshes
 
 ##### `dispose()`
+
 Disposes the mesh geometry and material to free up memory.
+
 - **Parameters:** None
 - **Returns:** `void`
 
 ### Options
 
 #### `FractureOptions`
+
 Configuration for fracturing operations. Supports both Voronoi and simple plane-based fracturing.
 
 **Constructor:**
+
 ```typescript
 new FractureOptions({
   fractureMethod?: "voronoi" | "simple";
@@ -158,10 +173,11 @@ new FractureOptions({
 ```
 
 **Properties:**
+
 - `fractureMethod: "voronoi" | "simple"` - Fracture method to use (default: "voronoi")
   - `"voronoi"`: Natural-looking fracture using Voronoi tessellation (requires voronoiOptions)
   - `"simple"`: Simple plane-based fracturing (fast, lower quality)
-- `fragmentCount: number` - Number of fragments to create (default: 50)
+- `fragmentCount: number` - Number of fragments to create (default: 50). Note that actual fragment count may be higher when fracturing non-convex meshes.
 - `voronoiOptions?: VoronoiOptions` - Voronoi-specific options (required when fractureMethod is "voronoi")
 - `fracturePlanes: { x: boolean; y: boolean; z: boolean }` - Simple fracture: which axes to fracture along (default: all true)
 - `textureScale: THREE.Vector2` - UV scale for internal faces (default: 1,1)
@@ -173,9 +189,11 @@ new FractureOptions({
   - `fragmentCount: number` - Number of fragments to generate when refracturing (default: 25)
 
 #### `VoronoiOptions`
+
 Voronoi-specific fracture configuration (used within FractureOptions).
 
 **Interface:**
+
 ```typescript
 {
   mode: "3D" | "2.5D";
@@ -190,6 +208,7 @@ Voronoi-specific fracture configuration (used within FractureOptions).
 ```
 
 **Properties:**
+
 - `mode: "3D" | "2.5D"` - Voronoi fracture mode (required)
   - `"3D"`: Full 3D Voronoi tessellation - most realistic, slower
   - `"2.5D"`: 2D Voronoi projected through mesh - faster, good for flat objects
@@ -203,14 +222,17 @@ Voronoi-specific fracture configuration (used within FractureOptions).
 - `approximationNeighborCount?: number` - Neighbors to consider when using approximation (default: 12)
 
 #### `SliceOptions`
+
 Configuration for slicing operations.
 
 **Constructor:**
+
 ```typescript
-new SliceOptions()
+new SliceOptions();
 ```
 
 **Properties:**
+
 - `insideMaterial?: THREE.Material` - Material for internal faces (default: undefined)
 - `textureScale: THREE.Vector2` - UV scale for internal faces (default: 1,1)
 - `textureOffset: THREE.Vector2` - UV offset for internal faces (default: 0,0)
@@ -234,7 +256,7 @@ const options = new FractureOptions({
 });
 const fragments = mesh.fracture(options);
 
-fragments.forEach(fragment => scene.add(fragment));
+fragments.forEach((fragment) => scene.add(fragment));
 mesh.visible = false;
 ```
 
@@ -247,7 +269,7 @@ const options = new FractureOptions({
   voronoiOptions: {
     mode: "3D",
     impactPoint: new THREE.Vector3(0, 1, 0), // Local space
-    impactRadius: 0.5,  // Smaller = more concentrated
+    impactRadius: 0.5, // Smaller = more concentrated
   },
 });
 
@@ -267,15 +289,15 @@ const options = new FractureOptions({
   },
   refracture: {
     enabled: true,
-    maxRefractures: 2,      // Allow up to 2 additional refractures
-    fragmentCount: 25,      // Use fewer fragments when refracturing
+    maxRefractures: 2, // Allow up to 2 additional refractures
+    fragmentCount: 25, // Use fewer fragments when refracturing
   },
 });
 
 const fragments = mesh.fracture(options);
 
 // Later, you can fracture a fragment again
-fragments.forEach(fragment => {
+fragments.forEach((fragment) => {
   // Check if fragment can still be refractured
   if (fragment.refractureCount < options.refracture.maxRefractures) {
     const subFragments = fragment.fracture(options);
@@ -299,13 +321,13 @@ const fragments = mesh.fracture(options);
 ### Slicing
 
 ```typescript
-const sliceNormal = new THREE.Vector3(0, 1, 0);  // Horizontal cut
-const sliceOrigin = new THREE.Vector3(0, 0, 0);  // At origin
+const sliceNormal = new THREE.Vector3(0, 1, 0); // Horizontal cut
+const sliceOrigin = new THREE.Vector3(0, 0, 0); // At origin
 
 const options = new SliceOptions();
 const pieces = mesh.slice(sliceNormal, sliceOrigin, options);
 
-pieces.forEach(piece => scene.add(piece));
+pieces.forEach((piece) => scene.add(piece));
 mesh.visible = false;
 ```
 
@@ -325,7 +347,7 @@ const fragments = mesh.fracture(
   () => {
     // Called when complete
     console.log("Fracturing complete!");
-  }
+  },
 );
 ```
 
@@ -345,6 +367,7 @@ const fragments = mesh.fracture(options, (fragment) => {
 ```
 
 The fragment geometries include two material groups:
+
 - **Group 0**: Original outer surface faces
 - **Group 1**: Newly created internal fracture faces
 
@@ -355,22 +378,26 @@ The fragment geometries include two material groups:
 The library requires **manifold (watertight)** meshes - 3D models that form a completely closed, solid volume with no holes or self-intersecting geometry.
 
 **Valid meshes:**
+
 - Sphere, cube, cylinder, torus
 - Closed character models
 - Properly modeled objects with no gaps
 
 **Invalid meshes:**
+
 - Planes or single-sided surfaces
 - Meshes with holes or missing faces
 - Open-ended cylinders or boxes
 - Overlapping geometry
 
 **How to check/fix in Blender:**
+
 1. Select mesh in Edit mode
 2. `Mesh > Clean Up > Make Manifold`
 3. Use "3D Print Toolbox" addon to check for issues
 
 **Why this matters:**
+
 - Fracturing algorithms need to determine "inside" vs "outside"
 - Non-manifold meshes create ambiguity leading to missing faces, holes, and visual artifacts
 - Physics colliders will behave unpredictably with non-manifold fragments
@@ -391,8 +418,11 @@ const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
 // Add physics to fragments
 const fragments = mesh.fracture(options, (fragment) => {
   // Create rigid body
-  const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(fragment.position.x, fragment.position.y, fragment.position.z);
+  const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(
+    fragment.position.x,
+    fragment.position.y,
+    fragment.position.z,
+  );
   const rigidBody = world.createRigidBody(rigidBodyDesc);
 
   // Create convex hull collider
@@ -411,6 +441,7 @@ function animate() {
 ```
 
 For a complete implementation, see:
+
 - `demo/src/physics/PhysicsWorld.ts` - Complete physics wrapper
 - `demo/src/physics/PhysicsBody.ts` - Physics body wrapper
 - `demo/src/scenes/SmashingScene.ts` - Real-world example
@@ -437,6 +468,7 @@ npm run build:lib
 ```
 
 Generates:
+
 - `three-pinata.es.js` - ES Module
 - `three-pinata.umd.js` - UMD Module
 - Type declarations

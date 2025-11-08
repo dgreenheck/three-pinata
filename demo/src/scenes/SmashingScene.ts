@@ -1,10 +1,7 @@
 import * as THREE from "three";
 import { FolderApi, ButtonApi } from "tweakpane";
 import { BaseScene, PrimitiveType } from "./BaseScene";
-import {
-  DestructibleMesh,
-  FractureOptions,
-} from "@dgreenheck/three-pinata";
+import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 
 /**
  * Smashing Object Demo
@@ -59,28 +56,10 @@ export class SmashingScene extends BaseScene {
     // Load statue geometry if needed
     await this.loadStatueGeometry();
 
-    // Create impact marker (hidden initially)
-    const markerGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-    const markerMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.7,
-    });
-    this.impactMarker = new THREE.Mesh(markerGeometry, markerMaterial);
-    this.impactMarker.visible = false;
-    this.scene.add(this.impactMarker);
-
-    // Create radius marker (wireframe sphere)
-    const radiusGeometry = new THREE.SphereGeometry(1, 16, 16);
-    const radiusMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0.3,
-      wireframe: true,
-    });
-    this.radiusMarker = new THREE.Mesh(radiusGeometry, radiusMaterial);
-    this.radiusMarker.visible = false;
-    this.scene.add(this.radiusMarker);
+    // Create impact and radius markers
+    const markers = this.createImpactMarkers();
+    this.impactMarker = markers.impact;
+    this.radiusMarker = markers.radius;
 
     // Create initial object
     this.createObject();
@@ -128,15 +107,24 @@ export class SmashingScene extends BaseScene {
       this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
 
     // Configure voronoi-specific options
-    if (this.settings.fractureMethod === "Voronoi" && this.fractureOptions.voronoiOptions) {
-      this.fractureOptions.voronoiOptions.impactPoint =
-        this.settings.useImpactPoint ? localPoint : undefined;
-      this.fractureOptions.voronoiOptions.impactRadius =
-        this.settings.useImpactPoint ? this.settings.impactRadius : undefined;
+    if (
+      this.settings.fractureMethod === "Voronoi" &&
+      this.fractureOptions.voronoiOptions
+    ) {
+      this.fractureOptions.voronoiOptions.impactPoint = this.settings
+        .useImpactPoint
+        ? localPoint
+        : undefined;
+      this.fractureOptions.voronoiOptions.impactRadius = this.settings
+        .useImpactPoint
+        ? this.settings.impactRadius
+        : undefined;
     }
   }
 
-  private createFragmentCallback(materialToUse: THREE.Material | THREE.Material[]) {
+  private createFragmentCallback(
+    materialToUse: THREE.Material | THREE.Material[],
+  ) {
     return (fragment: DestructibleMesh) => {
       // Set material
       if (this.settings.primitiveType === "statue") {
@@ -150,12 +138,33 @@ export class SmashingScene extends BaseScene {
 
       fragment.castShadow = true;
 
-      // Add physics and apply random impulse
+      // Add physics and apply small impulse
       this.physics.add(fragment, {
         type: "dynamic",
         restitution: 0.3,
       });
-      this.applyRandomImpulse(fragment);
+
+      // Apply a small radial impulse scaled by mass
+      const body = this.physics.getBody(fragment);
+      if (body) {
+        const mass = body.mass();
+
+        // Calculate direction from center
+        const center = new THREE.Vector3(0, 1, 0);
+        const direction = fragment.position.clone().sub(center).normalize();
+
+        // Add some upward component and randomness
+        direction.y += 0.5;
+        direction.x += (Math.random() - 0.5) * 0.3;
+        direction.z += (Math.random() - 0.5) * 0.3;
+        direction.normalize();
+
+        // Apply impulse scaled by mass (force = 2.0 per unit mass)
+        const impulseStrength = mass * 2.0;
+        const impulse = direction.multiplyScalar(impulseStrength);
+
+        body.applyImpulse({ x: impulse.x, y: impulse.y, z: impulse.z });
+      }
     };
   }
 
@@ -211,7 +220,7 @@ export class SmashingScene extends BaseScene {
       const intersects = this.raycaster.intersectObjects(this.fragments, false);
       if (intersects.length > 0) {
         const clickedFragment = intersects[0].object as DestructibleMesh;
-        this.refractureFragment(clickedFragment, intersects[0].point);
+        this.fractureObject(clickedFragment, intersects[0].point);
         return;
       }
     }
@@ -220,51 +229,46 @@ export class SmashingScene extends BaseScene {
     this.handleExplosiveClick(this.fragments, 2.0, 10.0);
   }
 
-  private refractureFragment(fragment: DestructibleMesh, worldPoint: THREE.Vector3): void {
-    // Check if this fragment can be refractured
-    if (fragment.refractureCount > this.fractureOptions.refracture.maxRefractures) {
-      // Fragment has reached max refractures
-      return;
-    }
-
-    // Convert world point to local space of the fragment
-    const localPoint = fragment.worldToLocal(worldPoint.clone());
+  private fractureObject(
+    mesh: DestructibleMesh,
+    worldPoint: THREE.Vector3,
+  ): void {
+    // Convert world point to local space
+    const localPoint = mesh.worldToLocal(worldPoint.clone());
 
     // Configure fracture options with impact point
     this.configureFractureOptions(localPoint);
 
-    // Fracture the fragment
-    const newFragments = fragment.fracture(
+    // Fracture the mesh (library handles refracture limits internally)
+    const newFragments = mesh.fracture(
       this.fractureOptions,
-      (newFragment) => {
-        // Inherit material from parent fragment
-        newFragment.material = fragment.material;
-        newFragment.castShadow = true;
-
-        // Add physics
-        this.physics.add(newFragment, {
-          type: "dynamic",
-          restitution: 0.3,
-        });
-
-        // Apply random impulse
-        this.applyRandomImpulse(newFragment);
-      }
+      this.createFragmentCallback(mesh.material),
     );
 
-    // Remove the old fragment
-    const index = this.fragments.indexOf(fragment);
-    if (index !== -1) {
-      this.fragments.splice(index, 1);
+    // If no fragments were created, max refractures was reached (handled by library)
+    if (newFragments.length === 0) {
+      return;
     }
-    this.scene.remove(fragment);
-    this.physics.remove(fragment);
-    fragment.geometry.dispose();
 
-    // Add new fragments
-    newFragments.forEach((newFragment) => {
-      this.scene.add(newFragment);
-      this.fragments.push(newFragment);
+    // Clean up the old mesh
+    if (mesh === this.object) {
+      // Original object - just hide it for potential reset functionality
+      mesh.visible = false;
+    } else {
+      // Fragment - remove from tracking, scene, physics, and dispose
+      const index = this.fragments.indexOf(mesh);
+      if (index !== -1) {
+        this.fragments.splice(index, 1);
+      }
+      this.scene.remove(mesh);
+      this.physics.remove(mesh);
+      mesh.geometry.dispose();
+    }
+
+    // Add new fragments to scene and tracking array
+    newFragments.forEach((fragment) => {
+      this.scene.add(fragment);
+      this.fragments.push(fragment);
     });
   }
 
@@ -296,22 +300,11 @@ export class SmashingScene extends BaseScene {
     setTimeout(() => {
       if (!this.object) return;
 
-      // Configure fracture options with impact point
-      this.configureFractureOptions(localPoint);
+      // Convert local point back to world space for unified method
+      const worldPoint = this.object.localToWorld(localPoint.clone());
 
-      // Fracture with callback
-      this.fragments = this.object.fracture(
-        this.fractureOptions,
-        this.createFragmentCallback(this.object.material)
-      );
-
-      // Add fragments to scene
-      this.fragments.forEach((fragment) => {
-        this.scene.add(fragment);
-      });
-
-      // Hide original object
-      this.object.visible = false;
+      // Use unified fracture method
+      this.fractureObject(this.object, worldPoint);
 
       // Re-enable reset button
       if (this.resetButton) {
@@ -324,19 +317,6 @@ export class SmashingScene extends BaseScene {
   private hideMarkers(): void {
     if (this.impactMarker) this.impactMarker.visible = false;
     if (this.radiusMarker) this.radiusMarker.visible = false;
-  }
-
-  private applyRandomImpulse(fragment: DestructibleMesh): void {
-    const body = this.physics.getBody(fragment);
-    if (body) {
-      // Apply a small random impulse
-      const impulse = {
-        x: (Math.random() - 0.5) * 0.125,
-        y: Math.random() * 0.075,
-        z: (Math.random() - 0.5) * 0.125,
-      };
-      body.applyImpulse(impulse);
-    }
   }
 
   update(): void {
@@ -363,14 +343,7 @@ export class SmashingScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "primitiveType", {
-        options: {
-          Cube: "cube",
-          Sphere: "sphere",
-          Cylinder: "cylinder",
-          Torus: "torus",
-          "Torus Knot": "torusKnot",
-          Statue: "statue",
-        },
+        options: BaseScene.PRIMITIVE_OPTIONS,
         label: "Primitive",
       })
       .on("change", () => {
@@ -379,10 +352,7 @@ export class SmashingScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "fractureMethod", {
-        options: {
-          "Voronoi (High Quality, Slow)": "Voronoi",
-          "Simple (Low Quality, Fast)": "Simple",
-        },
+        options: BaseScene.FRACTURE_METHOD_OPTIONS,
         label: "Fracture Method",
       })
       .on("change", () => {
@@ -428,8 +398,8 @@ export class SmashingScene extends BaseScene {
 
     // Add refracture settings
     const refractureFolder = folder.addFolder({
-      title: "Refracture Settings",
-      expanded: false,
+      title: "Refracturing",
+      expanded: true,
     });
 
     refractureFolder
@@ -481,15 +451,7 @@ export class SmashingScene extends BaseScene {
     }
 
     // Remove all fragments
-    this.fragments.forEach((fragment) => {
-      this.scene.remove(fragment);
-      fragment.geometry.dispose();
-      if (Array.isArray(fragment.material)) {
-        fragment.material.forEach((mat) => mat.dispose());
-      } else {
-        fragment.material.dispose();
-      }
-    });
+    this.cleanupFragments(this.fragments);
     this.fragments = [];
 
     // Hide markers

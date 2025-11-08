@@ -288,11 +288,9 @@ export class ProgressiveDestructionScene extends BaseScene {
   getInstructions(): string {
     return `PROGRESSIVE DESTRUCTION
 
-• Object is pre-fractured with sleeping fragments
 • Click to shoot balls
-• Fragments wake up only when hit
-• Watch physics propagate through structure
-• Adjust fragment count and reset`;
+• Use controls to adjust fragment count
+• Click reset to restart`;
   }
 
   setupUI(): FolderApi {
@@ -303,14 +301,7 @@ export class ProgressiveDestructionScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "primitiveType", {
-        options: {
-          Cube: "cube",
-          Sphere: "sphere",
-          Cylinder: "cylinder",
-          Torus: "torus",
-          "Torus Knot": "torusKnot",
-          Statue: "statue",
-        },
+        options: BaseScene.PRIMITIVE_OPTIONS,
         label: "Primitive",
       })
       .on("change", () => {
@@ -319,10 +310,7 @@ export class ProgressiveDestructionScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "fractureMethod", {
-        options: {
-          "Voronoi (High Quality, Slow)": "Voronoi",
-          "Simple (Low Quality, Fast)": "Radial",
-        },
+        options: BaseScene.FRACTURE_METHOD_OPTIONS,
         label: "Fracture Method",
       })
       .on("change", () => {
@@ -360,15 +348,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
 
     // Remove all fragments
-    this.fragments.forEach((fragment) => {
-      this.scene.remove(fragment);
-      fragment.geometry.dispose();
-      if (Array.isArray(fragment.material)) {
-        fragment.material.forEach((mat) => mat.dispose());
-      } else {
-        fragment.material.dispose();
-      }
-    });
+    this.cleanupFragments(this.fragments);
     this.fragments = [];
 
     // Remove current ball

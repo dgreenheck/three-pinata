@@ -18,7 +18,8 @@
     "check:typecheck": "npm run typecheck",
     "check:lint": "npm run lint",
     "check:test": "npm test",
-    "validate": "npm run check:typecheck && npm run check:lint && npm run check:test"
+    "validate": "npm run check:typecheck && npm run check:lint && npm run check:test",
+    "publish": "npm run build:lib && cp README.md lib/README.md && cd lib && npm publish --access public"
   },
   "devDependencies": {
     "globals": "^16.5.0"

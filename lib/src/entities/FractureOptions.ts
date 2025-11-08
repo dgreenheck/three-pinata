@@ -127,7 +127,7 @@ export class FractureOptions {
   } = {
     enabled: false,
     maxRefractures: 2,
-    fragmentCount: 25,
+    fragmentCount: 4,
   };
 
   constructor({

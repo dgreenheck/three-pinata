@@ -128,9 +128,9 @@ export class BrickWallScene extends BaseScene {
         // Add physics with custom cuboid collider (half-extents)
         // Use slightly smaller collider to prevent interpenetration
         const colliderDesc = this.physics.RAPIER.ColliderDesc.cuboid(
-          (brickWidth / 2) * 0.98,
-          (brickHeight / 2) * 0.98,
-          (brickDepth / 2) * 0.98,
+          brickWidth / 2,
+          brickHeight / 2,
+          brickDepth / 2,
         );
 
         this.physics.add(brick, {
@@ -212,11 +212,6 @@ export class BrickWallScene extends BaseScene {
 
     // Fracture the brick - use brick material for both outer and inner faces
     const fragments = brick.fracture(options, (fragment) => {
-      // Use brick's own material for both outer and inner faces
-      fragment.material = this.brickMaterial;
-      fragment.castShadow = true;
-      fragment.receiveShadow = true;
-
       // Add physics to fragment
       this.physics.add(fragment, {
         type: "dynamic",
@@ -245,9 +240,7 @@ export class BrickWallScene extends BaseScene {
   getInstructions(): string {
     return `BRICK WALL
 
-• Click to fire balls at the brick pyramid
-• Each brick fractures with Voronoi impact pattern
-• Watch the pyramid collapse!`;
+• Click to fire balls at the wall`;
   }
 
   setupUI(): FolderApi {
@@ -258,10 +251,7 @@ export class BrickWallScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "fractureMethod", {
-        options: {
-          "Voronoi (High Quality, Slow)": "Voronoi",
-          "Simple (Low Quality, Fast)": "Simple",
-        },
+        options: BaseScene.FRACTURE_METHOD_OPTIONS,
         label: "Fracture Method",
       })
       .on("change", () => {
@@ -300,12 +290,8 @@ export class BrickWallScene extends BaseScene {
       brick.dispose();
     });
 
-    // Remove all fragments
-    this.fragments.forEach((fragment) => {
-      this.scene.remove(fragment);
-      fragment.geometry.dispose();
-      // Note: material is shared with bricks, so don't dispose here
-    });
+    // Remove all fragments (don't dispose materials as they're shared with bricks)
+    this.cleanupFragments(this.fragments, false);
 
     // Remove all balls
     this.balls.forEach((ball) => {

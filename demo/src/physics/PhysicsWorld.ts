@@ -55,9 +55,7 @@ export class PhysicsWorld {
     // Configure integration parameters for more accurate and stable physics
     const integrationParams = this.world.integrationParameters;
     integrationParams.numSolverIterations = 8; // Increased from default 4
-    integrationParams.numAdditionalFrictionIterations = 4; // Increased from default 0
-    integrationParams.numInternalPgsIterations = 2; // More internal iterations
-    integrationParams.maxCcdSubsteps = 4; // More substeps for continuous collision detection
+    integrationParams.lengthUnit = 0.1;
 
     this.eventQueue = new RAPIER.EventQueue(true);
     this.bodies = new WeakMap();
@@ -70,7 +68,10 @@ export class PhysicsWorld {
    * @param options Physics configuration
    * @returns The created PhysicsBody or null if creation fails
    */
-  add(object: THREE.Object3D, options: PhysicsBodyOptions = {}): PhysicsBody | null {
+  add(
+    object: THREE.Object3D,
+    options: PhysicsBodyOptions = {},
+  ): PhysicsBody | null {
     const {
       type = "dynamic",
       mass,
