@@ -60,9 +60,9 @@ document.body.appendChild(renderer.domElement);
 const outerMaterial = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
 const innerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
 
-// Create destructible mesh
+// Create destructible mesh with both materials
 const geometry = new THREE.SphereGeometry(1, 32, 32);
-const mesh = new DestructibleMesh(geometry, outerMaterial);
+const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
 scene.add(mesh);
 
 // Fracture the mesh
@@ -74,8 +74,7 @@ const options = new FractureOptions({
   },
 });
 const fragments = mesh.fracture(options, (fragment) => {
-  // Setup each fragment
-  fragment.material = [outerMaterial, innerMaterial];
+  // Setup each fragment (material already set automatically)
   scene.add(fragment);
 });
 
@@ -97,8 +96,17 @@ Extends `THREE.Mesh` with built-in fracturing and slicing capabilities.
 **Constructor:**
 
 ```typescript
-new DestructibleMesh(geometry: THREE.BufferGeometry, material: THREE.Material | THREE.Material[])
+new DestructibleMesh(
+  geometry?: THREE.BufferGeometry,
+  outerMaterial?: THREE.Material,
+  innerMaterial?: THREE.Material
+)
 ```
+
+**Parameters:**
+- `geometry` - The geometry for the mesh
+- `outerMaterial` - Material for the original outer surfaces
+- `innerMaterial` - Material for newly created internal fracture/slice faces (optional, defaults to outerMaterial)
 
 **Properties:**
 
@@ -212,8 +220,8 @@ Voronoi-specific fracture configuration (used within FractureOptions).
 - `mode: "3D" | "2.5D"` - Voronoi fracture mode (required)
   - `"3D"`: Full 3D Voronoi tessellation - most realistic, slower
   - `"2.5D"`: 2D Voronoi projected through mesh - faster, good for flat objects
-- `seedPoints?: THREE.Vector3[]` - Custom seed points for Voronoi cells (auto-generated if not provided)
-- `impactPoint?: THREE.Vector3` - Impact location to concentrate fragments around
+- `seedPoints?: THREE.Vector3[]` - Custom seed points for Voronoi cells in local space (auto-generated if not provided)
+- `impactPoint?: THREE.Vector3` - Impact location in local space to concentrate fragments around
 - `impactRadius?: number` - Radius around impact point for fragment density
 - `projectionAxis?: "x" | "y" | "z" | "auto"` - For 2.5D mode: projection axis (default: "auto")
 - `projectionNormal?: THREE.Vector3` - For 2.5D mode: optional projection plane normal
@@ -233,7 +241,6 @@ new SliceOptions();
 
 **Properties:**
 
-- `insideMaterial?: THREE.Material` - Material for internal faces (default: undefined)
 - `textureScale: THREE.Vector2` - UV scale for internal faces (default: 1,1)
 - `textureOffset: THREE.Vector2` - UV offset for internal faces (default: 0,0)
 
@@ -244,7 +251,10 @@ new SliceOptions();
 ```typescript
 import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 
-const mesh = new DestructibleMesh(geometry, material);
+const outerMaterial = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
+const innerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+
+const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
 scene.add(mesh);
 
 const options = new FractureOptions({
@@ -321,12 +331,16 @@ const fragments = mesh.fracture(options);
 ### Slicing
 
 ```typescript
+// Create mesh with outer and inner materials
+const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
+
 const sliceNormal = new THREE.Vector3(0, 1, 0); // Horizontal cut
 const sliceOrigin = new THREE.Vector3(0, 0, 0); // At origin
 
 const options = new SliceOptions();
 const pieces = mesh.slice(sliceNormal, sliceOrigin, options);
 
+// Materials are already set automatically
 pieces.forEach((piece) => scene.add(piece));
 mesh.visible = false;
 ```
@@ -334,11 +348,12 @@ mesh.visible = false;
 ### Using Callbacks
 
 ```typescript
+const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
+
 const fragments = mesh.fracture(
   options,
   (fragment, index) => {
-    // Called for each fragment
-    fragment.material = [outerMaterial, innerMaterial];
+    // Called for each fragment (materials already set)
     fragment.castShadow = true;
 
     // Add physics, apply forces, etc.
@@ -353,14 +368,30 @@ const fragments = mesh.fracture(
 
 ### Dual Materials
 
-Fragments support two materials - one for the original surface, one for internal fracture faces:
+Fragments support two materials - one for the original surface, one for internal fracture faces.
+
+**Recommended approach**: Pass both materials to the constructor:
 
 ```typescript
 const outerMaterial = new THREE.MeshStandardMaterial({ color: 0xff6644 });
 const innerMaterial = new THREE.MeshStandardMaterial({ color: 0xdddddd });
 
+// Materials are automatically inherited by fragments
+const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
+
 const fragments = mesh.fracture(options, (fragment) => {
-  // Assign material array: [outer, inner]
+  // Material array [outer, inner] is already set automatically
+  scene.add(fragment);
+});
+```
+
+**Alternative**: Manually set materials on each fragment:
+
+```typescript
+const mesh = new DestructibleMesh(geometry, outerMaterial);
+
+const fragments = mesh.fracture(options, (fragment) => {
+  // Manually assign material array: [outer, inner]
   fragment.material = [outerMaterial, innerMaterial];
   scene.add(fragment);
 });
@@ -368,8 +399,8 @@ const fragments = mesh.fracture(options, (fragment) => {
 
 The fragment geometries include two material groups:
 
-- **Group 0**: Original outer surface faces
-- **Group 1**: Newly created internal fracture faces
+- **Group 0** (materialIndex 0): Original outer surface faces
+- **Group 1** (materialIndex 1): Newly created internal fracture faces
 
 ## Important Requirements
 
@@ -457,7 +488,6 @@ For a complete implementation, see:
 ## Limitations
 
 - **Manifold Requirement**: Meshes must be watertight (no holes or self-intersecting geometry)
-- **Single Material Group**: Only supports BufferGeometry with one material group initially
 - **Memory**: Each fragment is a new geometry. Plan accordingly for many destructible objects
 - **Physics Required**: Library only handles geometry - you must add physics integration
 

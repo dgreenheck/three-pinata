@@ -17,12 +17,12 @@ export class VoronoiFractureOptions {
   public mode: "3D" | "2.5D" = "3D";
 
   /**
-   * Custom seed points for Voronoi cells. If not provided, seeds will be generated automatically.
+   * Custom seed points for Voronoi cells in local space. If not provided, seeds will be generated automatically.
    */
   public seedPoints?: Vector3[];
 
   /**
-   * Impact point for fracture. When provided, generates more fragments near this location.
+   * Impact point for fracture in local space. When provided, generates more fragments near this location.
    */
   public impactPoint?: Vector3;
 

@@ -39,6 +39,39 @@ export class DestructibleMesh extends THREE.Mesh {
   }
 
   /**
+   * Helper method to create a fragment with inherited properties and materials
+   * @private
+   */
+  private createFragment(
+    geometry: THREE.BufferGeometry,
+    refractureCount: number = 0,
+  ): DestructibleMesh {
+    const fragment = new DestructibleMesh(
+      geometry,
+      this._outsideMaterial,
+      this._insideMaterial,
+      refractureCount,
+    );
+
+    // Set material array for geometries with material groups
+    // Group 0 (materialIndex 0) = outer material, Group 1 (materialIndex 1) = inner material
+    if (this._outsideMaterial && this._insideMaterial) {
+      fragment.material = [this._outsideMaterial, this._insideMaterial];
+    } else if (this._outsideMaterial) {
+      fragment.material = this._outsideMaterial;
+    }
+
+    // Copy rendering properties from parent mesh
+    fragment.castShadow = this.castShadow;
+    fragment.receiveShadow = this.receiveShadow;
+    fragment.matrixAutoUpdate = this.matrixAutoUpdate;
+    fragment.frustumCulled = this.frustumCulled;
+    fragment.renderOrder = this.renderOrder;
+
+    return fragment;
+  }
+
+  /**
    * Fractures the mesh into fragments
    * @param options Fracture options controlling the fracture behavior
    * @param onFragment Optional callback called for each fragment for custom setup
@@ -130,34 +163,14 @@ export class DestructibleMesh extends THREE.Mesh {
       // Recompute bounding sphere after translation
       fragmentGeometry.computeBoundingSphere();
 
-      // Create DestructibleMesh with inherited refracture count and inside material
-      const fragment = new DestructibleMesh(
-        fragmentGeometry,
-        this._outsideMaterial,
-        this._insideMaterial,
-        this._refractureCount + 1,
-      );
-
-      // Fractured geometries have material groups - set material array
-      // Group 0 (materialIndex 0) = outer material, Group 1 (materialIndex 1) = inner material
-      if (this._outsideMaterial && this._insideMaterial) {
-        fragment.material = [this._outsideMaterial, this._insideMaterial];
-      } else if (this._outsideMaterial) {
-        fragment.material = this._outsideMaterial;
-      }
+      // Create fragment with inherited properties and materials
+      const fragment = this.createFragment(fragmentGeometry, this._refractureCount + 1);
 
       // Apply the parent's transform to the fragment position
       const worldCenter = center.clone().applyMatrix4(this.matrixWorld);
       fragment.position.copy(worldCenter);
       fragment.quaternion.copy(this.quaternion);
       fragment.scale.copy(this.scale);
-
-      // Copy properties from the original mesh
-      fragment.castShadow = this.castShadow;
-      fragment.receiveShadow = this.receiveShadow;
-      fragment.matrixAutoUpdate = this.matrixAutoUpdate;
-      fragment.frustumCulled = this.frustumCulled;
-      fragment.renderOrder = this.renderOrder;
 
       // Call the onFragment callback if provided
       if (onFragment) {
@@ -209,24 +222,8 @@ export class DestructibleMesh extends THREE.Mesh {
 
     // Create DestructibleMesh instances for all fragments
     const pieces = fragments.map((geometry, index) => {
-      const piece = new DestructibleMesh(
-        geometry,
-        this._outsideMaterial,
-        this._insideMaterial,
-      );
-
-      // Sliced geometries have material groups - set material array
-      // Group 0 (materialIndex 0) = outer material, Group 1 (materialIndex 1) = inner material
-      if (this._outsideMaterial && this._insideMaterial) {
-        piece.material = [this._outsideMaterial, this._insideMaterial];
-      }
-
-      // Copy properties from original mesh
-      piece.castShadow = this.castShadow;
-      piece.receiveShadow = this.receiveShadow;
-      piece.matrixAutoUpdate = this.matrixAutoUpdate;
-      piece.frustumCulled = this.frustumCulled;
-      piece.renderOrder = this.renderOrder;
+      // Create piece with inherited properties and materials
+      const piece = this.createFragment(geometry);
 
       // Apply world transform
       piece.position.copy(this.position);

@@ -1,11 +1,6 @@
-import { Material, Vector2 } from "three";
+import { Vector2 } from "three";
 
 export class SliceOptions {
-  /**
-   * The material to use for the inside faces.
-   */
-  public insideMaterial: Material | undefined;
-
   /**
    * Scale factor to apply to texture coordinates.
    */
@@ -17,7 +12,6 @@ export class SliceOptions {
   public textureOffset: Vector2;
 
   constructor() {
-    this.insideMaterial = undefined;
     this.textureScale = new Vector2(1, 1);
     this.textureOffset = new Vector2();
   }

@@ -17,7 +17,7 @@ export interface VoronoiOptions {
   seedPoints?: Vector3[];
 
   /**
-   * Impact point for fracture. When provided, generates more fragments near this location.
+   * Impact point for fracture in local space. When provided, generates more fragments near this location.
    */
   impactPoint?: Vector3;
 

@@ -12,6 +12,8 @@
     "build": "npm run build:lib && npm run build:demo",
     "dev": "npm run dev -w three-pinata-demo",
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "npm run typecheck -w @dgreenheck/three-pinata && npm run typecheck -w three-pinata-demo",
