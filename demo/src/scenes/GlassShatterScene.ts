@@ -17,16 +17,12 @@ export class GlassShatterScene extends BaseScene {
   private fragments: THREE.Mesh[] = [];
   private glassMaterial!: THREE.MeshPhysicalMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private voronoiFractureOptions = new FractureOptions({
+  private fractureOptions = new FractureOptions({
     fractureMethod: "voronoi",
     fragmentCount: 50,
     voronoiOptions: {
       mode: "2.5D",
     },
-  });
-  private simpleFractureOptions = new FractureOptions({
-    fractureMethod: "simple",
-    fragmentCount: 50,
   });
   private settings = {
     fractureMethod: "Voronoi" as "Voronoi" | "Simple",
@@ -67,7 +63,11 @@ export class GlassShatterScene extends BaseScene {
 
     // Create a thin vertical pane
     const glassGeometry = new THREE.BoxGeometry(4, 6, 0.2, 1, 1, 1);
-    this.glassPane = new DestructibleMesh(glassGeometry, this.glassMaterial);
+    this.glassPane = new DestructibleMesh(
+      glassGeometry,
+      this.glassMaterial,
+      this.insideMaterial,
+    );
     this.glassPane.castShadow = true;
     this.glassPane.receiveShadow = false;
     this.glassPane.position.set(0, 3, 0);
@@ -126,11 +126,7 @@ export class GlassShatterScene extends BaseScene {
           intersectionPoint.clone(),
         );
 
-        if (this.settings.fractureMethod === "Voronoi") {
-          this.fractureWithVoronoi(localPoint);
-        } else {
-          this.fractureWithSimple();
-        }
+        this.fractureGlassPane(localPoint);
 
         this.impactMarker.visible = false;
         this.radiusMarker.visible = false;
@@ -140,7 +136,7 @@ export class GlassShatterScene extends BaseScene {
     }
   };
 
-  private fractureWithVoronoi(localPoint: THREE.Vector3): void {
+  private fractureGlassPane(localPoint: THREE.Vector3): void {
     if (!this.glassPane) return;
 
     // Disable reset button and show fracturing message
@@ -153,29 +149,34 @@ export class GlassShatterScene extends BaseScene {
     setTimeout(() => {
       if (!this.glassPane) return;
 
-      // Configure Voronoi fracture options
-      if (this.voronoiFractureOptions.voronoiOptions) {
-        this.voronoiFractureOptions.voronoiOptions.impactPoint = this.settings.useImpactPoint
+      // Configure fracture options based on settings
+      this.fractureOptions.fractureMethod =
+        this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
+
+      // Configure Voronoi-specific options
+      if (
+        this.settings.fractureMethod === "Voronoi" &&
+        this.fractureOptions.voronoiOptions
+      ) {
+        this.fractureOptions.voronoiOptions.impactPoint = this.settings
+          .useImpactPoint
           ? localPoint
           : undefined;
-        this.voronoiFractureOptions.voronoiOptions.impactRadius = this.settings.useImpactPoint
+        this.fractureOptions.voronoiOptions.impactRadius = this.settings
+          .useImpactPoint
           ? this.settings.impactRadius
           : undefined;
-        this.voronoiFractureOptions.voronoiOptions.projectionAxis = "z"; // Project along the thin axis
+        this.fractureOptions.voronoiOptions.projectionAxis = "z"; // Project along the thin axis
       }
 
-      this.fragments = this.glassPane.fracture(
-        this.voronoiFractureOptions,
-        (fragment) => {
-          fragment.material = [this.glassMaterial, this.insideMaterial];
-          fragment.castShadow = true;
+      this.fragments = this.glassPane.fracture(this.fractureOptions, (fragment) => {
+        fragment.castShadow = true;
 
-          this.physics.add(fragment, {
-            type: "dynamic",
-            restitution: 0.2,
-          });
-        },
-      );
+        this.physics.add(fragment, {
+          type: "dynamic",
+          restitution: 0.2,
+        });
+      });
 
       // Add fragments to scene
       this.fragments.forEach((fragment) => {
@@ -183,48 +184,6 @@ export class GlassShatterScene extends BaseScene {
       });
 
       // Hide original glass pane
-      this.glassPane.visible = false;
-
-      // Re-enable reset button
-      if (this.resetButton) {
-        this.resetButton.disabled = false;
-        this.resetButton.title = "Reset";
-      }
-    }, 10);
-  }
-
-  private fractureWithSimple(): void {
-    if (!this.glassPane) return;
-
-    // Disable reset button and show fracturing message
-    if (this.resetButton) {
-      this.resetButton.disabled = true;
-      this.resetButton.title = "Shattering...";
-    }
-
-    // Use setTimeout to allow UI to update
-    setTimeout(() => {
-      if (!this.glassPane) return;
-
-      this.fragments = this.glassPane.fracture(
-        this.simpleFractureOptions,
-        (fragment) => {
-          fragment.material = [this.glassMaterial, this.insideMaterial];
-          fragment.castShadow = true;
-
-          this.physics.add(fragment, {
-            type: "dynamic",
-            restitution: 0.2,
-          });
-        },
-      );
-
-      // Add fragments to scene
-      this.fragments.forEach((fragment) => {
-        this.scene.add(fragment);
-      });
-
-      // Hide the original glass pane
       this.glassPane.visible = false;
 
       // Re-enable reset button
@@ -261,28 +220,18 @@ export class GlassShatterScene extends BaseScene {
         label: "Fracture Method",
       })
       .on("change", () => {
-        // Update fragment count for both options when method changes
-        this.simpleFractureOptions.fragmentCount =
-          this.voronoiFractureOptions.fragmentCount;
-
         // Enable/disable impact controls based on fracture method
         const isSimple = this.settings.fractureMethod === "Simple";
         useImpactPointBinding.disabled = isSimple;
         impactRadiusBinding.disabled = isSimple;
       });
 
-    folder
-      .addBinding(this.voronoiFractureOptions, "fragmentCount", {
-        min: 2,
-        max: 64,
-        step: 1,
-        label: "Fragment Count",
-      })
-      .on("change", () => {
-        // Keep both fracture options in sync
-        this.simpleFractureOptions.fragmentCount =
-          this.voronoiFractureOptions.fragmentCount;
-      });
+    folder.addBinding(this.fractureOptions, "fragmentCount", {
+      min: 2,
+      max: 64,
+      step: 1,
+      label: "Fragment Count",
+    });
 
     const useImpactPointBinding = folder.addBinding(
       this.settings,

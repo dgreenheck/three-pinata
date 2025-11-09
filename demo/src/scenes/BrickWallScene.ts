@@ -18,17 +18,12 @@ export class BrickWallScene extends BaseScene {
   private balls: THREE.Mesh[] = [];
   private brickGeometry!: THREE.BufferGeometry;
 
-  private voronoiFractureOptions = new FractureOptions({
+  private fractureOptions = new FractureOptions({
     fractureMethod: "voronoi",
     fragmentCount: 16,
     voronoiOptions: {
       mode: "3D",
     },
-  });
-
-  private simpleFractureOptions = new FractureOptions({
-    fractureMethod: "simple",
-    fragmentCount: 16,
   });
 
   private settings = {
@@ -37,7 +32,7 @@ export class BrickWallScene extends BaseScene {
 
   async init(): Promise<void> {
     // Setup camera
-    this.camera.position.set(0, 2, 10);
+    this.camera.position.set(1, 5, 8);
     this.controls.target.set(0, 2, 0);
     this.controls.update();
 
@@ -101,9 +96,15 @@ export class BrickWallScene extends BaseScene {
       const xStart = -rowWidth / 2 + brickWidth / 2;
 
       for (let i = 0; i < bricksInRow; i++) {
+        // Get first material if array for both outer and inside (bricks look the same inside)
+        const material: THREE.Material = Array.isArray(this.brickMaterial)
+          ? this.brickMaterial[0]
+          : this.brickMaterial;
+
         const brick = new DestructibleMesh(
           this.brickGeometry.clone(),
-          this.brickMaterial,
+          material,
+          material, // Inside looks the same as outside for bricks
         );
 
         // Random size variation (±1% on each axis)
@@ -198,20 +199,21 @@ export class BrickWallScene extends BaseScene {
     // Convert world point to local coordinates
     const localPoint = brick.worldToLocal(worldPoint.clone());
 
-    // Get the appropriate fracture options
-    const options =
-      this.settings.fractureMethod === "Voronoi"
-        ? this.voronoiFractureOptions
-        : this.simpleFractureOptions;
+    // Configure fracture options based on settings
+    this.fractureOptions.fractureMethod =
+      this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
 
     // Set impact point for fracture (Voronoi only)
-    if (this.settings.fractureMethod === "Voronoi" && options.voronoiOptions) {
-      options.voronoiOptions.impactPoint = localPoint;
-      options.voronoiOptions.impactRadius = 1.5;
+    if (
+      this.settings.fractureMethod === "Voronoi" &&
+      this.fractureOptions.voronoiOptions
+    ) {
+      this.fractureOptions.voronoiOptions.impactPoint = localPoint;
+      this.fractureOptions.voronoiOptions.impactRadius = 1.5;
     }
 
-    // Fracture the brick - use brick material for both outer and inner faces
-    const fragments = brick.fracture(options, (fragment) => {
+    // Fracture the brick
+    const fragments = brick.fracture(this.fractureOptions, (fragment) => {
       // Add physics to fragment
       this.physics.add(fragment, {
         type: "dynamic",
@@ -220,11 +222,8 @@ export class BrickWallScene extends BaseScene {
       });
     });
 
-    // Add fragments to scene and track them
-    fragments.forEach((fragment) => {
-      this.scene.add(fragment);
-      this.fragments.push(fragment);
-    });
+    this.scene.add(...fragments);
+    this.fragments.push(...fragments);
 
     // Hide original brick
     brick.visible = false;
@@ -249,29 +248,17 @@ export class BrickWallScene extends BaseScene {
       expanded: true,
     });
 
-    folder
-      .addBinding(this.settings, "fractureMethod", {
-        options: BaseScene.FRACTURE_METHOD_OPTIONS,
-        label: "Fracture Method",
-      })
-      .on("change", () => {
-        // Keep fragment counts in sync
-        this.simpleFractureOptions.fragmentCount =
-          this.voronoiFractureOptions.fragmentCount;
-      });
+    folder.addBinding(this.settings, "fractureMethod", {
+      options: BaseScene.FRACTURE_METHOD_OPTIONS,
+      label: "Fracture Method",
+    });
 
-    folder
-      .addBinding(this.voronoiFractureOptions, "fragmentCount", {
-        min: 2,
-        max: 64,
-        step: 1,
-        label: "Fragment Count",
-      })
-      .on("change", () => {
-        // Keep both fracture options in sync
-        this.simpleFractureOptions.fragmentCount =
-          this.voronoiFractureOptions.fragmentCount;
-      });
+    folder.addBinding(this.fractureOptions, "fragmentCount", {
+      min: 2,
+      max: 64,
+      step: 1,
+      label: "Fragment Count",
+    });
 
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();

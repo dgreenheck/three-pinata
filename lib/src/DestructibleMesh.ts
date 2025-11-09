@@ -12,14 +12,22 @@ import { slice } from "./fracture/Slice";
  */
 export class DestructibleMesh extends THREE.Mesh {
   private _refractureCount: number = 0;
+  private _outsideMaterial?: THREE.Material;
+  private _insideMaterial?: THREE.Material;
 
   constructor(
     geometry?: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
-    material?: THREE.Material | THREE.Material[],
+    outerMaterial?: THREE.Material,
+    innerMaterial?: THREE.Material,
     refractureCount: number = 0,
   ) {
-    super(geometry, material);
+    // Always start with single outer material
+    // Material arrays will be set explicitly in fracture/slice methods
+    super(geometry, outerMaterial);
+
     this._refractureCount = refractureCount;
+    this._outsideMaterial = outerMaterial;
+    this._insideMaterial = innerMaterial;
   }
 
   /**
@@ -47,7 +55,10 @@ export class DestructibleMesh extends THREE.Mesh {
     }
 
     // Check if refracturing is enabled and if this mesh has exceeded the max refracture count
-    if (options.refracture.enabled && this._refractureCount > options.refracture.maxRefractures) {
+    if (
+      options.refracture.enabled &&
+      this._refractureCount > options.refracture.maxRefractures
+    ) {
       console.warn(
         `Cannot refracture: max refractures (${options.refracture.maxRefractures}) reached. Current count: ${this._refractureCount}`,
       );
@@ -66,7 +77,9 @@ export class DestructibleMesh extends THREE.Mesh {
     try {
       if (options.fractureMethod === "voronoi") {
         if (!options.voronoiOptions) {
-          throw new Error("voronoiOptions is required when fractureMethod is 'voronoi'");
+          throw new Error(
+            "voronoiOptions is required when fractureMethod is 'voronoi'",
+          );
         }
 
         // Convert FractureOptions to VoronoiFractureOptions format for the voronoiFracture function
@@ -79,7 +92,8 @@ export class DestructibleMesh extends THREE.Mesh {
           projectionAxis: options.voronoiOptions.projectionAxis || "auto",
           projectionNormal: options.voronoiOptions.projectionNormal,
           useApproximation: options.voronoiOptions.useApproximation || false,
-          approximationNeighborCount: options.voronoiOptions.approximationNeighborCount || 12,
+          approximationNeighborCount:
+            options.voronoiOptions.approximationNeighborCount || 12,
           textureScale: options.textureScale,
           textureOffset: options.textureOffset,
           seed: options.seed,
@@ -116,12 +130,21 @@ export class DestructibleMesh extends THREE.Mesh {
       // Recompute bounding sphere after translation
       fragmentGeometry.computeBoundingSphere();
 
-      // Create DestructibleMesh with inherited refracture count
+      // Create DestructibleMesh with inherited refracture count and inside material
       const fragment = new DestructibleMesh(
         fragmentGeometry,
-        this.material,
+        this._outsideMaterial,
+        this._insideMaterial,
         this._refractureCount + 1,
       );
+
+      // Fractured geometries have material groups - set material array
+      // Group 0 (materialIndex 0) = outer material, Group 1 (materialIndex 1) = inner material
+      if (this._outsideMaterial && this._insideMaterial) {
+        fragment.material = [this._outsideMaterial, this._insideMaterial];
+      } else if (this._outsideMaterial) {
+        fragment.material = this._outsideMaterial;
+      }
 
       // Apply the parent's transform to the fragment position
       const worldCenter = center.clone().applyMatrix4(this.matrixWorld);
@@ -186,7 +209,17 @@ export class DestructibleMesh extends THREE.Mesh {
 
     // Create DestructibleMesh instances for all fragments
     const pieces = fragments.map((geometry, index) => {
-      const piece = new DestructibleMesh(geometry, this.material);
+      const piece = new DestructibleMesh(
+        geometry,
+        this._outsideMaterial,
+        this._insideMaterial,
+      );
+
+      // Sliced geometries have material groups - set material array
+      // Group 0 (materialIndex 0) = outer material, Group 1 (materialIndex 1) = inner material
+      if (this._outsideMaterial && this._insideMaterial) {
+        piece.material = [this._outsideMaterial, this._insideMaterial];
+      }
 
       // Copy properties from original mesh
       piece.castShadow = this.castShadow;

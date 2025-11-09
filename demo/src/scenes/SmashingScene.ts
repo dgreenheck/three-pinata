@@ -87,8 +87,21 @@ export class SmashingScene extends BaseScene {
 
     // Use the mesh's material (which may be the statue's original material)
     const materialToUse = mesh.material;
+    const outerMaterial: THREE.Material = Array.isArray(materialToUse)
+      ? materialToUse[0]
+      : materialToUse;
 
-    this.object = new DestructibleMesh(mesh.geometry, materialToUse);
+    // Use statue's inside material if statue, otherwise use generic inside material
+    const insideMaterial =
+      this.settings.primitiveType === "statue"
+        ? this.getStatueInsideMaterial()!
+        : this.insideMaterial;
+
+    this.object = new DestructibleMesh(
+      mesh.geometry,
+      outerMaterial,
+      insideMaterial,
+    );
     this.object.castShadow = true;
 
     // Position on floor - calculate height based on bounding box
@@ -122,30 +135,17 @@ export class SmashingScene extends BaseScene {
     }
   }
 
-  private createFragmentCallback(
-    materialToUse: THREE.Material | THREE.Material[],
-  ) {
+  private createFragmentCallback() {
     return (fragment: DestructibleMesh) => {
-      // Set material
-      if (this.settings.primitiveType === "statue") {
-        const outerMaterial = Array.isArray(materialToUse)
-          ? materialToUse[0]
-          : materialToUse;
-        fragment.material = [outerMaterial, this.getStatueInsideMaterial()!];
-      } else {
-        fragment.material = [this.objectMaterial, this.insideMaterial];
-      }
-
       fragment.castShadow = true;
 
-      // Add physics and apply small impulse
-      this.physics.add(fragment, {
+      // Add physics
+      const body = this.physics.add(fragment, {
         type: "dynamic",
         restitution: 0.3,
       });
 
       // Apply a small radial impulse scaled by mass
-      const body = this.physics.getBody(fragment);
       if (body) {
         const mass = body.mass();
 
@@ -242,13 +242,19 @@ export class SmashingScene extends BaseScene {
     // Fracture the mesh (library handles refracture limits internally)
     const newFragments = mesh.fracture(
       this.fractureOptions,
-      this.createFragmentCallback(mesh.material),
+      this.createFragmentCallback(),
     );
 
     // If no fragments were created, max refractures was reached (handled by library)
     if (newFragments.length === 0) {
       return;
     }
+
+    // Add new fragments to scene and tracking array
+    newFragments.forEach((fragment) => {
+      this.scene.add(fragment);
+      this.fragments.push(fragment);
+    });
 
     // Clean up the old mesh
     if (mesh === this.object) {
@@ -264,12 +270,6 @@ export class SmashingScene extends BaseScene {
       this.physics.remove(mesh);
       mesh.geometry.dispose();
     }
-
-    // Add new fragments to scene and tracking array
-    newFragments.forEach((fragment) => {
-      this.scene.add(fragment);
-      this.fragments.push(fragment);
-    });
   }
 
   private handleFractureClick(): void {
@@ -278,40 +278,9 @@ export class SmashingScene extends BaseScene {
     const intersects = this.raycaster.intersectObject(this.object, false);
     if (intersects.length === 0) return;
 
-    const intersectionPoint = intersects[0].point;
-    const localPoint = this.object.worldToLocal(intersectionPoint.clone());
-
-    this.performRealTimeFracture(localPoint);
-
+    this.fractureObject(this.object, intersects[0].point);
     this.hasSmashed = true;
     this.hideMarkers();
-  }
-
-  private performRealTimeFracture(localPoint: THREE.Vector3): void {
-    if (!this.object) return;
-
-    // Disable reset button and show fracturing message
-    if (this.resetButton) {
-      this.resetButton.disabled = true;
-      this.resetButton.title = "Fracturing...";
-    }
-
-    // Use setTimeout to allow UI to update
-    setTimeout(() => {
-      if (!this.object) return;
-
-      // Convert local point back to world space for unified method
-      const worldPoint = this.object.localToWorld(localPoint.clone());
-
-      // Use unified fracture method
-      this.fractureObject(this.object, worldPoint);
-
-      // Re-enable reset button
-      if (this.resetButton) {
-        this.resetButton.disabled = false;
-        this.resetButton.title = "Reset";
-      }
-    }, 10);
   }
 
   private hideMarkers(): void {

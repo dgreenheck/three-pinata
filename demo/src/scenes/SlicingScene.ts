@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { FolderApi, ButtonApi } from "tweakpane";
+import { FolderApi } from "tweakpane";
 import { BaseScene, PrimitiveType } from "./BaseScene";
 import { DestructibleMesh, SliceOptions } from "@dgreenheck/three-pinata";
 
@@ -23,7 +23,6 @@ export class SlicingScene extends BaseScene {
   private isDrawingSlice = false;
   private sliceStartScreen = new THREE.Vector2();
   private sliceEndScreen = new THREE.Vector2();
-  private resetButton: ButtonApi | null = null;
 
   // Canvas overlay for drawing
   private canvas!: HTMLCanvasElement;
@@ -109,8 +108,15 @@ export class SlicingScene extends BaseScene {
 
     // Use the mesh's material (which may be the statue's original material)
     const materialToUse = mesh.material;
+    const outerMaterial: THREE.Material = Array.isArray(materialToUse)
+      ? materialToUse[0]
+      : materialToUse;
 
-    const destructibleMesh = new DestructibleMesh(mesh.geometry, materialToUse);
+    const destructibleMesh = new DestructibleMesh(
+      mesh.geometry,
+      outerMaterial,
+      this.insideMaterial,
+    );
     destructibleMesh.castShadow = true;
 
     // Calculate height so object sits on ground
@@ -268,20 +274,24 @@ export class SlicingScene extends BaseScene {
     return false;
   }
 
-  private executeDrawnSlice(): void {
-    if (!this.renderer) return;
-
-    // Convert screen coordinates to NDC
+  private screenToNDC(screenPos: THREE.Vector2): THREE.Vector2 {
+    if (!this.renderer) return new THREE.Vector2();
     const rect = this.renderer.domElement.getBoundingClientRect();
-    const startNDC = new THREE.Vector2(
-      (this.sliceStartScreen.x / rect.width) * 2 - 1,
-      -(this.sliceStartScreen.y / rect.height) * 2 + 1,
+    return new THREE.Vector2(
+      (screenPos.x / rect.width) * 2 - 1,
+      -(screenPos.y / rect.height) * 2 + 1,
     );
-    const endNDC = new THREE.Vector2(
-      (this.sliceEndScreen.x / rect.width) * 2 - 1,
-      -(this.sliceEndScreen.y / rect.height) * 2 + 1,
-    );
+  }
 
+  private computeSlicePoints(
+    startNDC: THREE.Vector2,
+    endNDC: THREE.Vector2,
+  ): {
+    sliceStart: THREE.Vector3;
+    sliceEnd: THREE.Vector3;
+    startViewDir: THREE.Vector3;
+    endViewDir: THREE.Vector3;
+  } {
     // Unproject to get 3D points on near plane
     const startNear = new THREE.Vector3(startNDC.x, startNDC.y, -1).unproject(
       this.camera,
@@ -334,6 +344,15 @@ export class SlicingScene extends BaseScene {
       sliceEnd = endRay.at(avgDist, new THREE.Vector3());
     }
 
+    return { sliceStart, sliceEnd, startViewDir, endViewDir };
+  }
+
+  private computeSlicePlane(
+    sliceStart: THREE.Vector3,
+    sliceEnd: THREE.Vector3,
+    startViewDir: THREE.Vector3,
+    endViewDir: THREE.Vector3,
+  ): THREE.Plane {
     // The slice line in 3D (this is the line on the screen in world space)
     const sliceLine = new THREE.Vector3()
       .subVectors(sliceEnd, sliceStart)
@@ -356,108 +375,81 @@ export class SlicingScene extends BaseScene {
       .addVectors(sliceStart, sliceEnd)
       .multiplyScalar(0.5);
 
-    // Find all objects that intersect the plane
-    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+    return new THREE.Plane().setFromNormalAndCoplanarPoint(
       sliceNormal,
       sliceOrigin,
     );
-    const objectsToSlice = this.objects.filter((obj) => {
+  }
+
+  private findObjectsToSlice(plane: THREE.Plane): DestructibleMesh[] {
+    return this.objects.filter((obj) => {
       obj.geometry.computeBoundingBox();
       const boundingBox = obj.geometry.boundingBox!.clone();
       boundingBox.applyMatrix4(obj.matrixWorld);
       return this.planeIntersectsBox(plane, boundingBox);
     });
+  }
+
+  private performSlice(
+    objectsToSlice: DestructibleMesh[],
+    plane: THREE.Plane,
+  ): void {
+    const sliceOptions = new SliceOptions();
+
+    objectsToSlice.forEach((obj) => {
+      const pieces = obj.sliceWorld(
+        plane.normal,
+        plane.coplanarPoint(new THREE.Vector3()),
+        sliceOptions,
+        (piece) => {
+          // Add physics to piece
+          this.physics.add(piece, {
+            type: "dynamic",
+            restitution: 0.1,
+          });
+        },
+      );
+
+      // Add pieces to scene and track them
+      pieces.forEach((piece) => {
+        this.scene.add(piece);
+        this.objects.push(piece);
+      });
+
+      // Remove original object
+      this.scene.remove(obj);
+      const index = this.objects.indexOf(obj);
+      if (index > -1) {
+        this.objects.splice(index, 1);
+      }
+      this.physics.remove(obj);
+      obj.dispose();
+    });
+  }
+
+  private executeDrawnSlice(): void {
+    if (!this.renderer) return;
+
+    const startNDC = this.screenToNDC(this.sliceStartScreen);
+    const endNDC = this.screenToNDC(this.sliceEndScreen);
+
+    const { sliceStart, sliceEnd, startViewDir, endViewDir } =
+      this.computeSlicePoints(startNDC, endNDC);
+
+    const plane = this.computeSlicePlane(
+      sliceStart,
+      sliceEnd,
+      startViewDir,
+      endViewDir,
+    );
+
+    const objectsToSlice = this.findObjectsToSlice(plane);
 
     if (objectsToSlice.length === 0) {
       return;
     }
 
-    // Configure slice options
-    const sliceOptions = new SliceOptions();
-
-    // Disable reset button and show slicing message
-    if (this.resetButton) {
-      this.resetButton.disabled = true;
-      this.resetButton.title = "Slicing...";
-    }
-
-    // Use setTimeout to allow UI to update
-    setTimeout(() => {
-      objectsToSlice.forEach((obj) => {
-        try {
-          // Preserve the original object's material
-          // If it's an array (from previous slice), get the first element (outer material)
-          const originalMaterial = Array.isArray(obj.material)
-            ? obj.material[0]
-            : obj.material;
-
-          // Get the physics body of the original object (if it exists)
-          const originalBody = this.physics.getBody(obj);
-          let linearVel = { x: 0, y: 0, z: 0 };
-          let angularVel = { x: 0, y: 0, z: 0 };
-
-          if (originalBody) {
-            // Store the velocities before removing physics
-            linearVel = originalBody.rigidBody.linvel();
-            angularVel = originalBody.rigidBody.angvel();
-            // Remove physics from original object before slicing
-            this.physics.remove(obj);
-          }
-
-          // Slice using world-space coordinates
-          const pieces = obj.sliceWorld(
-            sliceNormal,
-            sliceOrigin,
-            sliceOptions,
-            (piece) => {
-              // Set material (preserve original + inside material for cut face)
-              // Use statue inside material for statue, regular inside material for others
-              const insideMat =
-                this.settings.primitiveType === "statue"
-                  ? this.getStatueInsideMaterial()!
-                  : this.insideMaterial;
-              // Use original material for outer surface, inside material for cut face
-              piece.material = [originalMaterial, insideMat];
-
-              // Add physics
-              const body = this.physics.add(piece, {
-                type: "dynamic",
-                restitution: 0.1,
-              });
-
-              // Inherit velocity from the original object
-              if (body && originalBody) {
-                body.setLinearVelocity(linearVel);
-                body.setAngularVelocity(angularVel);
-              }
-            },
-            () => {
-              // Cleanup original object
-              this.scene.remove(obj);
-              const index = this.objects.indexOf(obj);
-              if (index > -1) {
-                this.objects.splice(index, 1);
-              }
-              obj.dispose();
-            },
-          );
-
-          // Add pieces to scene and track them
-          pieces.forEach((piece) => {
-            this.scene.add(piece);
-            this.objects.push(piece);
-          });
-        } catch (error) {
-          console.warn("Could not slice object:", error);
-        }
-      });
-
-      // Re-enable reset button
-      if (this.resetButton) {
-        this.resetButton.disabled = false;
-        this.resetButton.title = "Reset";
-      }
-    }, 10);
+    this.performSlice(objectsToSlice, plane);
   }
 
   update(): void {
@@ -487,7 +479,7 @@ export class SlicingScene extends BaseScene {
         this.reset();
       });
 
-    this.resetButton = folder.addButton({ title: "Reset" }).on("click", () => {
+    folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
     });
 
