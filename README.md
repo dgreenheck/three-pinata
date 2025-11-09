@@ -23,8 +23,6 @@ Three-pinata is a library that enables you to fracture and slice 3D meshes in re
 - **Dual Materials** - Separate materials for outer surfaces and internal fracture faces
 - **Custom Seed Points** - Full control over fracture patterns with custom Voronoi seeds
 - **UV Mapping** - Automatic UV generation for internal faces with configurable scale and offset
-- **TypeScript Support** - Full type definitions included
-- **Zero Dependencies** - Only requires Three.js as a peer dependency
 
 ## Live Demo
 
@@ -104,6 +102,7 @@ new DestructibleMesh(
 ```
 
 **Parameters:**
+
 - `geometry` - The geometry for the mesh
 - `outerMaterial` - Material for the original outer surfaces
 - `innerMaterial` - Material for newly created internal fracture/slice faces (optional, defaults to outerMaterial)
@@ -286,7 +285,7 @@ const options = new FractureOptions({
 const fragments = mesh.fracture(options);
 ```
 
-### Refracturing (Progressive Destruction)
+### Refracturing
 
 Enable refracturing to allow fragments to be fractured again when clicked or hit:
 
