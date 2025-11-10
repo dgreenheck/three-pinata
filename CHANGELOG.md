@@ -9,36 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Recursive fracturing—fragments can be refractured multiple times
-- Refracture specific options added to `FractureOptions`
+- New `RefractureScene` demo
+- Added additional unit tests
 
 ### Changed
 
 - `DestructibleMesh.fracture()` return type changed from `THREE.Mesh[]` to `DestructibleMesh[]` to support refracturing
-
-### Fixed
-
-- The README included some old functions/parameters that no longer exist
-
-## [1.0.5]
-
-### Added
-
-- **Refracturing Support**: Fragments can now be fractured multiple times for progressive destruction
-  - Added `refracture` options to `FractureOptions` with `enabled`, `maxRefractures`, and `fragmentCount` properties
-  - Added `refractureCount` property to `DestructibleMesh` to track generation depth
-  - Fragments automatically track their refracture count
-- New brick wall demo scene showcasing destruction patterns
-
-### Changed
-
-- Fragment count now automatically adjusts based on whether it's an initial fracture or refracture
-- Improved demo scenes with refracturing capabilities
-
-### Fixed
-
-- Various linting errors resolved
-- Triangulation bugs fixed
+- `DestructibleMesh` constructor now accepts an inside material. Simplified internal handling of materials.
+- Refactored and simplified demo code
 
 ## [1.0.0]
 

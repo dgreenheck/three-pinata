@@ -277,13 +277,21 @@ const fragments = mesh.fracture(options);
 Fragments can be fractured again for progressive destruction. Generation tracking is handled externally using `userData`:
 
 ```typescript
+// Configuration
+const maxGeneration = 3;
+const fragmentCounts = {
+  1: 32, // First fracture: 32 fragments
+  2: 16, // Second fracture: 16 fragments
+  3: 8,  // Third fracture: 8 fragments
+};
+
 // Initial fracture
 const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
-mesh.userData.generation = 0; // Track generation
+mesh.userData.generation = 0; // Track generation externally
 
 const options1 = new FractureOptions({
   fractureMethod: "voronoi",
-  fragmentCount: 32,
+  fragmentCount: fragmentCounts[1],
   voronoiOptions: {
     mode: "3D",
   },
@@ -295,40 +303,44 @@ const fragments = mesh.fracture(options1, (fragment) => {
   scene.add(fragment);
 });
 
-// Later, refracture a fragment
-function refractureFragment(fragment: DestructibleMesh, impactPoint: THREE.Vector3) {
+// Later, refracture a fragment when clicked
+function onFragmentClick(fragment: DestructibleMesh) {
   const currentGeneration = fragment.userData.generation || 0;
-  const maxGeneration = 2;
 
-  // Check generation limit
+  // Check generation limit (external refracture control)
   if (currentGeneration >= maxGeneration) {
-    console.log("Max generation reached");
-    return;
+    return; // Max generation reached
   }
 
-  // Use fewer fragments per generation
-  const fragmentCounts = [32, 8, 4];
+  // Determine fragment count for next generation
   const nextGeneration = currentGeneration + 1;
   const fragmentCount = fragmentCounts[nextGeneration];
 
-  const options2 = new FractureOptions({
+  const options = new FractureOptions({
     fractureMethod: "voronoi",
     fragmentCount: fragmentCount,
     voronoiOptions: {
       mode: "3D",
-      impactPoint: impactPoint,
     },
   });
 
-  const newFragments = fragment.fracture(options2, (newFragment) => {
+  const newFragments = fragment.fracture(options, (newFragment) => {
+    // Track generation externally
     newFragment.userData.generation = nextGeneration;
     scene.add(newFragment);
   });
 
-  // Remove the old fragment
+  // Clean up old fragment
   scene.remove(fragment);
+  fragment.geometry.dispose();
 }
 ```
+
+This external approach gives you complete control over refracture behavior, allowing you to implement custom strategies like:
+- Progressive weakening (fewer fragments per generation)
+- Energy-based refracturing (only if impact force exceeds threshold)
+- Material-based limits (glass refractures more than wood)
+- Performance-based throttling (stop refracturing when FPS drops)
 
 ### Simple Fracturing
 
