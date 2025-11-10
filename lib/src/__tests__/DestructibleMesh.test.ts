@@ -45,12 +45,6 @@ describe("DestructibleMesh", () => {
 
       expect(mesh).toBeInstanceOf(DestructibleMesh);
     });
-
-    it("should initialize refractureCount to 0", () => {
-      const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
-
-      expect(mesh.refractureCount).toBe(0);
-    });
   });
 
   describe("Fracture", () => {
@@ -89,23 +83,6 @@ describe("DestructibleMesh", () => {
           expect(fragment.material[0]).toBe(outerMaterial);
           expect(fragment.material[1]).toBe(innerMaterial);
         }
-      });
-    });
-
-    it("should increment refractureCount in fragments", () => {
-      const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
-
-      const options = new FractureOptions({
-        fragmentCount: 3,
-        voronoiOptions: {
-          mode: "3D",
-        },
-      });
-
-      const fragments = mesh.fracture(options);
-
-      fragments.forEach((fragment) => {
-        expect(fragment.refractureCount).toBe(1);
       });
     });
 
@@ -259,20 +236,6 @@ describe("DestructibleMesh", () => {
       });
     });
 
-    it("should preserve refractureCount in sliced pieces", () => {
-      const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
-
-      const sliceNormal = new THREE.Vector3(0, 1, 0);
-      const sliceOrigin = new THREE.Vector3(0, 0, 0);
-      const options = new SliceOptions();
-
-      const pieces = mesh.slice(sliceNormal, sliceOrigin, options);
-
-      pieces.forEach((piece) => {
-        expect(piece.refractureCount).toBe(0);
-      });
-    });
-
     it("should call onPiece callback for each piece", () => {
       const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
 
@@ -356,7 +319,7 @@ describe("DestructibleMesh", () => {
   });
 
   describe("Refracturing", () => {
-    it("should allow fragments to be refractured", () => {
+    it("should allow fragments to be fractured again", () => {
       const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
 
       const options1 = new FractureOptions({
@@ -367,7 +330,7 @@ describe("DestructibleMesh", () => {
       });
 
       const firstGenFragments = mesh.fracture(options1);
-      expect(firstGenFragments[0].refractureCount).toBe(1);
+      expect(firstGenFragments.length).toBeGreaterThan(0);
 
       const options2 = new FractureOptions({
         fragmentCount: 2,
@@ -376,11 +339,9 @@ describe("DestructibleMesh", () => {
         },
       });
 
+      // Verify that fragments can be fractured again
       const secondGenFragments = firstGenFragments[0].fracture(options2);
-
-      secondGenFragments.forEach((fragment) => {
-        expect(fragment.refractureCount).toBe(2);
-      });
+      expect(secondGenFragments.length).toBeGreaterThan(0);
     });
 
     it("should preserve materials through multiple fractures", () => {

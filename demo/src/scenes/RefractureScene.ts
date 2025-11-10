@@ -4,35 +4,30 @@ import { BaseScene, PrimitiveType } from "./BaseScene";
 import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 
 /**
- * Smashing Object Demo
- * - Pick a primitive shape on the floor
- * - Hover to preview impact area
- * - Click to fracture
- * - Configurable fracture options
+ * Refracturing Demo
+ * - Demonstrates external generation tracking for refracturing
+ * - Click object to fracture it
+ * - Click fragments to refracture them
+ * - Progressive fragment counts: 32 → 8 → 4
+ * - Max 2 refractures (3 generations total)
  */
-export class SmashingScene extends BaseScene {
+export class RefractureScene extends BaseScene {
   private object: DestructibleMesh | null = null;
   private fragments: DestructibleMesh[] = [];
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
-  private fractureOptions = new FractureOptions({
-    fractureMethod: "voronoi",
-    fragmentCount: 32,
-    voronoiOptions: {
-      mode: "3D",
-    },
-  });
 
   private settings = {
     primitiveType: "cube" as PrimitiveType,
-    fractureMethod: "Voronoi" as "Voronoi" | "Simple",
-    useImpactPoint: true,
-    impactRadius: 1.0,
+    maxGeneration: 2,
   };
+
+  // Fragment counts per generation: [0] = initial, [1] = gen 1, [2] = gen 2
+  private fragmentCounts = [32, 8, 4];
 
   private impactMarker: THREE.Mesh | null = null;
   private radiusMarker: THREE.Mesh | null = null;
-  private hasSmashed = false;
+  private impactRadius = 1.0;
 
   async init(): Promise<void> {
     // Setup camera
@@ -95,40 +90,29 @@ export class SmashingScene extends BaseScene {
     );
     this.object.castShadow = true;
 
+    // Initialize generation tracking in userData
+    this.object.userData.generation = 0;
+
     // Position on floor - calculate height based on bounding box
     const bbox = new THREE.Box3().setFromObject(mesh);
     const height = (bbox.max.y - bbox.min.y) / 2;
     this.object.position.set(0, height, 0);
 
     this.scene.add(this.object);
-
-    this.hasSmashed = false;
   }
 
-  private configureFractureOptions(localPoint?: THREE.Vector3): void {
-    // Set fracture method
-    this.fractureOptions.fractureMethod =
-      this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
-
-    // Configure voronoi-specific options
-    if (
-      this.settings.fractureMethod === "Voronoi" &&
-      this.fractureOptions.voronoiOptions
-    ) {
-      this.fractureOptions.voronoiOptions.impactPoint = this.settings
-        .useImpactPoint
-        ? localPoint
-        : undefined;
-      this.fractureOptions.voronoiOptions.impactRadius = this.settings
-        .useImpactPoint
-        ? this.settings.impactRadius
-        : undefined;
-    }
+  private getFragmentCount(generation: number): number {
+    // Return fragment count for this generation, clamped to array bounds
+    const index = Math.min(generation, this.fragmentCounts.length - 1);
+    return this.fragmentCounts[index];
   }
 
-  private createFragmentCallback() {
+  private createFragmentCallback(generation: number) {
     return (fragment: DestructibleMesh) => {
       fragment.castShadow = true;
+
+      // Track generation in userData
+      fragment.userData.generation = generation;
 
       // Add physics
       const body = this.physics.add(fragment, {
@@ -160,37 +144,46 @@ export class SmashingScene extends BaseScene {
   }
 
   private onMouseMove = (event: MouseEvent): void => {
-    if (this.hasSmashed || !this.object) return;
+    if (!this.object) return;
 
     // Calculate mouse position in normalized device coordinates
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    // Raycast to find intersection with object
+    // Raycast to find intersection with object or fragments
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const intersects = this.raycaster.intersectObject(this.object, false);
+
+    // Check object first
+    const objectIntersects = this.object.visible
+      ? this.raycaster.intersectObject(this.object, false)
+      : [];
+
+    // Check fragments
+    const fragmentIntersects = this.raycaster.intersectObjects(this.fragments, false);
+
+    const intersects = objectIntersects.length > 0 ? objectIntersects : fragmentIntersects;
 
     if (intersects.length > 0) {
       const intersectionPoint = intersects[0].point;
+      const intersectedMesh = intersects[0].object as DestructibleMesh;
+      const generation = intersectedMesh.userData.generation || 0;
 
-      // Show impact marker and radius visualization
-      if (
-        this.settings.useImpactPoint &&
-        this.impactMarker &&
-        this.radiusMarker
-      ) {
+      // Show impact marker and radius visualization only if can still fracture
+      if (generation < this.settings.maxGeneration && this.impactMarker && this.radiusMarker) {
         this.impactMarker.position.copy(intersectionPoint);
         this.impactMarker.visible = true;
 
         // Position and scale the radius marker
         this.radiusMarker.position.copy(intersectionPoint);
-        this.radiusMarker.scale.setScalar(this.settings.impactRadius);
+        this.radiusMarker.scale.setScalar(this.impactRadius);
         this.radiusMarker.visible = true;
+      } else {
+        // Hide markers if at max generation
+        this.hideMarkers();
       }
     } else {
-      // Hide markers when not hovering over object
-      if (this.impactMarker) this.impactMarker.visible = false;
-      if (this.radiusMarker) this.radiusMarker.visible = false;
+      // Hide markers when not hovering over anything
+      this.hideMarkers();
     }
   };
 
@@ -198,32 +191,62 @@ export class SmashingScene extends BaseScene {
     this.updateMouseCoordinates(event);
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
-    if (this.hasSmashed) {
-      this.handleFragmentClick();
-    } else {
-      this.handleFractureClick();
+    // Check if clicking on original object
+    if (this.object && this.object.visible) {
+      const objectIntersects = this.raycaster.intersectObject(this.object, false);
+      if (objectIntersects.length > 0) {
+        this.fractureObject(this.object, objectIntersects[0].point);
+        return;
+      }
     }
-  };
 
-  private handleFragmentClick(): void {
-    // Apply explosive force to fragments
+    // Check if clicking on a fragment
+    const fragmentIntersects = this.raycaster.intersectObjects(this.fragments, false);
+    if (fragmentIntersects.length > 0) {
+      const clickedFragment = fragmentIntersects[0].object as DestructibleMesh;
+      this.fractureObject(clickedFragment, fragmentIntersects[0].point);
+      return;
+    }
+
+    // If clicked on nothing, apply explosive force to all fragments
     this.handleExplosiveClick(this.fragments, 2.0, 10.0);
-  }
+  };
 
   private fractureObject(
     mesh: DestructibleMesh,
     worldPoint: THREE.Vector3,
   ): void {
+    // Get current generation (external tracking via userData)
+    const currentGeneration = mesh.userData.generation || 0;
+
+    // Check if max generation reached (external refracture limiting)
+    if (currentGeneration >= this.settings.maxGeneration) {
+      console.log(`Max generation (${this.settings.maxGeneration}) reached, cannot refracture further`);
+      return;
+    }
+
     // Convert world point to local space
     const localPoint = mesh.worldToLocal(worldPoint.clone());
 
-    // Configure fracture options with impact point
-    this.configureFractureOptions(localPoint);
+    // Determine fragment count based on generation (external configuration)
+    const nextGeneration = currentGeneration + 1;
+    const fragmentCount = this.getFragmentCount(nextGeneration);
+
+    // Create fracture options with appropriate fragment count
+    const fractureOptions = new FractureOptions({
+      fractureMethod: "voronoi",
+      fragmentCount: fragmentCount,
+      voronoiOptions: {
+        mode: "3D",
+        impactPoint: localPoint,
+        impactRadius: this.impactRadius,
+      },
+    });
 
     // Fracture the mesh
     const newFragments = mesh.fracture(
-      this.fractureOptions,
-      this.createFragmentCallback(),
+      fractureOptions,
+      this.createFragmentCallback(nextGeneration),
     );
 
     // Add new fragments to scene and tracking array
@@ -234,7 +257,7 @@ export class SmashingScene extends BaseScene {
 
     // Clean up the old mesh
     if (mesh === this.object) {
-      // Original object - just hide it for potential reset functionality
+      // Original object - just hide it
       mesh.visible = false;
     } else {
       // Fragment - remove from tracking, scene, physics, and dispose
@@ -248,17 +271,6 @@ export class SmashingScene extends BaseScene {
     }
   }
 
-  private handleFractureClick(): void {
-    if (!this.object) return;
-
-    const intersects = this.raycaster.intersectObject(this.object, false);
-    if (intersects.length === 0) return;
-
-    this.fractureObject(this.object, intersects[0].point);
-    this.hasSmashed = true;
-    this.hideMarkers();
-  }
-
   private hideMarkers(): void {
     if (this.impactMarker) this.impactMarker.visible = false;
     if (this.radiusMarker) this.radiusMarker.visible = false;
@@ -269,19 +281,19 @@ export class SmashingScene extends BaseScene {
   }
 
   getInstructions(): string {
-    return `SMASHING OBJECT
+    return `REFRACTURING DEMO
 
-• Choose a primitive shape
-• Hover to preview impact area
-• Click on object to fracture it
-• Click fragments to apply explosive force
-• Toggle 2.5D vs 3D fracturing
-• Adjust fragment count and impact radius`;
+• Click on object to fracture it (32 fragments)
+• Click fragments to refracture them (8 fragments)
+• Click again for final refracture (4 fragments)
+• Max 2 refractures per fragment
+• Generation tracking handled externally via userData
+• Click empty space to apply explosive force`;
   }
 
   setupUI(): FolderApi {
     const folder = this.pane.addFolder({
-      title: "Smashing Object",
+      title: "Refracturing Demo",
       expanded: true,
     });
 
@@ -294,51 +306,24 @@ export class SmashingScene extends BaseScene {
         this.reset();
       });
 
-    folder
-      .addBinding(this.settings, "fractureMethod", {
-        options: BaseScene.FRACTURE_METHOD_OPTIONS,
-        label: "Fracture Method",
-      })
-      .on("change", () => {
-        // Enable/disable impact controls based on fracture method
-        const isSimple = this.settings.fractureMethod === "Simple";
-        useImpactPointBinding.disabled = isSimple;
-        impactRadiusBinding.disabled = isSimple;
-      });
-
-    folder.addBinding(this.fractureOptions, "fragmentCount", {
-      min: 2,
-      max: 64,
+    folder.addBinding(this.settings, "maxGeneration", {
+      min: 0,
+      max: 5,
       step: 1,
-      label: "Fragment Count",
+      label: "Max Generation",
     });
 
-    folder.addBinding(this.fractureOptions.voronoiOptions!, "mode", {
-      options: {
-        "3D": "3D",
-        "2.5D": "2.5D",
-      },
-      label: "Mode",
+    folder.addBinding(this, "fragmentCounts", {
+      label: "Fragment Counts",
+      readonly: true,
     });
 
-    const useImpactPointBinding = folder.addBinding(
-      this.settings,
-      "useImpactPoint",
-      {
-        label: "Impact Point",
-      },
-    );
-
-    const impactRadiusBinding = folder.addBinding(
-      this.settings,
-      "impactRadius",
-      {
-        min: 0.5,
-        max: 3.0,
-        step: 0.1,
-        label: "Impact Radius",
-      },
-    );
+    folder.addBinding(this, "impactRadius", {
+      min: 0.5,
+      max: 3.0,
+      step: 0.1,
+      label: "Impact Radius",
+    });
 
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
@@ -363,15 +348,7 @@ export class SmashingScene extends BaseScene {
     this.fragments = [];
 
     // Hide markers
-    if (this.impactMarker) {
-      this.impactMarker.visible = false;
-    }
-    if (this.radiusMarker) {
-      this.radiusMarker.visible = false;
-    }
-
-    // Reset state
-    this.hasSmashed = false;
+    this.hideMarkers();
 
     // Re-add ground physics
     this.setupGroundPhysics();

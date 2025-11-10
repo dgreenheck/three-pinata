@@ -14,9 +14,6 @@ describe("FractureOptions", () => {
       expect(options.textureScale).toEqual(new Vector2(1, 1));
       expect(options.textureOffset).toEqual(new Vector2(0, 0));
       expect(options.seed).toBeUndefined();
-      expect(options.refracture.enabled).toBe(false);
-      expect(options.refracture.maxRefractures).toBe(2);
-      expect(options.refracture.fragmentCount).toBe(4);
     });
   });
 
@@ -73,50 +70,6 @@ describe("FractureOptions", () => {
       expect(options.seed).toBe(54321);
     });
 
-    it("should set refracture.enabled when provided", () => {
-      const options = new FractureOptions({
-        refracture: { enabled: true },
-      });
-
-      expect(options.refracture.enabled).toBe(true);
-      expect(options.refracture.maxRefractures).toBe(2); // Default
-      expect(options.refracture.fragmentCount).toBe(4); // Default
-    });
-
-    it("should set refracture.maxRefractures when provided", () => {
-      const options = new FractureOptions({
-        refracture: { maxRefractures: 5 },
-      });
-
-      expect(options.refracture.enabled).toBe(false); // Default
-      expect(options.refracture.maxRefractures).toBe(5);
-      expect(options.refracture.fragmentCount).toBe(4); // Default
-    });
-
-    it("should set refracture.fragmentCount when provided", () => {
-      const options = new FractureOptions({
-        refracture: { fragmentCount: 10 },
-      });
-
-      expect(options.refracture.enabled).toBe(false); // Default
-      expect(options.refracture.maxRefractures).toBe(2); // Default
-      expect(options.refracture.fragmentCount).toBe(10);
-    });
-
-    it("should set all refracture properties when provided", () => {
-      const options = new FractureOptions({
-        refracture: {
-          enabled: true,
-          maxRefractures: 3,
-          fragmentCount: 8,
-        },
-      });
-
-      expect(options.refracture.enabled).toBe(true);
-      expect(options.refracture.maxRefractures).toBe(3);
-      expect(options.refracture.fragmentCount).toBe(8);
-    });
-
     it("should set all values when all provided", () => {
       const voronoiOptions = { mode: "2.5D" as const };
       const fracturePlanes = { x: true, y: false, z: true };
@@ -131,11 +84,6 @@ describe("FractureOptions", () => {
         textureScale,
         textureOffset,
         seed: 11111,
-        refracture: {
-          enabled: true,
-          maxRefractures: 4,
-          fragmentCount: 6,
-        },
       });
 
       expect(options.fractureMethod).toBe("simple");
@@ -145,9 +93,6 @@ describe("FractureOptions", () => {
       expect(options.textureScale).toBe(textureScale);
       expect(options.textureOffset).toBe(textureOffset);
       expect(options.seed).toBe(11111);
-      expect(options.refracture.enabled).toBe(true);
-      expect(options.refracture.maxRefractures).toBe(4);
-      expect(options.refracture.fragmentCount).toBe(6);
     });
   });
 

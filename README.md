@@ -18,7 +18,7 @@ Three-pinata is a library that enables you to fracture and slice 3D meshes in re
 
 - **Voronoi Fracturing** - Natural-looking fracture patterns with 3D and 2.5D modes
 - **Impact-Based Fracturing** - Concentrate fragments around impact points for realistic destruction
-- **Refracturing** - Fracture fragments multiple times for progressive destruction
+- **Refracturing** - Fragments can be fractured again for progressive destruction (generation tracking handled externally)
 - **Plane Slicing** - Slice meshes along arbitrary planes in local or world space
 - **Dual Materials** - Separate materials for outer surfaces and internal fracture faces
 - **Custom Seed Points** - Full control over fracture patterns with custom Voronoi seeds
@@ -107,10 +107,6 @@ new DestructibleMesh(
 - `outerMaterial` - Material for the original outer surfaces
 - `innerMaterial` - Material for newly created internal fracture/slice faces (optional, defaults to outerMaterial)
 
-**Properties:**
-
-- `refractureCount: number` - Read-only property indicating the number of times this mesh has been refractured (0 for the original mesh, 1 for first generation fragments, etc.)
-
 **Methods:**
 
 ##### `fracture(options, onFragment?, onComplete?)`
@@ -171,11 +167,6 @@ new FractureOptions({
   textureScale?: THREE.Vector2;
   textureOffset?: THREE.Vector2;
   seed?: number;
-  refracture?: {
-    enabled?: boolean;
-    maxRefractures?: number;
-    fragmentCount?: number;
-  };
 })
 ```
 
@@ -190,10 +181,6 @@ new FractureOptions({
 - `textureScale: THREE.Vector2` - UV scale for internal faces (default: 1,1)
 - `textureOffset: THREE.Vector2` - UV offset for internal faces (default: 0,0)
 - `seed?: number` - Random seed for reproducibility
-- `refracture?: object` - Refracture settings for progressive destruction
-  - `enabled: boolean` - Enable refracturing functionality (default: false)
-  - `maxRefractures: number` - Maximum number of additional refractures after initial fracture (default: 2)
-  - `fragmentCount: number` - Number of fragments to generate when refracturing (default: 25)
 
 #### `VoronoiOptions`
 
@@ -258,7 +245,7 @@ scene.add(mesh);
 
 const options = new FractureOptions({
   fractureMethod: "voronoi",
-  fragmentCount: 50,
+  fragmentCount: 16,
   voronoiOptions: {
     mode: "3D",
   },
@@ -274,7 +261,7 @@ mesh.visible = false;
 ```typescript
 const options = new FractureOptions({
   fractureMethod: "voronoi",
-  fragmentCount: 50,
+  fragmentCount: 16,
   voronoiOptions: {
     mode: "3D",
     impactPoint: new THREE.Vector3(0, 1, 0), // Local space
@@ -287,32 +274,60 @@ const fragments = mesh.fracture(options);
 
 ### Refracturing
 
-Enable refracturing to allow fragments to be fractured again when clicked or hit:
+Fragments can be fractured again for progressive destruction. Generation tracking is handled externally using `userData`:
 
 ```typescript
-const options = new FractureOptions({
+// Initial fracture
+const mesh = new DestructibleMesh(geometry, outerMaterial, innerMaterial);
+mesh.userData.generation = 0; // Track generation
+
+const options1 = new FractureOptions({
   fractureMethod: "voronoi",
-  fragmentCount: 50,
+  fragmentCount: 32,
   voronoiOptions: {
     mode: "3D",
   },
-  refracture: {
-    enabled: true,
-    maxRefractures: 2, // Allow up to 2 additional refractures
-    fragmentCount: 25, // Use fewer fragments when refracturing
-  },
 });
 
-const fragments = mesh.fracture(options);
+const fragments = mesh.fracture(options1, (fragment) => {
+  // Track generation in each fragment
+  fragment.userData.generation = 1;
+  scene.add(fragment);
+});
 
-// Later, you can fracture a fragment again
-fragments.forEach((fragment) => {
-  // Check if fragment can still be refractured
-  if (fragment.refractureCount < options.refracture.maxRefractures) {
-    const subFragments = fragment.fracture(options);
-    // Add sub-fragments to scene...
+// Later, refracture a fragment
+function refractureFragment(fragment: DestructibleMesh, impactPoint: THREE.Vector3) {
+  const currentGeneration = fragment.userData.generation || 0;
+  const maxGeneration = 2;
+
+  // Check generation limit
+  if (currentGeneration >= maxGeneration) {
+    console.log("Max generation reached");
+    return;
   }
-});
+
+  // Use fewer fragments per generation
+  const fragmentCounts = [32, 8, 4];
+  const nextGeneration = currentGeneration + 1;
+  const fragmentCount = fragmentCounts[nextGeneration];
+
+  const options2 = new FractureOptions({
+    fractureMethod: "voronoi",
+    fragmentCount: fragmentCount,
+    voronoiOptions: {
+      mode: "3D",
+      impactPoint: impactPoint,
+    },
+  });
+
+  const newFragments = fragment.fracture(options2, (newFragment) => {
+    newFragment.userData.generation = nextGeneration;
+    scene.add(newFragment);
+  });
+
+  // Remove the old fragment
+  scene.remove(fragment);
+}
 ```
 
 ### Simple Fracturing
