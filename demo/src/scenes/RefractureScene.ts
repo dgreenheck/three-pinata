@@ -8,8 +8,8 @@ import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
  * - Demonstrates external generation tracking for refracturing
  * - Click object to fracture it
  * - Click fragments to refracture them
- * - Progressive fragment counts: 32 → 8 → 4
- * - Max 2 refractures (3 generations total)
+ * - Progressive fragment counts configurable per generation
+ * - Generation tracking handled externally via userData
  */
 export class RefractureScene extends BaseScene {
   private object: DestructibleMesh | null = null;
@@ -19,15 +19,13 @@ export class RefractureScene extends BaseScene {
 
   private settings = {
     primitiveType: "cube" as PrimitiveType,
-    maxGeneration: 2,
+    maxGeneration: 3,
+    fragmentCount1: 32,
+    fragmentCount2: 16,
+    fragmentCount3: 8,
+    fragmentCount4: 4,
+    fragmentCount5: 2,
   };
-
-  // Fragment counts per generation: [0] = initial, [1] = gen 1, [2] = gen 2
-  private fragmentCounts = [32, 8, 4];
-
-  private impactMarker: THREE.Mesh | null = null;
-  private radiusMarker: THREE.Mesh | null = null;
-  private impactRadius = 1.0;
 
   async init(): Promise<void> {
     // Setup camera
@@ -42,16 +40,10 @@ export class RefractureScene extends BaseScene {
     // Load statue geometry if needed
     await this.loadStatueGeometry();
 
-    // Create impact and radius markers
-    const markers = this.createImpactMarkers();
-    this.impactMarker = markers.impact;
-    this.radiusMarker = markers.radius;
-
     // Create initial object
     this.createObject();
 
     // Add event listeners
-    window.addEventListener("mousemove", this.onMouseMove);
     window.addEventListener("click", this.onMouseClick);
   }
 
@@ -102,9 +94,21 @@ export class RefractureScene extends BaseScene {
   }
 
   private getFragmentCount(generation: number): number {
-    // Return fragment count for this generation, clamped to array bounds
-    const index = Math.min(generation, this.fragmentCounts.length - 1);
-    return this.fragmentCounts[index];
+    // Return fragment count for this generation
+    switch (generation) {
+      case 1:
+        return this.settings.fragmentCount1;
+      case 2:
+        return this.settings.fragmentCount2;
+      case 3:
+        return this.settings.fragmentCount3;
+      case 4:
+        return this.settings.fragmentCount4;
+      case 5:
+        return this.settings.fragmentCount5;
+      default:
+        return this.settings.fragmentCount5;
+    }
   }
 
   private createFragmentCallback(generation: number) {
@@ -143,68 +147,30 @@ export class RefractureScene extends BaseScene {
     };
   }
 
-  private onMouseMove = (event: MouseEvent): void => {
-    if (!this.object) return;
-
-    // Calculate mouse position in normalized device coordinates
-    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    // Raycast to find intersection with object or fragments
-    this.raycaster.setFromCamera(this.mouse, this.camera);
-
-    // Check object first
-    const objectIntersects = this.object.visible
-      ? this.raycaster.intersectObject(this.object, false)
-      : [];
-
-    // Check fragments
-    const fragmentIntersects = this.raycaster.intersectObjects(this.fragments, false);
-
-    const intersects = objectIntersects.length > 0 ? objectIntersects : fragmentIntersects;
-
-    if (intersects.length > 0) {
-      const intersectionPoint = intersects[0].point;
-      const intersectedMesh = intersects[0].object as DestructibleMesh;
-      const generation = intersectedMesh.userData.generation || 0;
-
-      // Show impact marker and radius visualization only if can still fracture
-      if (generation < this.settings.maxGeneration && this.impactMarker && this.radiusMarker) {
-        this.impactMarker.position.copy(intersectionPoint);
-        this.impactMarker.visible = true;
-
-        // Position and scale the radius marker
-        this.radiusMarker.position.copy(intersectionPoint);
-        this.radiusMarker.scale.setScalar(this.impactRadius);
-        this.radiusMarker.visible = true;
-      } else {
-        // Hide markers if at max generation
-        this.hideMarkers();
-      }
-    } else {
-      // Hide markers when not hovering over anything
-      this.hideMarkers();
-    }
-  };
-
   private onMouseClick = (event: MouseEvent): void => {
     this.updateMouseCoordinates(event);
     this.raycaster.setFromCamera(this.mouse, this.camera);
 
     // Check if clicking on original object
     if (this.object && this.object.visible) {
-      const objectIntersects = this.raycaster.intersectObject(this.object, false);
+      const objectIntersects = this.raycaster.intersectObject(
+        this.object,
+        false,
+      );
       if (objectIntersects.length > 0) {
-        this.fractureObject(this.object, objectIntersects[0].point);
+        this.fractureObject(this.object);
         return;
       }
     }
 
     // Check if clicking on a fragment
-    const fragmentIntersects = this.raycaster.intersectObjects(this.fragments, false);
+    const fragmentIntersects = this.raycaster.intersectObjects(
+      this.fragments,
+      false,
+    );
     if (fragmentIntersects.length > 0) {
       const clickedFragment = fragmentIntersects[0].object as DestructibleMesh;
-      this.fractureObject(clickedFragment, fragmentIntersects[0].point);
+      this.fractureObject(clickedFragment);
       return;
     }
 
@@ -212,21 +178,14 @@ export class RefractureScene extends BaseScene {
     this.handleExplosiveClick(this.fragments, 2.0, 10.0);
   };
 
-  private fractureObject(
-    mesh: DestructibleMesh,
-    worldPoint: THREE.Vector3,
-  ): void {
+  private fractureObject(mesh: DestructibleMesh): void {
     // Get current generation (external tracking via userData)
     const currentGeneration = mesh.userData.generation || 0;
 
     // Check if max generation reached (external refracture limiting)
     if (currentGeneration >= this.settings.maxGeneration) {
-      console.log(`Max generation (${this.settings.maxGeneration}) reached, cannot refracture further`);
       return;
     }
-
-    // Convert world point to local space
-    const localPoint = mesh.worldToLocal(worldPoint.clone());
 
     // Determine fragment count based on generation (external configuration)
     const nextGeneration = currentGeneration + 1;
@@ -238,8 +197,6 @@ export class RefractureScene extends BaseScene {
       fragmentCount: fragmentCount,
       voronoiOptions: {
         mode: "3D",
-        impactPoint: localPoint,
-        impactRadius: this.impactRadius,
       },
     });
 
@@ -271,11 +228,6 @@ export class RefractureScene extends BaseScene {
     }
   }
 
-  private hideMarkers(): void {
-    if (this.impactMarker) this.impactMarker.visible = false;
-    if (this.radiusMarker) this.radiusMarker.visible = false;
-  }
-
   update(): void {
     // No per-frame updates needed
   }
@@ -283,11 +235,11 @@ export class RefractureScene extends BaseScene {
   getInstructions(): string {
     return `REFRACTURING DEMO
 
-• Click on object to fracture it (32 fragments)
-• Click fragments to refracture them (8 fragments)
-• Click again for final refracture (4 fragments)
-• Max 2 refractures per fragment
+• Click on object/fragments to fracture them
+• Configure fragment count per generation
+• Set max generation depth (0-5)
 • Generation tracking handled externally via userData
+• Demonstrates manual refracture control pattern
 • Click empty space to apply explosive force`;
   }
 
@@ -306,24 +258,63 @@ export class RefractureScene extends BaseScene {
         this.reset();
       });
 
-    folder.addBinding(this.settings, "maxGeneration", {
+    const maxGenBinding = folder.addBinding(this.settings, "maxGeneration", {
       min: 0,
       max: 5,
       step: 1,
       label: "Max Generation",
     });
 
-    folder.addBinding(this, "fragmentCounts", {
-      label: "Fragment Counts",
-      readonly: true,
+    // Fragment count sliders
+    const frag1Binding = folder.addBinding(this.settings, "fragmentCount1", {
+      min: 2,
+      max: 64,
+      step: 1,
+      label: "Gen 1 Fragments",
     });
 
-    folder.addBinding(this, "impactRadius", {
-      min: 0.5,
-      max: 3.0,
-      step: 0.1,
-      label: "Impact Radius",
+    const frag2Binding = folder.addBinding(this.settings, "fragmentCount2", {
+      min: 2,
+      max: 64,
+      step: 1,
+      label: "Gen 2 Fragments",
     });
+
+    const frag3Binding = folder.addBinding(this.settings, "fragmentCount3", {
+      min: 2,
+      max: 64,
+      step: 1,
+      label: "Gen 3 Fragments",
+    });
+
+    const frag4Binding = folder.addBinding(this.settings, "fragmentCount4", {
+      min: 2,
+      max: 64,
+      step: 1,
+      label: "Gen 4 Fragments",
+    });
+
+    const frag5Binding = folder.addBinding(this.settings, "fragmentCount5", {
+      min: 2,
+      max: 64,
+      step: 1,
+      label: "Gen 5 Fragments",
+    });
+
+    // Update disabled state based on maxGeneration
+    const updateSliderStates = () => {
+      frag1Binding.disabled = this.settings.maxGeneration < 1;
+      frag2Binding.disabled = this.settings.maxGeneration < 2;
+      frag3Binding.disabled = this.settings.maxGeneration < 3;
+      frag4Binding.disabled = this.settings.maxGeneration < 4;
+      frag5Binding.disabled = this.settings.maxGeneration < 5;
+    };
+
+    // Initial state
+    updateSliderStates();
+
+    // Update on change
+    maxGenBinding.on("change", updateSliderStates);
 
     folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
@@ -347,9 +338,6 @@ export class RefractureScene extends BaseScene {
     this.cleanupFragments(this.fragments);
     this.fragments = [];
 
-    // Hide markers
-    this.hideMarkers();
-
     // Re-add ground physics
     this.setupGroundPhysics();
 
@@ -359,27 +347,12 @@ export class RefractureScene extends BaseScene {
 
   dispose(): void {
     // Remove event listeners
-    window.removeEventListener("mousemove", this.onMouseMove);
     window.removeEventListener("click", this.onMouseClick);
 
     // Remove object
     if (this.object) {
       this.scene.remove(this.object);
       this.object.dispose();
-    }
-
-    // Remove impact marker
-    if (this.impactMarker) {
-      this.scene.remove(this.impactMarker);
-      this.impactMarker.geometry.dispose();
-      (this.impactMarker.material as THREE.Material).dispose();
-    }
-
-    // Remove radius marker
-    if (this.radiusMarker) {
-      this.scene.remove(this.radiusMarker);
-      this.radiusMarker.geometry.dispose();
-      (this.radiusMarker.material as THREE.Material).dispose();
     }
   }
 }
