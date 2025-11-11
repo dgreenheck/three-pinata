@@ -29,7 +29,7 @@ export class DestructibleMesh extends THREE.Mesh {
 
   /**
    * Helper method to create a fragment with inherited properties and materials
-   * @private
+   * @internal
    */
   private createFragment(
     geometry: THREE.BufferGeometry,
