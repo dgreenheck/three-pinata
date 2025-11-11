@@ -19,6 +19,7 @@ export class RefractureScene extends BaseScene {
 
   private settings = {
     primitiveType: "cube" as PrimitiveType,
+    fractureMethod: "voronoi" as "voronoi" | "simple",
     maxGeneration: 3,
     fragmentCount1: 32,
     fragmentCount2: 16,
@@ -171,11 +172,7 @@ export class RefractureScene extends BaseScene {
     if (fragmentIntersects.length > 0) {
       const clickedFragment = fragmentIntersects[0].object as DestructibleMesh;
       this.fractureObject(clickedFragment);
-      return;
     }
-
-    // If clicked on nothing, apply explosive force to all fragments
-    this.handleExplosiveClick(this.fragments, 2.0, 10.0);
   };
 
   private fractureObject(mesh: DestructibleMesh): void {
@@ -193,7 +190,7 @@ export class RefractureScene extends BaseScene {
 
     // Create fracture options with appropriate fragment count
     const fractureOptions = new FractureOptions({
-      fractureMethod: "voronoi",
+      fractureMethod: this.settings.fractureMethod,
       fragmentCount: fragmentCount,
       voronoiOptions: {
         mode: "3D",
@@ -235,12 +232,9 @@ export class RefractureScene extends BaseScene {
   getInstructions(): string {
     return `REFRACTURING DEMO
 
-• Click on object/fragments to fracture them
-• Configure fragment count per generation
-• Set max generation depth (0-5)
-• Generation tracking handled externally via userData
-• Demonstrates manual refracture control pattern
-• Click empty space to apply explosive force`;
+• Click object or fragments to fracture them
+• Configure fracture method and fragment count per generation
+• Set max generation depth to limit refracturing`;
   }
 
   setupUI(): FolderApi {
@@ -257,6 +251,14 @@ export class RefractureScene extends BaseScene {
       .on("change", () => {
         this.reset();
       });
+
+    folder.addBinding(this.settings, "fractureMethod", {
+      options: {
+        Voronoi: "voronoi",
+        Simple: "simple",
+      },
+      label: "Fracture Method",
+    });
 
     const maxGenBinding = folder.addBinding(this.settings, "maxGeneration", {
       min: 0,
