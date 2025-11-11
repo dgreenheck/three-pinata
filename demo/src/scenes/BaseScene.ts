@@ -332,6 +332,8 @@ export abstract class BaseScene {
    */
   protected cleanupFragments(fragments: THREE.Mesh[], disposeMaterials: boolean = true): void {
     fragments.forEach((fragment) => {
+      // Remove physics body before removing from scene
+      this.physics.remove(fragment);
       this.scene.remove(fragment);
       fragment.geometry.dispose();
       if (disposeMaterials) {
