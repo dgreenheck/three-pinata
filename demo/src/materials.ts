@@ -24,7 +24,7 @@ export class MaterialFactory {
   /**
    * Create an inside material for fractured faces
    */
-  createInsideMaterial(color: number = 0xcccccc): THREE.MeshStandardMaterial {
+  createInsideMaterial(color: number = 0xcccccc): THREE.MeshPhysicalMaterial {
     return new THREE.MeshPhysicalMaterial({
       color,
       roughness: 0.1,

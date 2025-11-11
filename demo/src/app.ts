@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Pane } from "tweakpane";
+import { Pane, FolderApi } from "tweakpane";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { ThreePerf } from "three-perf";
 import { PhysicsWorld } from "./physics/PhysicsWorld";
@@ -11,6 +11,7 @@ import { SmashingScene } from "./scenes/SmashingScene";
 import { ProgressiveDestructionScene } from "./scenes/ProgressiveDestructionScene";
 import { SlicingScene } from "./scenes/SlicingScene";
 import { BrickWallScene } from "./scenes/BrickWallScene";
+import { RefractureScene } from "./scenes/RefractureScene";
 
 // Add imports for postprocessing
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -118,7 +119,8 @@ const appSettings = {
     | "smashing"
     | "progressive"
     | "slicing"
-    | "brickwall",
+    | "brickwall"
+    | "refracture",
 };
 
 // Setup GUI controls - Scene Selection
@@ -130,6 +132,7 @@ appFolder
       "Brick Wall": "brickwall",
       Glass: "glass",
       "Progressive Destruction": "progressive",
+      Refracturing: "refracture",
       Slicing: "slicing",
       "Smashing Object": "smashing",
     },
@@ -143,7 +146,7 @@ appFolder
 pane.addBlade({ view: "separator" });
 
 // Track scene-specific folders
-let sceneFolder: any = null;
+let sceneFolder: FolderApi | null = null;
 
 function setupGround(): void {
   // Load grid texture
@@ -260,6 +263,17 @@ async function switchScene(sceneType: string): Promise<void> {
       break;
     case "progressive":
       currentScene = new ProgressiveDestructionScene(
+        scene,
+        camera,
+        physics,
+        pane,
+        controls,
+        clock,
+        renderer,
+      );
+      break;
+    case "refracture":
+      currentScene = new RefractureScene(
         scene,
         camera,
         physics,

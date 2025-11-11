@@ -12,13 +12,16 @@
     "build": "npm run build:lib && npm run build:demo",
     "dev": "npm run dev -w three-pinata-demo",
     "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:watch": "jest --watch",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "npm run typecheck -w @dgreenheck/three-pinata && npm run typecheck -w three-pinata-demo",
     "check:typecheck": "npm run typecheck",
     "check:lint": "npm run lint",
     "check:test": "npm test",
-    "validate": "npm run check:typecheck && npm run check:lint && npm run check:test"
+    "validate": "npm run check:typecheck && npm run check:lint && npm run check:test",
+    "publish": "npm run build:lib && cp README.md lib/README.md && cd lib && npm publish --access public"
   },
   "devDependencies": {
     "globals": "^16.5.0"

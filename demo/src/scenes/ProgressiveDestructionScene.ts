@@ -1,9 +1,11 @@
 import * as THREE from "three";
+import { FolderApi, ButtonApi } from "tweakpane";
 import { BaseScene, PrimitiveType } from "./BaseScene";
 import {
   DestructibleMesh,
   FractureOptions,
 } from "@dgreenheck/three-pinata";
+import { PhysicsBody } from "../physics/PhysicsBody";
 
 /**
  * Progressive Destruction Demo
@@ -17,23 +19,18 @@ export class ProgressiveDestructionScene extends BaseScene {
   private objectMaterial!: THREE.MeshStandardMaterial;
   private insideMaterial!: THREE.MeshStandardMaterial;
   private currentBall: THREE.Mesh | null = null;
-  private resetButton: any = null;
-  private voronoiFractureOptions = new FractureOptions({
+  private resetButton: ButtonApi | null = null;
+  private fractureOptions = new FractureOptions({
     fractureMethod: "voronoi",
-    fragmentCount: 50,
+    fragmentCount: 30,
     voronoiOptions: {
       mode: "3D",
     },
-  });
-  private radialFractureOptions = new FractureOptions({
-    fractureMethod: "simple",
-    fragmentCount: 50,
   });
 
   private settings = {
     primitiveType: "torusKnot" as PrimitiveType,
     fractureMethod: "Voronoi" as "Voronoi" | "Radial",
-    fragmentCount: 30,
   };
 
   private collisionHandled = new WeakSet<THREE.Mesh>();
@@ -73,8 +70,21 @@ export class ProgressiveDestructionScene extends BaseScene {
 
     // Use the mesh's material (which may be the statue's original material)
     const materialToUse = mesh.material;
+    const outerMaterial: THREE.Material = Array.isArray(materialToUse)
+      ? materialToUse[0]
+      : materialToUse;
 
-    this.object = new DestructibleMesh(mesh.geometry, materialToUse);
+    // Use statue's inside material if statue, otherwise use generic inside material
+    const insideMaterial =
+      this.settings.primitiveType === "statue"
+        ? this.getStatueInsideMaterial()!
+        : this.insideMaterial;
+
+    this.object = new DestructibleMesh(
+      mesh.geometry,
+      outerMaterial,
+      insideMaterial,
+    );
     this.object.castShadow = true;
 
     // Calculate height so object sits on ground
@@ -96,90 +106,38 @@ export class ProgressiveDestructionScene extends BaseScene {
     setTimeout(() => {
       if (!this.object) return;
 
+      // Configure fracture options based on settings
+      this.fractureOptions.fractureMethod =
+        this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
+
       // Pre-fracture
-      if (this.settings.fractureMethod === "Voronoi") {
-        this.fragments = this.object.fracture(
-          this.voronoiFractureOptions,
-          (fragment) => {
-            // For statue, use original material + rock inside material; for others, use custom materials
-            if (this.settings.primitiveType === "statue") {
-              // Handle both single material and material array cases
-              const outerMaterial = Array.isArray(materialToUse)
-                ? materialToUse[0]
-                : materialToUse;
-              fragment.material = [
-                outerMaterial,
-                this.getStatueInsideMaterial()!,
-              ];
+      this.fragments = this.object.fracture(
+        this.fractureOptions,
+        (fragment) => {
+          fragment.castShadow = true;
+
+          // Add physics (locked)
+          try {
+            const body = this.physics.add(fragment, {
+              type: "dynamic",
+              restitution: 0.2,
+            });
+            if (body) {
+              body.rigidBody.lockTranslations(true, false);
+              body.rigidBody.lockRotations(true, false);
             } else {
-              fragment.material = [this.objectMaterial, this.insideMaterial];
+              console.warn("Failed to create physics body for fragment");
             }
-            fragment.castShadow = true;
+          } catch (error) {
+            console.error("Error adding physics to fragment:", error);
+          }
+        },
+      );
 
-            // Add physics (locked)
-            try {
-              const body = this.physics.add(fragment, {
-                type: "dynamic",
-                restitution: 0.2,
-              });
-              if (body) {
-                body.rigidBody.lockTranslations(true, false);
-                body.rigidBody.lockRotations(true, false);
-              } else {
-                console.warn("Failed to create physics body for fragment");
-              }
-            } catch (error) {
-              console.error("Error adding physics to fragment:", error);
-            }
-          },
-        );
-
-        // Add fragments to scene
-        this.fragments.forEach((fragment) => {
-          this.scene.add(fragment);
-        });
-      } else {
-        this.fragments = this.object.fracture(
-          this.radialFractureOptions,
-          (fragment) => {
-            // For statue, use original material + rock inside material; for others, use custom materials
-            if (this.settings.primitiveType === "statue") {
-              // Handle both single material and material array cases
-              const outerMaterial = Array.isArray(materialToUse)
-                ? materialToUse[0]
-                : materialToUse;
-              fragment.material = [
-                outerMaterial,
-                this.getStatueInsideMaterial()!,
-              ];
-            } else {
-              fragment.material = [this.objectMaterial, this.insideMaterial];
-            }
-            fragment.castShadow = true;
-
-            // Add physics (locked)
-            try {
-              const body = this.physics.add(fragment, {
-                type: "dynamic",
-                restitution: 0.2,
-              });
-              if (body) {
-                body.rigidBody.lockTranslations(true, false);
-                body.rigidBody.lockRotations(true, false);
-              } else {
-                console.warn("Failed to create physics body for fragment");
-              }
-            } catch (error) {
-              console.error("Error adding physics to fragment:", error);
-            }
-          },
-        );
-
-        // Add fragments to scene
-        this.fragments.forEach((fragment) => {
-          this.scene.add(fragment);
-        });
-      }
+      // Add fragments to scene
+      this.fragments.forEach((fragment) => {
+        this.scene.add(fragment);
+      });
 
       // Hide the original mesh immediately (fragments are now visible)
       this.object!.visible = false;
@@ -253,7 +211,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
   }
 
-  private onCollision = (body1: any, body2: any, started: boolean): void => {
+  private onCollision = (body1: PhysicsBody, body2: PhysicsBody, started: boolean): void => {
     if (!started || !this.object || !this.currentBall) return;
 
     const obj1 = body1.object as THREE.Mesh;
@@ -286,14 +244,12 @@ export class ProgressiveDestructionScene extends BaseScene {
   getInstructions(): string {
     return `PROGRESSIVE DESTRUCTION
 
-• Object is pre-fractured with sleeping fragments
 • Click to shoot balls
-• Fragments wake up only when hit
-• Watch physics propagate through structure
-• Adjust fragment count and reset`;
+• Use controls to adjust fragment count
+• Click reset to restart`;
   }
 
-  setupUI(): any {
+  setupUI(): FolderApi {
     const folder = this.pane.addFolder({
       title: "Progressive Destruction",
       expanded: true,
@@ -301,14 +257,7 @@ export class ProgressiveDestructionScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "primitiveType", {
-        options: {
-          Cube: "cube",
-          Sphere: "sphere",
-          Cylinder: "cylinder",
-          Torus: "torus",
-          "Torus Knot": "torusKnot",
-          Statue: "statue",
-        },
+        options: BaseScene.PRIMITIVE_OPTIONS,
         label: "Primitive",
       })
       .on("change", () => {
@@ -317,27 +266,19 @@ export class ProgressiveDestructionScene extends BaseScene {
 
     folder
       .addBinding(this.settings, "fractureMethod", {
-        options: {
-          "Voronoi (High Quality, Slow)": "Voronoi",
-          "Simple (Low Quality, Fast)": "Radial",
-        },
+        options: BaseScene.FRACTURE_METHOD_OPTIONS,
         label: "Fracture Method",
       })
       .on("change", () => {
         this.reset();
       });
 
-    folder
-      .addBinding(this.settings, "fragmentCount", {
-        min: 10,
-        max: 150,
-        step: 1,
-        label: "Fragment Count",
-      })
-      .on("change", () => {
-        this.voronoiFractureOptions.fragmentCount = this.settings.fragmentCount;
-        this.radialFractureOptions.fragmentCount = this.settings.fragmentCount;
-      });
+    folder.addBinding(this.fractureOptions, "fragmentCount", {
+      min: 2,
+      max: 64,
+      step: 1,
+      label: "Fragment Count",
+    });
 
     this.resetButton = folder.addButton({ title: "Reset" }).on("click", () => {
       this.reset();
@@ -358,15 +299,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     }
 
     // Remove all fragments
-    this.fragments.forEach((fragment) => {
-      this.scene.remove(fragment);
-      fragment.geometry.dispose();
-      if (Array.isArray(fragment.material)) {
-        fragment.material.forEach((mat) => mat.dispose());
-      } else {
-        fragment.material.dispose();
-      }
-    });
+    this.cleanupFragments(this.fragments);
     this.fragments = [];
 
     // Remove current ball

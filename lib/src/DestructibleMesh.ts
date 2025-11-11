@@ -11,11 +11,51 @@ import { slice } from "./fracture/Slice";
  * you must manually add them using scene.add(...fragments).
  */
 export class DestructibleMesh extends THREE.Mesh {
+  private _outsideMaterial?: THREE.Material;
+  private _insideMaterial?: THREE.Material;
+
   constructor(
     geometry?: THREE.BufferGeometry<THREE.NormalBufferAttributes>,
-    material?: THREE.Material | THREE.Material[],
+    outerMaterial?: THREE.Material,
+    innerMaterial?: THREE.Material,
   ) {
-    super(geometry, material);
+    // Always start with single outer material
+    // Material arrays will be set explicitly in fracture/slice methods
+    super(geometry, outerMaterial);
+
+    this._outsideMaterial = outerMaterial;
+    this._insideMaterial = innerMaterial;
+  }
+
+  /**
+   * Helper method to create a fragment with inherited properties and materials
+   * @internal
+   */
+  private createFragment(
+    geometry: THREE.BufferGeometry,
+  ): DestructibleMesh {
+    const fragment = new DestructibleMesh(
+      geometry,
+      this._outsideMaterial,
+      this._insideMaterial,
+    );
+
+    // Set material array for geometries with material groups
+    // Group 0 (materialIndex 0) = outer material, Group 1 (materialIndex 1) = inner material
+    if (this._outsideMaterial && this._insideMaterial) {
+      fragment.material = [this._outsideMaterial, this._insideMaterial];
+    } else if (this._outsideMaterial) {
+      fragment.material = this._outsideMaterial;
+    }
+
+    // Copy rendering properties from parent mesh
+    fragment.castShadow = this.castShadow;
+    fragment.receiveShadow = this.receiveShadow;
+    fragment.matrixAutoUpdate = this.matrixAutoUpdate;
+    fragment.frustumCulled = this.frustumCulled;
+    fragment.renderOrder = this.renderOrder;
+
+    return fragment;
   }
 
   /**
@@ -27,9 +67,9 @@ export class DestructibleMesh extends THREE.Mesh {
    */
   fracture(
     options: FractureOptions,
-    onFragment?: (fragment: THREE.Mesh, index: number) => void,
+    onFragment?: (fragment: DestructibleMesh, index: number) => void,
     onComplete?: () => void,
-  ): THREE.Mesh[] {
+  ): DestructibleMesh[] {
     if (!this.geometry) {
       throw new Error("DestructibleMesh has no geometry to fracture");
     }
@@ -40,7 +80,9 @@ export class DestructibleMesh extends THREE.Mesh {
     try {
       if (options.fractureMethod === "voronoi") {
         if (!options.voronoiOptions) {
-          throw new Error("voronoiOptions is required when fractureMethod is 'voronoi'");
+          throw new Error(
+            "voronoiOptions is required when fractureMethod is 'voronoi'",
+          );
         }
 
         // Convert FractureOptions to VoronoiFractureOptions format for the voronoiFracture function
@@ -53,7 +95,8 @@ export class DestructibleMesh extends THREE.Mesh {
           projectionAxis: options.voronoiOptions.projectionAxis || "auto",
           projectionNormal: options.voronoiOptions.projectionNormal,
           useApproximation: options.voronoiOptions.useApproximation || false,
-          approximationNeighborCount: options.voronoiOptions.approximationNeighborCount || 12,
+          approximationNeighborCount:
+            options.voronoiOptions.approximationNeighborCount || 12,
           textureScale: options.textureScale,
           textureOffset: options.textureOffset,
           seed: options.seed,
@@ -61,7 +104,6 @@ export class DestructibleMesh extends THREE.Mesh {
 
         fragmentGeometries = voronoiFracture(this.geometry, voronoiOptions);
       } else {
-        // Simple fracture
         fragmentGeometries = simpleFracture(this.geometry, options);
       }
     } catch (error) {
@@ -82,20 +124,14 @@ export class DestructibleMesh extends THREE.Mesh {
       // Recompute bounding sphere after translation
       fragmentGeometry.computeBoundingSphere();
 
-      const fragment = new THREE.Mesh(fragmentGeometry, this.material);
+      // Create fragment with inherited properties and materials
+      const fragment = this.createFragment(fragmentGeometry);
 
       // Apply the parent's transform to the fragment position
       const worldCenter = center.clone().applyMatrix4(this.matrixWorld);
       fragment.position.copy(worldCenter);
       fragment.quaternion.copy(this.quaternion);
       fragment.scale.copy(this.scale);
-
-      // Copy properties from the original mesh
-      fragment.castShadow = this.castShadow;
-      fragment.receiveShadow = this.receiveShadow;
-      fragment.matrixAutoUpdate = this.matrixAutoUpdate;
-      fragment.frustumCulled = this.frustumCulled;
-      fragment.renderOrder = this.renderOrder;
 
       // Call the onFragment callback if provided
       if (onFragment) {
@@ -147,14 +183,8 @@ export class DestructibleMesh extends THREE.Mesh {
 
     // Create DestructibleMesh instances for all fragments
     const pieces = fragments.map((geometry, index) => {
-      const piece = new DestructibleMesh(geometry, this.material);
-
-      // Copy properties from original mesh
-      piece.castShadow = this.castShadow;
-      piece.receiveShadow = this.receiveShadow;
-      piece.matrixAutoUpdate = this.matrixAutoUpdate;
-      piece.frustumCulled = this.frustumCulled;
-      piece.renderOrder = this.renderOrder;
+      // Create piece with inherited properties and materials
+      const piece = this.createFragment(geometry);
 
       // Apply world transform
       piece.position.copy(this.position);

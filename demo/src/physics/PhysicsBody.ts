@@ -90,4 +90,11 @@ export class PhysicsBody {
   get handle(): number {
     return this.rigidBody.handle;
   }
+
+  /**
+   * Gets the mass of the rigid body
+   */
+  mass(): number {
+    return this.rigidBody.mass();
+  }
 }

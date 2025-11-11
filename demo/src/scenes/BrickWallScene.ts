@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { FolderApi } from "tweakpane";
 import { BaseScene } from "./BaseScene";
 import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 
@@ -11,7 +12,7 @@ import { DestructibleMesh, FractureOptions } from "@dgreenheck/three-pinata";
 export class BrickWallScene extends BaseScene {
   private bricks: DestructibleMesh[] = [];
   private fracturedBricks = new Set<DestructibleMesh>();
-  private fragments: THREE.Mesh[] = [];
+  private fragments: DestructibleMesh[] = [];
   private brickMaterial!: THREE.Material | THREE.Material[];
   private ballMaterial!: THREE.MeshStandardMaterial;
   private balls: THREE.Mesh[] = [];
@@ -25,9 +26,13 @@ export class BrickWallScene extends BaseScene {
     },
   });
 
+  private settings = {
+    fractureMethod: "Voronoi" as "Voronoi" | "Simple",
+  };
+
   async init(): Promise<void> {
     // Setup camera
-    this.camera.position.set(0, 2, 10);
+    this.camera.position.set(1, 5, 8);
     this.controls.target.set(0, 2, 0);
     this.controls.update();
 
@@ -91,13 +96,26 @@ export class BrickWallScene extends BaseScene {
       const xStart = -rowWidth / 2 + brickWidth / 2;
 
       for (let i = 0; i < bricksInRow; i++) {
+        // Get first material if array for both outer and inside (bricks look the same inside)
+        const material: THREE.Material = Array.isArray(this.brickMaterial)
+          ? this.brickMaterial[0]
+          : this.brickMaterial;
+
         const brick = new DestructibleMesh(
           this.brickGeometry.clone(),
-          this.brickMaterial,
+          material,
+          material, // Inside looks the same as outside for bricks
         );
 
-        // Rotate brick 90 degrees around y-axis
-        brick.rotation.y = Math.PI / 2;
+        // Random size variation (±1% on each axis)
+        const scaleX = 1 + (Math.random() - 0.5) * 0.02;
+        const scaleY = 1 + (Math.random() - 0.5) * 0.02;
+        const scaleZ = 1 + (Math.random() - 0.5) * 0.02;
+        brick.scale.set(scaleX, scaleY, scaleZ);
+
+        // Rotate brick 90 degrees around y-axis + random variation (±2 degrees)
+        const randomRotation = (Math.random() - 0.5) * ((4 * Math.PI) / 180); // ±2 degrees in radians
+        brick.rotation.y = Math.PI / 2 + randomRotation;
 
         // Position brick with spacing
         brick.position.set(xStart + i * (brickWidth + spacing), yPosition, 0);
@@ -109,11 +127,11 @@ export class BrickWallScene extends BaseScene {
         this.bricks.push(brick);
 
         // Add physics with custom cuboid collider (half-extents)
-        // Use slightly smaller collider to prevent interpenetration
+        // Apply scale variation to collider to match visual mesh
         const colliderDesc = this.physics.RAPIER.ColliderDesc.cuboid(
-          (brickWidth / 2) * 0.98,
-          (brickHeight / 2) * 0.98,
-          (brickDepth / 2) * 0.98,
+          (brickWidth * scaleX) / 2,
+          (brickHeight * scaleY) / 2,
+          (brickDepth * scaleZ) / 2,
         );
 
         this.physics.add(brick, {
@@ -181,19 +199,21 @@ export class BrickWallScene extends BaseScene {
     // Convert world point to local coordinates
     const localPoint = brick.worldToLocal(worldPoint.clone());
 
-    // Set impact point for fracture
-    if (this.fractureOptions.voronoiOptions) {
+    // Configure fracture options based on settings
+    this.fractureOptions.fractureMethod =
+      this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
+
+    // Set impact point for fracture (Voronoi only)
+    if (
+      this.settings.fractureMethod === "Voronoi" &&
+      this.fractureOptions.voronoiOptions
+    ) {
       this.fractureOptions.voronoiOptions.impactPoint = localPoint;
       this.fractureOptions.voronoiOptions.impactRadius = 1.5;
     }
 
-    // Fracture the brick - use brick material for both outer and inner faces
+    // Fracture the brick
     const fragments = brick.fracture(this.fractureOptions, (fragment) => {
-      // Use brick's own material for both outer and inner faces
-      fragment.material = this.brickMaterial;
-      fragment.castShadow = true;
-      fragment.receiveShadow = true;
-
       // Add physics to fragment
       this.physics.add(fragment, {
         type: "dynamic",
@@ -202,11 +222,8 @@ export class BrickWallScene extends BaseScene {
       });
     });
 
-    // Add fragments to scene and track them
-    fragments.forEach((fragment) => {
-      this.scene.add(fragment);
-      this.fragments.push(fragment);
-    });
+    this.scene.add(...fragments);
+    this.fragments.push(...fragments);
 
     // Hide original brick
     brick.visible = false;
@@ -222,20 +239,23 @@ export class BrickWallScene extends BaseScene {
   getInstructions(): string {
     return `BRICK WALL
 
-• Click to fire balls at the brick pyramid
-• Each brick fractures with Voronoi impact pattern
-• Watch the pyramid collapse!`;
+• Click to fire balls at the wall`;
   }
 
-  setupUI(): any {
+  setupUI(): FolderApi {
     const folder = this.pane.addFolder({
       title: "Brick Wall",
       expanded: true,
     });
 
+    folder.addBinding(this.settings, "fractureMethod", {
+      options: BaseScene.FRACTURE_METHOD_OPTIONS,
+      label: "Fracture Method",
+    });
+
     folder.addBinding(this.fractureOptions, "fragmentCount", {
-      min: 8,
-      max: 50,
+      min: 2,
+      max: 64,
       step: 1,
       label: "Fragment Count",
     });
@@ -257,12 +277,8 @@ export class BrickWallScene extends BaseScene {
       brick.dispose();
     });
 
-    // Remove all fragments
-    this.fragments.forEach((fragment) => {
-      this.scene.remove(fragment);
-      fragment.geometry.dispose();
-      // Note: material is shared with bricks, so don't dispose here
-    });
+    // Remove all fragments (don't dispose materials as they're shared with bricks)
+    this.cleanupFragments(this.fragments, false);
 
     // Remove all balls
     this.balls.forEach((ball) => {
