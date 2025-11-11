@@ -127,11 +127,11 @@ export class BrickWallScene extends BaseScene {
         this.bricks.push(brick);
 
         // Add physics with custom cuboid collider (half-extents)
-        // Use slightly smaller collider to prevent interpenetration
+        // Apply scale variation to collider to match visual mesh
         const colliderDesc = this.physics.RAPIER.ColliderDesc.cuboid(
-          brickWidth / 2,
-          brickHeight / 2,
-          brickDepth / 2,
+          (brickWidth * scaleX) / 2,
+          (brickHeight * scaleY) / 2,
+          (brickDepth * scaleZ) / 2,
         );
 
         this.physics.add(brick, {
