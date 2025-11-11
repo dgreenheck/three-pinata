@@ -1,6 +1,7 @@
 import { Vector2, Vector3 } from "three";
 import { Fragment, SlicedMeshSubmesh } from "../Fragment";
 import { MeshVertex } from "../MeshVertex";
+import { EdgeConstraint } from "../EdgeConstraint";
 
 describe("Fragment", () => {
   describe("Constructor", () => {
@@ -265,7 +266,6 @@ describe("Fragment", () => {
 
     it("should filter degenerate constraints after welding", () => {
       const fragment = new Fragment();
-      const { EdgeConstraint } = require("../EdgeConstraint");
 
       fragment.addCutFaceVertex(
         new Vector3(1, 1, 1),
@@ -289,7 +289,6 @@ describe("Fragment", () => {
 
     it("should preserve non-degenerate constraints after welding", () => {
       const fragment = new Fragment();
-      const { EdgeConstraint } = require("../EdgeConstraint");
 
       // Add three distinct vertices
       fragment.addCutFaceVertex(
