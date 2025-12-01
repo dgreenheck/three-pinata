@@ -113,6 +113,55 @@ pane.title = "three-pinata";
 const tweakpaneElement = pane.element;
 tweakpaneElement.parentElement!.style.width = "300px";
 
+// Mobile UI setup
+const MOBILE_BREAKPOINT = 768;
+let isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+
+const controlsToggle = document.getElementById("controls-toggle")!;
+const controlsOverlay = document.getElementById("controls-overlay")!;
+const mobilePaneContainer = document.getElementById("mobile-pane-container")!;
+const instructionsToggle = document.getElementById("instructions-toggle")!;
+const instructionsElement = document.getElementById("instructions")!;
+
+function setupMobileUI(): void {
+  // Move Tweakpane to mobile container if on mobile
+  if (isMobile) {
+    mobilePaneContainer.appendChild(tweakpaneElement.parentElement!);
+    perf.visible = false;
+  } else {
+    // Move back to body for desktop
+    document.body.appendChild(tweakpaneElement.parentElement!);
+    controlsOverlay.classList.remove("visible");
+    controlsToggle.classList.remove("active");
+    instructionsElement.classList.remove("visible", "hidden");
+    instructionsToggle.classList.remove("active");
+    perf.visible = true;
+  }
+}
+
+// Controls toggle handler
+controlsToggle.addEventListener("click", () => {
+  const isVisible = controlsOverlay.classList.toggle("visible");
+  controlsToggle.classList.toggle("active", isVisible);
+});
+
+// Instructions toggle handler
+instructionsToggle.addEventListener("click", () => {
+  const isVisible = instructionsElement.classList.toggle("visible");
+  instructionsToggle.classList.toggle("active", isVisible);
+});
+
+// Close controls overlay when tapping outside (on the drag handle area)
+controlsOverlay.addEventListener("click", (e) => {
+  if (e.target === controlsOverlay || (e.target as HTMLElement).classList.contains("drag-handle")) {
+    controlsOverlay.classList.remove("visible");
+    controlsToggle.classList.remove("active");
+  }
+});
+
+// Initial mobile UI setup
+setupMobileUI();
+
 // App settings
 const appSettings = {
   scene: "brickwall" as
@@ -126,7 +175,7 @@ const appSettings = {
 };
 
 // Setup GUI controls - Scene Selection
-const appFolder = pane.addFolder({ title: "Scene Selection", expanded: true });
+const appFolder = pane.addFolder({ title: "Scene Selection", expanded: !isMobile });
 
 appFolder
   .addBinding(appSettings, "scene", {
@@ -326,11 +375,13 @@ async function switchScene(sceneType: string): Promise<void> {
     await currentScene.init();
     sceneFolder = currentScene.setupUI();
 
-    // Update instructions
-    const instructionsElement = document.getElementById("instructions");
-    if (instructionsElement) {
-      instructionsElement.textContent = currentScene.getInstructions();
+    // Collapse folder on mobile for cleaner initial view
+    if (isMobile && sceneFolder) {
+      sceneFolder.expanded = false;
     }
+
+    // Update instructions
+    instructionsElement.textContent = currentScene.getInstructions();
   }
 }
 
@@ -374,6 +425,13 @@ window.addEventListener("resize", () => {
 
   // Update bloom pass resolution
   bloomPass.setSize(window.innerWidth, window.innerHeight);
+
+  // Handle mobile/desktop layout switching
+  const wasMobile = isMobile;
+  isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+  if (wasMobile !== isMobile) {
+    setupMobileUI();
+  }
 });
 
 // Initialize the app
