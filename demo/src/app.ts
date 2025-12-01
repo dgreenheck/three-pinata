@@ -189,6 +189,11 @@ pane
     label: "Select Scene",
   })
   .on("change", () => {
+    // Collapse controls on mobile when scene is selected
+    if (isMobile) {
+      controlsOverlay.classList.remove("visible");
+      controlsToggle.classList.remove("active");
+    }
     switchScene(appSettings.scene);
   });
 
