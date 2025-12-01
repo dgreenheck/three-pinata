@@ -159,6 +159,21 @@ controlsOverlay.addEventListener("click", (e) => {
   }
 });
 
+// Prevent UI clicks from triggering scene interactions
+const uiElements = [
+  controlsOverlay,
+  controlsToggle,
+  instructionsToggle,
+  instructionsElement,
+  tweakpaneElement.parentElement!,
+];
+const blockedEvents = ["pointerdown", "pointerup", "click", "mousedown", "mouseup"];
+uiElements.forEach((el) => {
+  blockedEvents.forEach((eventType) => {
+    el.addEventListener(eventType, (e) => e.stopPropagation());
+  });
+});
+
 // Initial mobile UI setup
 setupMobileUI();
 
