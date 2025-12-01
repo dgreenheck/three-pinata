@@ -12,6 +12,7 @@ import { ProgressiveDestructionScene } from "./scenes/ProgressiveDestructionScen
 import { SlicingScene } from "./scenes/SlicingScene";
 import { BrickWallScene } from "./scenes/BrickWallScene";
 import { RefractureScene } from "./scenes/RefractureScene";
+import { KintsugiScene } from "./scenes/KintsugiScene";
 
 // Add imports for postprocessing
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -52,8 +53,8 @@ renderer.setClearColor(0xa0a0a0);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.enabled = true;
-renderer.toneMapping = THREE.NeutralToneMapping;
-renderer.toneMappingExposure = 2;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.5;
 document.body.appendChild(renderer.domElement);
 
 // Add performance monitor
@@ -120,7 +121,8 @@ const appSettings = {
     | "progressive"
     | "slicing"
     | "brickwall"
-    | "refracture",
+    | "refracture"
+    | "kintsugi",
 };
 
 // Setup GUI controls - Scene Selection
@@ -131,6 +133,7 @@ appFolder
     options: {
       "Brick Wall": "brickwall",
       Glass: "glass",
+      Kintsugi: "kintsugi",
       "Progressive Destruction": "progressive",
       Refracturing: "refracture",
       Slicing: "slicing",
@@ -296,6 +299,17 @@ async function switchScene(sceneType: string): Promise<void> {
       break;
     case "brickwall":
       currentScene = new BrickWallScene(
+        scene,
+        camera,
+        physics,
+        pane,
+        controls,
+        clock,
+        renderer,
+      );
+      break;
+    case "kintsugi":
+      currentScene = new KintsugiScene(
         scene,
         camera,
         physics,
