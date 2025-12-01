@@ -174,10 +174,8 @@ const appSettings = {
     | "kintsugi",
 };
 
-// Setup GUI controls - Scene Selection
-const appFolder = pane.addFolder({ title: "Scene Selection", expanded: !isMobile });
-
-appFolder
+// Setup GUI controls - Scene Selection dropdown
+pane
   .addBinding(appSettings, "scene", {
     options: {
       "Brick Wall": "brickwall",
@@ -188,7 +186,7 @@ appFolder
       Slicing: "slicing",
       "Smashing Object": "smashing",
     },
-    label: "Demo Scene",
+    label: "Select Scene",
   })
   .on("change", () => {
     switchScene(appSettings.scene);
@@ -374,11 +372,6 @@ async function switchScene(sceneType: string): Promise<void> {
   if (currentScene) {
     await currentScene.init();
     sceneFolder = currentScene.setupUI();
-
-    // Collapse folder on mobile for cleaner initial view
-    if (isMobile && sceneFolder) {
-      sceneFolder.expanded = false;
-    }
 
     // Update instructions
     instructionsElement.textContent = currentScene.getInstructions();

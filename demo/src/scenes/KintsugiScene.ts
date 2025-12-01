@@ -66,7 +66,7 @@ export class KintsugiScene extends BaseScene {
     dissolveEdgeWidth: 0.29,
     dissolveEdgeIntensity: 10.0,
     dissolveColor: { r: 255, g: 241, b: 150 },
-    playAnimation: false,
+    playAnimation: true,
     explosionDuration: 2.0,
     dissolveDuration: 1.0,
     endBuffer: 3.0,
