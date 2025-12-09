@@ -43,6 +43,58 @@ export function computeBisectingPlane(
 }
 
 /**
+ * Computes an anisotropic bisecting plane between two seed points.
+ * Uses a scaled distance metric that creates elongated Voronoi cells along the grain direction.
+ *
+ * The anisotropic distance metric is:
+ *   aniso_dist²(P, S) = |P - S|² - (1 - 1/A²) · dot(P - S, G)²
+ *
+ * This causes cells to be elongated along the grain direction G by factor A.
+ *
+ * @param seed1 The first seed point
+ * @param seed2 The second seed point
+ * @param grainDirection Normalized direction of grain/elongation
+ * @param anisotropy Factor controlling elongation (1.0 = isotropic, >1 = elongated along grain)
+ * @returns The anisotropic bisecting plane
+ */
+export function computeAnisotropicBisectingPlane(
+  seed1: Vector3,
+  seed2: Vector3,
+  grainDirection: Vector3,
+  anisotropy: number,
+): BisectingPlane {
+  // Origin stays at midpoint (unchanged from isotropic case)
+  const origin = new Vector3(
+    (seed1.x + seed2.x) / 2,
+    (seed1.y + seed2.y) / 2,
+    (seed1.z + seed2.z) / 2,
+  );
+
+  // D = vector from seed1 to seed2
+  const D = new Vector3(
+    seed2.x - seed1.x,
+    seed2.y - seed1.y,
+    seed2.z - seed1.z,
+  );
+
+  // Anisotropic factor: (1 - 1/A²)
+  // When A = 1, factor = 0, giving standard isotropic Voronoi
+  // When A > 1, factor approaches 1, giving maximum elongation
+  const factor = 1 - 1 / (anisotropy * anisotropy);
+
+  // Dot product of D with grain direction
+  const dotDG = D.dot(grainDirection);
+
+  // Modified normal: D - factor · dot(D, G) · G
+  // This tilts the bisecting plane to give more space to cells aligned with grain
+  const normal = D.clone()
+    .sub(grainDirection.clone().multiplyScalar(factor * dotDG))
+    .normalize();
+
+  return { origin, normal };
+}
+
+/**
  * Computes a single Voronoi cell by applying sequential half-space intersections.
  * Starts with the input fragment and carves it down by slicing with bisecting planes.
  *
@@ -53,6 +105,8 @@ export function computeBisectingPlane(
  * @param textureScale Texture scale for cut faces
  * @param textureOffset Texture offset for cut faces
  * @param convex Whether to use convex triangulation mode
+ * @param grainDirection Optional grain direction for anisotropic Voronoi (must be normalized)
+ * @param anisotropy Optional anisotropy factor (1.0 = isotropic, >1 = elongated along grain)
  * @returns The computed Voronoi cell fragment, or null if the cell is empty
  */
 export function computeVoronoiCell(
@@ -63,6 +117,8 @@ export function computeVoronoiCell(
   textureScale: Vector2,
   textureOffset: Vector2,
   convex: boolean,
+  grainDirection?: Vector3,
+  anisotropy?: number,
 ): Fragment | null {
   let cell = fragment;
   const thisSeed = seeds[seedIndex];
@@ -70,12 +126,26 @@ export function computeVoronoiCell(
   // Determine which seeds are neighbors
   const neighbors = neighborIndices || getAllNeighbors(seedIndex, seeds.length);
 
+  // Check if we should use anisotropic mode
+  const useAnisotropic =
+    grainDirection !== undefined &&
+    anisotropy !== undefined &&
+    anisotropy > 1.0;
+
   // Apply half-space intersection for each neighbor
   for (const neighborIndex of neighbors) {
     const neighborSeed = seeds[neighborIndex];
 
     // Compute the bisecting plane between this seed and the neighbor
-    const plane = computeBisectingPlane(thisSeed, neighborSeed);
+    // Use anisotropic version if grain parameters are provided
+    const plane = useAnisotropic
+      ? computeAnisotropicBisectingPlane(
+          thisSeed,
+          neighborSeed,
+          grainDirection!,
+          anisotropy!,
+        )
+      : computeBisectingPlane(thisSeed, neighborSeed);
 
     // Slice the current cell with this plane
     // We want to keep the side closer to thisSeed (the "bottom" side since normal points away)

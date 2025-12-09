@@ -80,6 +80,10 @@ function voronoiFracture3D(
     );
   }
 
+  // Extract anisotropic parameters if provided
+  const grainDirection = options.grainDirection;
+  const anisotropy = options.anisotropy;
+
   for (let i = 0; i < seeds.length; i++) {
     // Clone the source fragment for each cell
     const cellFragment = cloneFragment(sourceFragment);
@@ -90,6 +94,7 @@ function voronoiFracture3D(
       : null; // null means use all other seeds
 
     // Compute the Voronoi cell by sequential half-space intersections
+    // Pass grain parameters for anisotropic mode
     const cell = computeVoronoiCell(
       cellFragment,
       i,
@@ -98,6 +103,8 @@ function voronoiFracture3D(
       options.textureScale,
       options.textureOffset,
       convex,
+      grainDirection,
+      anisotropy,
     );
 
     // Only add non-empty cells
@@ -204,6 +211,10 @@ function voronoiFracture2D(
     );
   }
 
+  // Extract anisotropic parameters if provided
+  const grainDirection = options.grainDirection;
+  const anisotropy = options.anisotropy;
+
   for (let i = 0; i < seeds.length; i++) {
     const cellFragment = cloneFragment(sourceFragment);
 
@@ -212,6 +223,7 @@ function voronoiFracture2D(
       ? findKNearestNeighbors(i, seeds, k)
       : null;
 
+    // Pass grain parameters for anisotropic mode
     const cell = computeVoronoiCell(
       cellFragment,
       i,
@@ -220,6 +232,8 @@ function voronoiFracture2D(
       options.textureScale,
       options.textureOffset,
       convex,
+      grainDirection,
+      anisotropy,
     );
 
     if (cell && cell.vertexCount > 0) {

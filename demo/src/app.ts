@@ -13,6 +13,8 @@ import { SlicingScene } from "./scenes/SlicingScene";
 import { BrickWallScene } from "./scenes/BrickWallScene";
 import { RefractureScene } from "./scenes/RefractureScene";
 import { KintsugiScene } from "./scenes/KintsugiScene";
+// New material demo scenes
+import { WoodYardScene } from "./scenes/WoodYardScene";
 
 // Add imports for postprocessing
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -186,7 +188,8 @@ const appSettings = {
     | "slicing"
     | "brickwall"
     | "refracture"
-    | "kintsugi",
+    | "kintsugi"
+    | "woodyard",
 };
 
 // Setup GUI controls - Scene Selection dropdown
@@ -200,6 +203,7 @@ pane
       Refracturing: "refracture",
       Slicing: "slicing",
       "Smashing Object": "smashing",
+      "Wood Yard": "woodyard",
     },
     label: "Select Scene",
   })
@@ -377,6 +381,17 @@ async function switchScene(sceneType: string): Promise<void> {
       break;
     case "kintsugi":
       currentScene = new KintsugiScene(
+        scene,
+        camera,
+        physics,
+        pane,
+        controls,
+        clock,
+        renderer,
+      );
+      break;
+    case "woodyard":
+      currentScene = new WoodYardScene(
         scene,
         camera,
         physics,
