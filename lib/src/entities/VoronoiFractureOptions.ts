@@ -93,6 +93,7 @@ export class VoronoiFractureOptions {
    * - 2.0 = cells are ~2x longer along grain
    * - 3.0+ = highly elongated splinter-like cells
    * Only used when grainDirection is specified.
+   * Must be >= 1.0. Values less than 1.0 will be clamped to 1.0.
    * Default: 1.0 (isotropic)
    */
   public anisotropy: number = 1.0;
@@ -182,7 +183,9 @@ export class VoronoiFractureOptions {
     }
 
     if (anisotropy !== undefined) {
-      this.anisotropy = anisotropy;
+      // Clamp anisotropy to minimum of 1.0 (isotropic)
+      // Values < 1.0 don't make physical sense and could cause divide-by-zero
+      this.anisotropy = Math.max(1.0, anisotropy);
     }
   }
 }

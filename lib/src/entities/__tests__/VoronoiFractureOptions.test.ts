@@ -171,5 +171,44 @@ describe("VoronoiFractureOptions", () => {
       expect(options.textureOffset).toBe(textureOffset);
       expect(options.seed).toBe(99999);
     });
+
+    it("should set grainDirection and normalize it", () => {
+      const grainDirection = new Vector3(0, 2, 0);
+      const options = new VoronoiFractureOptions({ grainDirection });
+
+      expect(options.grainDirection).toBeDefined();
+      expect(options.grainDirection?.length()).toBeCloseTo(1.0);
+      expect(options.grainDirection?.y).toBeCloseTo(1.0);
+    });
+
+    it("should set anisotropy when provided with valid value", () => {
+      const options = new VoronoiFractureOptions({ anisotropy: 2.5 });
+
+      expect(options.anisotropy).toBe(2.5);
+    });
+
+    it("should clamp anisotropy to 1.0 when provided with value less than 1", () => {
+      const options = new VoronoiFractureOptions({ anisotropy: 0.5 });
+
+      expect(options.anisotropy).toBe(1.0);
+    });
+
+    it("should clamp anisotropy to 1.0 when provided with zero", () => {
+      const options = new VoronoiFractureOptions({ anisotropy: 0 });
+
+      expect(options.anisotropy).toBe(1.0);
+    });
+
+    it("should clamp anisotropy to 1.0 when provided with negative value", () => {
+      const options = new VoronoiFractureOptions({ anisotropy: -2.0 });
+
+      expect(options.anisotropy).toBe(1.0);
+    });
+
+    it("should allow anisotropy of exactly 1.0", () => {
+      const options = new VoronoiFractureOptions({ anisotropy: 1.0 });
+
+      expect(options.anisotropy).toBe(1.0);
+    });
   });
 });

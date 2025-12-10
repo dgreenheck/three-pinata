@@ -80,7 +80,9 @@ export function computeAnisotropicBisectingPlane(
   // Anisotropic factor: (1 - 1/A²)
   // When A = 1, factor = 0, giving standard isotropic Voronoi
   // When A > 1, factor approaches 1, giving maximum elongation
-  const factor = 1 - 1 / (anisotropy * anisotropy);
+  // Guard against divide by zero and invalid values (anisotropy must be >= 1.0)
+  const clampedAnisotropy = Math.max(1.0, anisotropy);
+  const factor = 1 - 1 / (clampedAnisotropy * clampedAnisotropy);
 
   // Dot product of D with grain direction
   const dotDG = D.dot(grainDirection);
