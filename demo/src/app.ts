@@ -13,7 +13,6 @@ import { SlicingScene } from "./scenes/SlicingScene";
 import { BrickWallScene } from "./scenes/BrickWallScene";
 import { RefractureScene } from "./scenes/RefractureScene";
 import { KintsugiScene } from "./scenes/KintsugiScene";
-// New material demo scenes
 import { WoodYardScene } from "./scenes/WoodYardScene";
 
 // Add imports for postprocessing
