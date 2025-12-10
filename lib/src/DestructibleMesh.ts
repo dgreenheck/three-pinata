@@ -100,6 +100,9 @@ export class DestructibleMesh extends THREE.Mesh {
           textureScale: options.textureScale,
           textureOffset: options.textureOffset,
           seed: options.seed,
+          // Anisotropic Voronoi options for grain-following fractures
+          grainDirection: options.voronoiOptions.grainDirection,
+          anisotropy: options.voronoiOptions.anisotropy ?? 1.0,
         };
 
         fragmentGeometries = voronoiFracture(this.geometry, voronoiOptions);
