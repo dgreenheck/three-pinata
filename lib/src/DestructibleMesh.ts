@@ -1,7 +1,11 @@
 import * as THREE from "three";
 import { FractureOptions } from "./entities/FractureOptions";
 import { SliceOptions } from "./entities/SliceOptions";
-import { voronoiFracture } from "./fracture/VoronoiFracture";
+import {
+  voronoiFracture,
+  voronoiFractureAsync,
+  VoronoiWorkerOptions,
+} from "./fracture/VoronoiFracture";
 import { fracture as simpleFracture } from "./fracture/Fracture";
 import { slice } from "./fracture/Slice";
 
@@ -142,6 +146,91 @@ export class DestructibleMesh extends THREE.Mesh {
     });
 
     // Call the onComplete callback if provided
+    if (onComplete) {
+      onComplete();
+    }
+
+    return fragments;
+  }
+
+  /**
+   * Async version of fracture() that parallelizes Voronoi cell computation
+   * across Web Workers. Only supports the 'voronoi' fracture method.
+   *
+   * Source geometry and seeds are shared across workers via SharedArrayBuffer
+   * when available, falling back to ArrayBuffer copies otherwise.
+   *
+   * @param options Fracture options (must use fractureMethod: 'voronoi')
+   * @param workerOptions Worker pool configuration
+   * @param onFragment Optional callback called for each fragment
+   * @param onComplete Optional callback called after all fragments are created
+   * @returns Promise resolving to the array of created fragment meshes
+   */
+  async fractureAsync(
+    options: FractureOptions,
+    workerOptions: VoronoiWorkerOptions,
+    onFragment?: (fragment: DestructibleMesh, index: number) => void,
+    onComplete?: () => void,
+  ): Promise<DestructibleMesh[]> {
+    if (!this.geometry) {
+      throw new Error("DestructibleMesh has no geometry to fracture");
+    }
+
+    if (options.fractureMethod !== "voronoi") {
+      throw new Error(
+        "fractureAsync only supports the 'voronoi' fracture method",
+      );
+    }
+
+    if (!options.voronoiOptions) {
+      throw new Error(
+        "voronoiOptions is required when fractureMethod is 'voronoi'",
+      );
+    }
+
+    const voronoiOptions = {
+      fragmentCount: options.fragmentCount,
+      mode: options.voronoiOptions.mode,
+      seedPoints: options.voronoiOptions.seedPoints,
+      impactPoint: options.voronoiOptions.impactPoint,
+      impactRadius: options.voronoiOptions.impactRadius,
+      projectionAxis: options.voronoiOptions.projectionAxis || "auto",
+      projectionNormal: options.voronoiOptions.projectionNormal,
+      useApproximation: options.voronoiOptions.useApproximation || false,
+      approximationNeighborCount:
+        options.voronoiOptions.approximationNeighborCount || 12,
+      textureScale: options.textureScale,
+      textureOffset: options.textureOffset,
+      seed: options.seed,
+    };
+
+    const fragmentGeometries = await voronoiFractureAsync(
+      this.geometry,
+      voronoiOptions,
+      workerOptions,
+    );
+
+    const fragments = fragmentGeometries.map((fragmentGeometry, index) => {
+      fragmentGeometry.computeBoundingBox();
+      const center = new THREE.Vector3();
+      fragmentGeometry.boundingBox!.getCenter(center);
+      fragmentGeometry.translate(-center.x, -center.y, -center.z);
+      fragmentGeometry.computeBoundingSphere();
+
+      const fragment = this.createFragment(fragmentGeometry);
+
+      const worldCenter = center.clone().applyMatrix4(this.matrixWorld);
+      fragment.position.copy(worldCenter);
+      fragment.quaternion.copy(this.quaternion);
+      fragment.scale.copy(this.scale);
+
+      if (onFragment) {
+        onFragment(fragment, index);
+      }
+
+      return fragment;
+    });
+
     if (onComplete) {
       onComplete();
     }

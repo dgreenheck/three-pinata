@@ -10,6 +10,12 @@ import {
 import { Fragment } from "../entities/Fragment";
 import { findIsolatedGeometry } from "./FractureFragment";
 import { SeededRandom } from "../utils/SeededRandom";
+import { VoronoiWorkerPool } from "../workers/VoronoiWorkerPool";
+import {
+  packSourceFragment,
+  packSeeds,
+  WorkerFragmentResult,
+} from "../workers/FragmentTransfer";
 
 /**
  * Fractures a mesh using Voronoi tessellation.
@@ -314,4 +320,197 @@ function cloneFragment(fragment: Fragment): Fragment {
   }
 
   return cloned;
+}
+
+/**
+ * Options for the async worker-based Voronoi fracture.
+ */
+export interface VoronoiWorkerOptions {
+  /** Factory function that creates a Web Worker running the voronoiWorker module. */
+  createWorker: () => Worker;
+  /** Number of workers in the pool. Defaults to navigator.hardwareConcurrency. */
+  workerCount?: number;
+}
+
+/**
+ * Async version of voronoiFracture that parallelizes Voronoi cell computation
+ * across Web Workers. Source geometry and seeds are shared via SharedArrayBuffer
+ * (falls back to ArrayBuffer copies if SharedArrayBuffer is unavailable).
+ *
+ * @param geometry The source geometry to fracture
+ * @param options Options for Voronoi fracturing
+ * @param workerOptions Worker pool configuration
+ * @returns Promise resolving to array of fractured geometry pieces
+ */
+export async function voronoiFractureAsync(
+  geometry: THREE.BufferGeometry,
+  options: VoronoiFractureOptions,
+  workerOptions: VoronoiWorkerOptions,
+): Promise<THREE.BufferGeometry[]> {
+  const rng = new SeededRandom(options.seed);
+  const seed = rng.getSeed();
+
+  if (options.seed === undefined) {
+    options.seed = seed;
+  }
+
+  const sourceFragment = geometryToFragment(geometry);
+
+  let seeds: Vector3[];
+  if (options.mode === "3D") {
+    seeds = generateSeeds(sourceFragment, options, rng);
+  } else {
+    seeds = generate2DSeeds(sourceFragment, options, rng);
+  }
+
+  return await computeVoronoiCellsParallel(
+    sourceFragment,
+    seeds,
+    options,
+    workerOptions,
+  );
+}
+
+/**
+ * Generates seed points for 2.5D Voronoi fracture.
+ * Extracted from voronoiFracture2D for reuse in the async path.
+ */
+function generate2DSeeds(
+  sourceFragment: Fragment,
+  options: VoronoiFractureOptions,
+  rng: SeededRandom,
+): Vector3[] {
+  sourceFragment.calculateBounds();
+
+  let axis: "x" | "y" | "z";
+
+  if (options.projectionNormal) {
+    const normal = options.projectionNormal;
+    const absX = Math.abs(normal.x);
+    const absY = Math.abs(normal.y);
+    const absZ = Math.abs(normal.z);
+
+    if (absX > absY && absX > absZ) {
+      axis = "x";
+    } else if (absY > absX && absY > absZ) {
+      axis = "y";
+    } else {
+      axis = "z";
+    }
+  } else {
+    const axisOption = options.projectionAxis || "auto";
+    if (axisOption === "auto") {
+      axis = SeedPointGenerator.determineBestProjectionAxis(
+        sourceFragment.bounds,
+      );
+    } else {
+      axis = axisOption;
+    }
+  }
+
+  if (options.seedPoints) {
+    return options.seedPoints;
+  } else if (options.impactPoint) {
+    const radius =
+      options.impactRadius ||
+      Math.min(
+        sourceFragment.bounds.max.x - sourceFragment.bounds.min.x,
+        sourceFragment.bounds.max.y - sourceFragment.bounds.min.y,
+        sourceFragment.bounds.max.z - sourceFragment.bounds.min.z,
+      ) * 0.3;
+
+    return SeedPointGenerator.generate2DImpactBased(
+      sourceFragment.bounds,
+      options.fragmentCount,
+      options.impactPoint,
+      radius,
+      axis,
+      rng,
+    );
+  } else {
+    return SeedPointGenerator.generate2D(
+      sourceFragment.bounds,
+      options.fragmentCount,
+      axis,
+      rng,
+    );
+  }
+}
+
+/**
+ * Dispatches Voronoi cell computations across a worker pool and
+ * assembles results into BufferGeometries.
+ */
+async function computeVoronoiCellsParallel(
+  sourceFragment: Fragment,
+  seeds: Vector3[],
+  options: VoronoiFractureOptions,
+  workerOptions: VoronoiWorkerOptions,
+): Promise<THREE.BufferGeometry[]> {
+  const useKNearest = options.useApproximation;
+  const k = Math.min(options.approximationNeighborCount, seeds.length - 1);
+
+  if (useKNearest) {
+    console.warn(
+      `⚠️ Voronoi approximation enabled (k=${k} neighbors). This may cause fragment overlaps.`,
+      `\nFor accurate results with no overlaps, set useApproximation: false.`,
+    );
+  }
+
+  const sharedSource = packSourceFragment(sourceFragment);
+  const sharedSeeds = packSeeds(seeds);
+
+  const pool = new VoronoiWorkerPool(
+    workerOptions.createWorker,
+    workerOptions.workerCount,
+  );
+
+  try {
+    pool.init(sharedSource, sharedSeeds);
+
+    const allResults = await pool.computeAll(seeds.length, {
+      useApproximation: useKNearest,
+      approximationK: k,
+      textureScaleX: options.textureScale.x,
+      textureScaleY: options.textureScale.y,
+      textureOffsetX: options.textureOffset.x,
+      textureOffsetY: options.textureOffset.y,
+    });
+
+    const geometries: THREE.BufferGeometry[] = [];
+    for (const seedResults of allResults) {
+      for (const result of seedResults) {
+        geometries.push(workerResultToGeometry(result));
+      }
+    }
+
+    return geometries;
+  } finally {
+    pool.terminate();
+  }
+}
+
+/**
+ * Converts a worker result into a THREE.BufferGeometry.
+ */
+function workerResultToGeometry(
+  result: WorkerFragmentResult,
+): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(result.positions, 3),
+  );
+  geometry.setAttribute(
+    "normal",
+    new THREE.BufferAttribute(result.normals, 3),
+  );
+  geometry.setAttribute("uv", new THREE.BufferAttribute(result.uvs, 2));
+  geometry.setIndex(new THREE.BufferAttribute(result.indices, 1));
+
+  geometry.addGroup(0, result.group0Count, 0);
+  geometry.addGroup(result.group0Count, result.group1Count, 1);
+
+  return geometry;
 }
