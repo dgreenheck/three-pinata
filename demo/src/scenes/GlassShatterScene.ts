@@ -26,6 +26,7 @@ export class GlassShatterScene extends BaseScene {
   });
   private settings = {
     fractureMethod: "Voronoi" as "Voronoi" | "Simple",
+    executionMode: "main" as "main" | "workers",
     useImpactPoint: true,
     impactRadius: 1.0,
   };
@@ -136,7 +137,7 @@ export class GlassShatterScene extends BaseScene {
     }
   };
 
-  private fractureGlassPane(localPoint: THREE.Vector3): void {
+  private async fractureGlassPane(localPoint: THREE.Vector3): Promise<void> {
     if (!this.glassPane) return;
 
     // Disable reset button and show fracturing message
@@ -145,53 +146,64 @@ export class GlassShatterScene extends BaseScene {
       this.resetButton.title = "Shattering...";
     }
 
-    // Use setTimeout to allow UI to update
-    setTimeout(() => {
-      if (!this.glassPane) return;
+    // Configure fracture options based on settings
+    this.fractureOptions.fractureMethod =
+      this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
 
-      // Configure fracture options based on settings
-      this.fractureOptions.fractureMethod =
-        this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
+    // Configure Voronoi-specific options
+    if (
+      this.settings.fractureMethod === "Voronoi" &&
+      this.fractureOptions.voronoiOptions
+    ) {
+      this.fractureOptions.voronoiOptions.impactPoint = this.settings
+        .useImpactPoint
+        ? localPoint
+        : undefined;
+      this.fractureOptions.voronoiOptions.impactRadius = this.settings
+        .useImpactPoint
+        ? this.settings.impactRadius
+        : undefined;
+      this.fractureOptions.voronoiOptions.projectionAxis = "z"; // Project along the thin axis
+    }
 
-      // Configure Voronoi-specific options
-      if (
-        this.settings.fractureMethod === "Voronoi" &&
-        this.fractureOptions.voronoiOptions
-      ) {
-        this.fractureOptions.voronoiOptions.impactPoint = this.settings
-          .useImpactPoint
-          ? localPoint
-          : undefined;
-        this.fractureOptions.voronoiOptions.impactRadius = this.settings
-          .useImpactPoint
-          ? this.settings.impactRadius
-          : undefined;
-        this.fractureOptions.voronoiOptions.projectionAxis = "z"; // Project along the thin axis
-      }
+    const useWorkers = this.settings.executionMode === "workers";
+    if (useWorkers) {
+      this.showLoadingIndicator("Shattering (Web Workers)...");
+    }
 
-      this.fragments = this.glassPane.fracture(this.fractureOptions, (fragment) => {
-        fragment.castShadow = true;
+    const fragmentCallback = (fragment: THREE.Mesh) => {
+      fragment.castShadow = true;
 
-        this.physics.add(fragment, {
-          type: "dynamic",
-          restitution: 0.2,
-        });
+      this.physics.add(fragment, {
+        type: "dynamic",
+        restitution: 0.2,
       });
+    };
 
-      // Add fragments to scene
-      this.fragments.forEach((fragment) => {
-        this.scene.add(fragment);
-      });
+    this.fragments = await this.fractureWithMode(
+      this.glassPane,
+      this.fractureOptions,
+      useWorkers,
+      fragmentCallback,
+    );
 
-      // Hide original glass pane
-      this.glassPane.visible = false;
+    if (useWorkers) {
+      this.hideLoadingIndicator();
+    }
 
-      // Re-enable reset button
-      if (this.resetButton) {
-        this.resetButton.disabled = false;
-        this.resetButton.title = "Reset";
-      }
-    }, 10);
+    // Add fragments to scene
+    this.fragments.forEach((fragment) => {
+      this.scene.add(fragment);
+    });
+
+    // Hide original glass pane
+    this.glassPane.visible = false;
+
+    // Re-enable reset button
+    if (this.resetButton) {
+      this.resetButton.disabled = false;
+      this.resetButton.title = "Reset";
+    }
   }
 
   update(): void {
@@ -225,6 +237,11 @@ export class GlassShatterScene extends BaseScene {
         useImpactPointBinding.disabled = isSimple;
         impactRadiusBinding.disabled = isSimple;
       });
+
+    folder.addBinding(this.settings, "executionMode", {
+      options: BaseScene.EXECUTION_MODE_OPTIONS,
+      label: "Execution",
+    });
 
     folder.addBinding(this.fractureOptions, "fragmentCount", {
       min: 2,

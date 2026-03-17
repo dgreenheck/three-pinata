@@ -28,6 +28,7 @@ export class BrickWallScene extends BaseScene {
 
   private settings = {
     fractureMethod: "Voronoi" as "Voronoi" | "Simple",
+    executionMode: "main" as "main" | "workers",
   };
 
   async init(): Promise<void> {
@@ -189,10 +190,10 @@ export class BrickWallScene extends BaseScene {
     }
   }
 
-  private fractureBrick(
+  private async fractureBrick(
     brick: DestructibleMesh,
     worldPoint: THREE.Vector3,
-  ): void {
+  ): Promise<void> {
     // Mark as fractured
     this.fracturedBricks.add(brick);
 
@@ -212,15 +213,22 @@ export class BrickWallScene extends BaseScene {
       this.fractureOptions.voronoiOptions.impactRadius = 1.5;
     }
 
+    const useWorkers = this.settings.executionMode === "workers";
+
     // Fracture the brick
-    const fragments = brick.fracture(this.fractureOptions, (fragment) => {
-      // Add physics to fragment
-      this.physics.add(fragment, {
-        type: "dynamic",
-        restitution: 0.3,
-        friction: 0.6,
-      });
-    });
+    const fragments = await this.fractureWithMode(
+      brick,
+      this.fractureOptions,
+      useWorkers,
+      (fragment) => {
+        // Add physics to fragment
+        this.physics.add(fragment, {
+          type: "dynamic",
+          restitution: 0.3,
+          friction: 0.6,
+        });
+      },
+    );
 
     this.scene.add(...fragments);
     this.fragments.push(...fragments);
@@ -251,6 +259,11 @@ export class BrickWallScene extends BaseScene {
     folder.addBinding(this.settings, "fractureMethod", {
       options: BaseScene.FRACTURE_METHOD_OPTIONS,
       label: "Fracture Method",
+    });
+
+    folder.addBinding(this.settings, "executionMode", {
+      options: BaseScene.EXECUTION_MODE_OPTIONS,
+      label: "Execution",
     });
 
     folder.addBinding(this.fractureOptions, "fragmentCount", {

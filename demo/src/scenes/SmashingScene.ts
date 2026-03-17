@@ -26,6 +26,7 @@ export class SmashingScene extends BaseScene {
   private settings = {
     primitiveType: "cube" as PrimitiveType,
     fractureMethod: "Voronoi" as "Voronoi" | "Simple",
+    executionMode: "main" as "main" | "workers",
     useImpactPoint: true,
     impactRadius: 1.0,
   };
@@ -210,10 +211,10 @@ export class SmashingScene extends BaseScene {
     this.handleExplosiveClick(this.fragments, 2.0, 10.0);
   }
 
-  private fractureObject(
+  private async fractureObject(
     mesh: DestructibleMesh,
     worldPoint: THREE.Vector3,
-  ): void {
+  ): Promise<void> {
     // Convert world point to local space
     const localPoint = mesh.worldToLocal(worldPoint.clone());
 
@@ -221,10 +222,21 @@ export class SmashingScene extends BaseScene {
     this.configureFractureOptions(localPoint);
 
     // Fracture the mesh
-    const newFragments = mesh.fracture(
+    const useWorkers = this.settings.executionMode === "workers";
+    if (useWorkers) {
+      this.showLoadingIndicator("Fracturing (Web Workers)...");
+    }
+
+    const newFragments = await this.fractureWithMode(
+      mesh,
       this.fractureOptions,
+      useWorkers,
       this.createFragmentCallback(),
     );
+
+    if (useWorkers) {
+      this.hideLoadingIndicator();
+    }
 
     // Add new fragments to scene and tracking array
     newFragments.forEach((fragment) => {
@@ -305,6 +317,11 @@ export class SmashingScene extends BaseScene {
         useImpactPointBinding.disabled = isSimple;
         impactRadiusBinding.disabled = isSimple;
       });
+
+    folder.addBinding(this.settings, "executionMode", {
+      options: BaseScene.EXECUTION_MODE_OPTIONS,
+      label: "Execution",
+    });
 
     folder.addBinding(this.fractureOptions, "fragmentCount", {
       min: 2,

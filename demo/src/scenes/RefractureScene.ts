@@ -20,6 +20,7 @@ export class RefractureScene extends BaseScene {
   private settings = {
     primitiveType: "cube" as PrimitiveType,
     fractureMethod: "voronoi" as "voronoi" | "simple",
+    executionMode: "main" as "main" | "workers",
     maxGeneration: 3,
     fragmentCount1: 32,
     fragmentCount2: 16,
@@ -175,7 +176,7 @@ export class RefractureScene extends BaseScene {
     }
   };
 
-  private fractureObject(mesh: DestructibleMesh): void {
+  private async fractureObject(mesh: DestructibleMesh): Promise<void> {
     // Get current generation (external tracking via userData)
     const currentGeneration = mesh.userData.generation || 0;
 
@@ -197,9 +198,13 @@ export class RefractureScene extends BaseScene {
       },
     });
 
+    const useWorkers = this.settings.executionMode === "workers";
+
     // Fracture the mesh
-    const newFragments = mesh.fracture(
+    const newFragments = await this.fractureWithMode(
+      mesh,
       fractureOptions,
+      useWorkers,
       this.createFragmentCallback(nextGeneration),
     );
 
@@ -258,6 +263,11 @@ export class RefractureScene extends BaseScene {
         Simple: "simple",
       },
       label: "Fracture Method",
+    });
+
+    folder.addBinding(this.settings, "executionMode", {
+      options: BaseScene.EXECUTION_MODE_OPTIONS,
+      label: "Execution",
     });
 
     const maxGenBinding = folder.addBinding(this.settings, "maxGeneration", {

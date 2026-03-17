@@ -31,6 +31,7 @@ export class ProgressiveDestructionScene extends BaseScene {
   private settings = {
     primitiveType: "torusKnot" as PrimitiveType,
     fractureMethod: "Voronoi" as "Voronoi" | "Radial",
+    executionMode: "main" as "main" | "workers",
   };
 
   private collisionHandled = new WeakSet<THREE.Mesh>();
@@ -58,7 +59,7 @@ export class ProgressiveDestructionScene extends BaseScene {
     window.addEventListener("click", this.onMouseClick);
   }
 
-  private createObject(): void {
+  private async createObject(): Promise<void> {
     // Clear fragments
     this.fragments = [];
 
@@ -102,52 +103,58 @@ export class ProgressiveDestructionScene extends BaseScene {
       this.resetButton.title = "Fracturing...";
     }
 
-    // Use setTimeout to allow UI to update
-    setTimeout(() => {
-      if (!this.object) return;
+    // Configure fracture options based on settings
+    this.fractureOptions.fractureMethod =
+      this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
 
-      // Configure fracture options based on settings
-      this.fractureOptions.fractureMethod =
-        this.settings.fractureMethod === "Voronoi" ? "voronoi" : "simple";
+    const useWorkers = this.settings.executionMode === "workers";
+    if (useWorkers) {
+      this.showLoadingIndicator("Pre-fracturing (Web Workers)...");
+    }
 
-      // Pre-fracture
-      this.fragments = this.object.fracture(
-        this.fractureOptions,
-        (fragment) => {
-          fragment.castShadow = true;
+    // Pre-fracture
+    this.fragments = await this.fractureWithMode(
+      this.object,
+      this.fractureOptions,
+      useWorkers,
+      (fragment) => {
+        fragment.castShadow = true;
 
-          // Add physics (locked)
-          try {
-            const body = this.physics.add(fragment, {
-              type: "dynamic",
-              restitution: 0.2,
-            });
-            if (body) {
-              body.rigidBody.lockTranslations(true, false);
-              body.rigidBody.lockRotations(true, false);
-            } else {
-              console.warn("Failed to create physics body for fragment");
-            }
-          } catch (error) {
-            console.error("Error adding physics to fragment:", error);
+        // Add physics (locked)
+        try {
+          const body = this.physics.add(fragment, {
+            type: "dynamic",
+            restitution: 0.2,
+          });
+          if (body) {
+            body.rigidBody.lockTranslations(true, false);
+            body.rigidBody.lockRotations(true, false);
+          } else {
+            console.warn("Failed to create physics body for fragment");
           }
-        },
-      );
+        } catch (error) {
+          console.error("Error adding physics to fragment:", error);
+        }
+      },
+    );
 
-      // Add fragments to scene
-      this.fragments.forEach((fragment) => {
-        this.scene.add(fragment);
-      });
+    if (useWorkers) {
+      this.hideLoadingIndicator();
+    }
 
-      // Hide the original mesh immediately (fragments are now visible)
-      this.object!.visible = false;
+    // Add fragments to scene
+    this.fragments.forEach((fragment) => {
+      this.scene.add(fragment);
+    });
 
-      // Re-enable reset button
-      if (this.resetButton) {
-        this.resetButton.disabled = false;
-        this.resetButton.title = "Reset";
-      }
-    }, 10);
+    // Hide the original mesh immediately (fragments are now visible)
+    this.object!.visible = false;
+
+    // Re-enable reset button
+    if (this.resetButton) {
+      this.resetButton.disabled = false;
+      this.resetButton.title = "Reset";
+    }
   }
 
   private onMouseClick = (event: MouseEvent): void => {
@@ -272,6 +279,11 @@ export class ProgressiveDestructionScene extends BaseScene {
       .on("change", () => {
         this.reset();
       });
+
+    folder.addBinding(this.settings, "executionMode", {
+      options: BaseScene.EXECUTION_MODE_OPTIONS,
+      label: "Execution",
+    });
 
     folder.addBinding(this.fractureOptions, "fragmentCount", {
       min: 2,

@@ -4,6 +4,11 @@ import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { MaterialFactory } from "../materials";
 import { ModelFactory, PrimitiveType } from "../models";
+import type {
+  DestructibleMesh,
+  FractureOptions,
+  VoronoiWorkerOptions,
+} from "@dgreenheck/three-pinata";
 
 export type { PrimitiveType };
 
@@ -25,6 +30,11 @@ export abstract class BaseScene {
   protected static readonly FRACTURE_METHOD_OPTIONS = {
     "Voronoi (High Quality, Slow)": "Voronoi",
     "Simple (Low Quality, Fast)": "Simple",
+  } as const;
+
+  protected static readonly EXECUTION_MODE_OPTIONS = {
+    "Main Thread": "main",
+    "Web Workers": "workers",
   } as const;
 
   protected scene: THREE.Scene;
@@ -344,6 +354,47 @@ export abstract class BaseScene {
         }
       }
     });
+  }
+
+  /**
+   * Creates VoronoiWorkerOptions for use with fractureAsync().
+   */
+  protected createWorkerOptions(): VoronoiWorkerOptions {
+    return {
+      createWorker: () =>
+        new Worker(
+          new URL(
+            "../../../lib/src/workers/voronoiWorker.ts",
+            import.meta.url,
+          ),
+          { type: "module" },
+        ),
+    };
+  }
+
+  /**
+   * Fractures a mesh using either the main thread or web workers.
+   * @param mesh The mesh to fracture
+   * @param options Fracture options
+   * @param useWorkers Whether to use web workers
+   * @param onFragment Optional callback for each fragment
+   * @returns Promise resolving to fragments
+   */
+  protected async fractureWithMode(
+    mesh: DestructibleMesh,
+    options: FractureOptions,
+    useWorkers: boolean,
+    onFragment?: (fragment: DestructibleMesh, index: number) => void,
+  ): Promise<DestructibleMesh[]> {
+    if (useWorkers && options.fractureMethod === "voronoi") {
+      return mesh.fractureAsync(
+        options,
+        this.createWorkerOptions(),
+        onFragment,
+      );
+    } else {
+      return mesh.fracture(options, onFragment);
+    }
   }
 
   /**
