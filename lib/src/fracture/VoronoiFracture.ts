@@ -324,10 +324,19 @@ function cloneFragment(fragment: Fragment): Fragment {
 
 /**
  * Options for the async worker-based Voronoi fracture.
+ *
+ * Provide either a persistent `pool` (recommended for repeated fractures)
+ * or a `createWorker` factory (a new pool is created and destroyed per call).
  */
 export interface VoronoiWorkerOptions {
+  /**
+   * A persistent worker pool to reuse across fracture calls.
+   * When provided, the pool is NOT terminated after the call completes.
+   * This avoids the overhead of creating/destroying workers on every fracture.
+   */
+  pool?: VoronoiWorkerPool;
   /** Factory function that creates a Web Worker running the voronoiWorker module. */
-  createWorker: () => Worker;
+  createWorker?: () => Worker;
   /** Number of workers in the pool. Defaults to navigator.hardwareConcurrency. */
   workerCount?: number;
 }
@@ -460,10 +469,11 @@ async function computeVoronoiCellsParallel(
   const sharedSource = packSourceFragment(sourceFragment);
   const sharedSeeds = packSeeds(seeds);
 
-  const pool = new VoronoiWorkerPool(
-    workerOptions.createWorker,
-    workerOptions.workerCount,
-  );
+  // Reuse a persistent pool if provided, otherwise create a temporary one
+  const isExternalPool = !!workerOptions.pool;
+  const pool =
+    workerOptions.pool ??
+    new VoronoiWorkerPool(workerOptions.createWorker!, workerOptions.workerCount);
 
   try {
     pool.init(sharedSource, sharedSeeds);
@@ -486,7 +496,10 @@ async function computeVoronoiCellsParallel(
 
     return geometries;
   } finally {
-    pool.terminate();
+    // Only terminate pools we created; external pools are caller-managed
+    if (!isExternalPool) {
+      pool.terminate();
+    }
   }
 }
 

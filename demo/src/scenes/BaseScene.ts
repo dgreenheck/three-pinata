@@ -4,6 +4,9 @@ import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { MaterialFactory } from "../materials";
 import { ModelFactory, PrimitiveType } from "../models";
+import {
+  VoronoiWorkerPool,
+} from "@dgreenheck/three-pinata";
 import type {
   DestructibleMesh,
   FractureOptions,
@@ -356,19 +359,35 @@ export abstract class BaseScene {
     });
   }
 
+  /** Persistent worker pool shared across fracture calls. Created lazily. */
+  private static workerPool: VoronoiWorkerPool | null = null;
+
   /**
-   * Creates VoronoiWorkerOptions for use with fractureAsync().
+   * Returns a persistent VoronoiWorkerPool, creating it on first use.
+   * Reusing the pool avoids the overhead of spawning/loading workers per fracture call.
+   */
+  private static getWorkerPool(): VoronoiWorkerPool {
+    if (!BaseScene.workerPool) {
+      BaseScene.workerPool = new VoronoiWorkerPool(
+        () =>
+          new Worker(
+            new URL(
+              "../../../lib/src/workers/voronoiWorker.ts",
+              import.meta.url,
+            ),
+            { type: "module" },
+          ),
+      );
+    }
+    return BaseScene.workerPool;
+  }
+
+  /**
+   * Creates VoronoiWorkerOptions that reuse a persistent worker pool.
    */
   protected createWorkerOptions(): VoronoiWorkerOptions {
     return {
-      createWorker: () =>
-        new Worker(
-          new URL(
-            "../../../lib/src/workers/voronoiWorker.ts",
-            import.meta.url,
-          ),
-          { type: "module" },
-        ),
+      pool: BaseScene.getWorkerPool(),
     };
   }
 
