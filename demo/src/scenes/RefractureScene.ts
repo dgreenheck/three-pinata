@@ -280,35 +280,35 @@ export class RefractureScene extends BaseScene {
     // Fragment count sliders
     const frag1Binding = folder.addBinding(this.settings, "fragmentCount1", {
       min: 2,
-      max: 64,
+      max: 512,
       step: 1,
       label: "Gen 1 Fragments",
     });
 
     const frag2Binding = folder.addBinding(this.settings, "fragmentCount2", {
       min: 2,
-      max: 64,
+      max: 512,
       step: 1,
       label: "Gen 2 Fragments",
     });
 
     const frag3Binding = folder.addBinding(this.settings, "fragmentCount3", {
       min: 2,
-      max: 64,
+      max: 512,
       step: 1,
       label: "Gen 3 Fragments",
     });
 
     const frag4Binding = folder.addBinding(this.settings, "fragmentCount4", {
       min: 2,
-      max: 64,
+      max: 512,
       step: 1,
       label: "Gen 4 Fragments",
     });
 
     const frag5Binding = folder.addBinding(this.settings, "fragmentCount5", {
       min: 2,
-      max: 64,
+      max: 512,
       step: 1,
       label: "Gen 5 Fragments",
     });

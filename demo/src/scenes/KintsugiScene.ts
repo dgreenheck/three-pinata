@@ -428,7 +428,7 @@ export class KintsugiScene extends BaseScene {
 
     fractureFolder.addBinding(this.settings, "fragmentCount", {
       min: 10,
-      max: 64,
+      max: 512,
       step: 1,
       label: "Fragments",
     });

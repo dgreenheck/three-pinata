@@ -245,7 +245,7 @@ export class GlassShatterScene extends BaseScene {
 
     folder.addBinding(this.fractureOptions, "fragmentCount", {
       min: 2,
-      max: 64,
+      max: 512,
       step: 1,
       label: "Fragment Count",
     });

@@ -27,15 +27,15 @@
   "homepage": "https://github.com/dgreenheck/three-pinata#readme",
   "dependencies": {
     "@dgreenheck/three-pinata": "*",
-    "@dimforge/rapier3d": "^0.13.0",
+    "@dimforge/rapier3d": "^0.19.3",
     "@tweakpane/core": "^2.0.5",
-    "three": "^0.180.0",
+    "three": "^0.183.0",
     "three-perf": "^1.0.10",
     "tweakpane": "^4.0.5"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",
-    "@types/three": "^0.180.0",
+    "@types/three": "^0.183.0",
     "@typescript-eslint/eslint-plugin": "^8.46.3",
     "@typescript-eslint/parser": "^8.46.3",
     "eslint": "^9.39.1",
