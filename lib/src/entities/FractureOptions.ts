@@ -58,6 +58,23 @@ export interface VoronoiOptions {
    * Default: 12
    */
   approximationNeighborCount?: number;
+
+  /**
+   * Direction of grain/elongation in local space.
+   * When specified, enables anisotropic Voronoi for elongated cells along this direction.
+   * Useful for materials like wood where fractures follow grain direction.
+   */
+  grainDirection?: Vector3;
+
+  /**
+   * Anisotropy factor controlling cell elongation along grainDirection.
+   * - 1.0 = isotropic (standard Voronoi)
+   * - 2.0 = cells are ~2x longer along grain
+   * - 3.0+ = highly elongated splinter-like cells
+   * Only used when grainDirection is specified.
+   * Default: 1.0
+   */
+  anisotropy?: number;
 }
 
 /**

@@ -80,6 +80,24 @@ export class VoronoiFractureOptions {
    */
   public seed?: number;
 
+  /**
+   * Direction of grain/elongation in local space.
+   * When specified, enables anisotropic Voronoi for elongated cells along this direction.
+   * The vector will be normalized internally.
+   */
+  public grainDirection?: Vector3;
+
+  /**
+   * Anisotropy factor controlling cell elongation along grainDirection.
+   * - 1.0 = isotropic (standard Voronoi)
+   * - 2.0 = cells are ~2x longer along grain
+   * - 3.0+ = highly elongated splinter-like cells
+   * Only used when grainDirection is specified.
+   * Must be >= 1.0. Values less than 1.0 will be clamped to 1.0.
+   * Default: 1.0 (isotropic)
+   */
+  public anisotropy: number = 1.0;
+
   constructor({
     fragmentCount,
     mode,
@@ -93,6 +111,8 @@ export class VoronoiFractureOptions {
     textureScale,
     textureOffset,
     seed,
+    grainDirection,
+    anisotropy,
   }: {
     fragmentCount?: number;
     mode?: "3D" | "2.5D";
@@ -106,6 +126,8 @@ export class VoronoiFractureOptions {
     textureScale?: Vector2;
     textureOffset?: Vector2;
     seed?: number;
+    grainDirection?: Vector3;
+    anisotropy?: number;
   } = {}) {
     if (fragmentCount !== undefined) {
       this.fragmentCount = fragmentCount;
@@ -153,6 +175,17 @@ export class VoronoiFractureOptions {
 
     if (seed !== undefined) {
       this.seed = seed;
+    }
+
+    if (grainDirection !== undefined) {
+      // Normalize the grain direction
+      this.grainDirection = grainDirection.clone().normalize();
+    }
+
+    if (anisotropy !== undefined) {
+      // Clamp anisotropy to minimum of 1.0 (isotropic)
+      // Values < 1.0 don't make physical sense and could cause divide-by-zero
+      this.anisotropy = Math.max(1.0, anisotropy);
     }
   }
 }
